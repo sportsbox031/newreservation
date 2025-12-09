@@ -12,7 +12,6 @@ interface Announcement {
   content: string
   target_type: 'all' | 'region'
   is_important: boolean
-  view_count: number
   created_at: string
   admins: {
     username: string
@@ -118,18 +117,10 @@ export default function AnnouncementSection({
             {announcements.map((announcement, index) => (
               <div key={announcement.id}>
                 <Link href={`/announcements?id=${announcement.id}`}>
-                  <AnnouncementCard 
-                    announcement={announcement} 
-                    showContent={false}
-                    onView={async (announcement) => {
-                      // 조회수 증가 처리
-                      try {
-                        await announcementAPI.incrementViewCount(announcement.id, userId)
-                        // 상태 업데이트는 여기서는 하지 않음 (페이지 이동하므로)
-                      } catch (error) {
-                        console.error('조회수 증가 오류:', error)
-                      }
-                    }}
+                  <AnnouncementCard
+                    announcement={announcement}
+                    showContent={true}
+                    maxContentLength={80}
                   />
                 </Link>
                 {index < announcements.length - 1 && (

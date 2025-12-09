@@ -22,8 +22,9 @@ import {
   MessageCircle,
   HelpCircle
 } from 'lucide-react';
-import { settingsAPI, reservationAPI, supabase } from '@/lib/supabase';
+import { settingsAPI, reservationAPI, tierAPI, supabase } from '@/lib/supabase';
 import AccountManagementModal from '@/components/AccountManagementModal';
+import { useSessionCheck, detectMultipleLogins } from '@/hooks/useSessionCheck';
 
 type CalendarValue = Date | null | [Date | null, Date | null];
 
@@ -51,7 +52,22 @@ type DayStatus = 'available' | 'limited' | 'full' | 'blocked' | 'closed';
 // 모달 타입
 type ModalType = 'reservation' | 'myReservations' | null;
 
+// 티어 타입
+interface UserTier {
+  tier_id: number;
+  member_tiers: {
+    id: number;
+    tier_name: string;
+    tier_level: number;
+    description: string;
+    advance_reservation_days: number;
+    monthly_reservation_limit: number;
+    daily_slot_limit: number;
+  };
+}
+
 export default function DashboardPage() {
+  const { isAuthenticated, user, isLoading, sessionError, logout } = useSessionCheck();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [activeModal, setActiveModal] = useState<ModalType>(null);
@@ -77,6 +93,7 @@ export default function DashboardPage() {
   const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [userRegion, setUserRegion] = useState<'south' | 'north'>('south');
   const [isMonthClosed, setIsMonthClosed] = useState(true); // 예약 종료가 기본값 (각 월마다 관리자가 수동으로 열어야 함)
+  const [userTier, setUserTier] = useState<UserTier | null>(null);
   const [currentUserInfo, setCurrentUserInfo] = useState<{
     organization_name: string;
     region_name: string;
@@ -153,78 +170,103 @@ export default function DashboardPage() {
     }
   };
 
-  // 사용자 정보 초기화 (컴포넌트 마운트 시에만 실행)
+  // 세션 기반 사용자 정보 설정
   useEffect(() => {
-    // Hot reload나 기타 이유로 localStorage가 일시적으로 사라질 수 있으므로 
-    // 약간의 지연 후 다시 확인
-    const checkUserAuth = () => {
-      const currentUser = localStorage.getItem('currentUser');
-      console.log('Dashboard - localStorage 확인:', !!currentUser, currentUser);
+    if (user && isAuthenticated) {
+      console.log('Dashboard - 세션 검증된 사용자 데이터:', user);
       
-      if (!currentUser) {
-        console.log('Dashboard - localStorage 없음, 기본값 사용');
-        // localStorage가 없어도 기본값으로 계속 진행
-        setCurrentUserInfo({
-          organization_name: '사용자',
-          region_name: '경기남부'
-        });
-        setUserRegion('south');
-        return;
+      // 지역 코드 추출
+      let regionCode = 'south'; // 기본값
+      let regionName = '경기남부'; // 기본값
+      
+      if (user.cities && user.cities.regions) {
+        regionCode = user.cities.regions.code;
+        regionName = user.cities.regions.name;
+        console.log('Dashboard - 추출된 지역 정보:', { regionCode, regionName });
+      } else if (user.region_code) {
+        regionCode = user.region_code;
+        regionName = user.region_code === 'south' ? '경기남부' : '경기북부';
+        console.log('Dashboard - region_code에서 추출:', { regionCode, regionName });
+      } else {
+        console.log('Dashboard - 기본값 사용:', { regionCode, regionName });
       }
       
-      // localStorage가 있으면 데이터 처리
-      processUserData(currentUser);
-    };
+      // 사용자 정보 설정
+      setCurrentUserInfo({
+        organization_name: user.organization_name || '사용자',
+        region_name: regionName
+      });
+      
+      setUserRegion(regionCode as 'south' | 'north');
 
-    const processUserData = (currentUser: string) => {
-      try {
-        const userData = JSON.parse(currentUser);
-        console.log('Dashboard - 로그인 사용자 데이터:', userData);
-        console.log('Dashboard - cities 데이터:', userData.cities);
-        console.log('Dashboard - regions 데이터:', userData.cities?.regions);
-        
-        // 지역 코드 추출 (nested object에서)
-        let regionCode = 'south'; // 기본값
-        let regionName = '경기남부'; // 기본값
-        
-        if (userData.cities && userData.cities.regions) {
-          regionCode = userData.cities.regions.code;
-          regionName = userData.cities.regions.name;
-          console.log('Dashboard - 추출된 지역 정보:', { regionCode, regionName });
-        } else if (userData.region_code) {
-          regionCode = userData.region_code;
-          regionName = userData.region_code === 'south' ? '경기남부' : '경기북부';
-          console.log('Dashboard - region_code에서 추출:', { regionCode, regionName });
-        } else {
-          console.log('Dashboard - 기본값 사용:', { regionCode, regionName });
+      // 사용자 티어 정보 로드
+      loadUserTier();
+    }
+  }, [user, isAuthenticated]);
+
+  // 다중 로그인 감지 및 처리
+  useEffect(() => {
+    const checkMultipleLogins = async () => {
+      if (user && isAuthenticated) {
+        try {
+          const { hasMultiple, sessions } = await detectMultipleLogins(user.id);
+          
+          if (hasMultiple) {
+            const otherSessions = sessions.filter(session => 
+              session.session_token !== localStorage.getItem('session_token')
+            );
+            
+            if (otherSessions.length > 0) {
+              const message = `
+다른 기기에서 동시 접속이 감지되었습니다.
+보안을 위해 다른 세션을 종료하시겠습니까?
+
+감지된 세션 정보:
+${otherSessions.map(session => 
+  `• ${session.user_agent} (${new Date(session.last_activity).toLocaleString()})`
+).join('\n')}
+              `;
+              
+              if (confirm(message)) {
+                console.log('사용자가 다른 세션 종료를 선택했습니다.');
+              }
+            }
+          }
+        } catch (error) {
+          console.error('다중 로그인 감지 오류:', error);
         }
-        
-        // 사용자 정보 설정
-        setCurrentUserInfo({
-          organization_name: userData.organization_name || '테스트단체',
-          region_name: regionName
-        });
-        
-        setUserRegion(regionCode as 'south' | 'north');
-        
-      } catch (error) {
-        console.error('사용자 데이터 파싱 오류:', error);
-        console.error('localStorage currentUser 내용:', currentUser);
-        
-        // 파싱 오류가 발생해도 기본값으로 계속 진행
-        setCurrentUserInfo({
-          organization_name: '사용자',
-          region_name: '경기남부'
-        });
-        setUserRegion('south');
-        
-        console.warn('Dashboard - 사용자 데이터 파싱 실패로 기본값 사용');
       }
     };
 
-    // 사용자 인증 확인 시작
-    checkUserAuth();
-  }, []); // 빈 배열 - 컴포넌트 마운트 시에만 실행
+    // 컴포넌트 마운트 후 5초 뒤에 다중 로그인 체크
+    const timeoutId = setTimeout(checkMultipleLogins, 5000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [user, isAuthenticated]);
+
+  // 실시간 하루 최대예약개수 체크 함수
+  const checkReservationCapacity = async (date: Date) => {
+    if (!date) return null;
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateString = `${year}-${month}-${day}`;
+    
+    try {
+      const { data: capacityData, error } = await settingsAPI.getDateReservationStatus(userRegion, dateString);
+      
+      if (error) {
+        console.error('하루 최대예약개수 확인 오류:', error);
+        return null;
+      }
+      
+      return capacityData;
+    } catch (error) {
+      console.error('하루 최대예약개수 확인 중 예외:', error);
+      return null;
+    }
+  };
 
   // 데이터 로드 (월 변경이나 지역 변경 시 실행)
   useEffect(() => {
@@ -247,6 +289,25 @@ export default function DashboardPage() {
 
     return () => clearInterval(interval);
   }, [currentMonth, userRegion]);
+
+  // 사용자 티어 정보 로드
+  const loadUserTier = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data, error } = await tierAPI.getUserTier(user.id);
+      if (error) {
+        console.error('사용자 티어 정보 로드 오류:', error);
+        return;
+      }
+
+      if (data) {
+        setUserTier(data);
+      }
+    } catch (error) {
+      console.error('사용자 티어 정보 로드 중 예외:', error);
+    }
+  };
 
   // 예약 현황 로드 - 성능 최적화된 버전
   const loadReservationStatus = async () => {
@@ -486,7 +547,7 @@ export default function DashboardPage() {
   };
 
   // 달력 날짜 클릭 핸들러
-  const handleDateClick = (value: CalendarValue) => {
+  const handleDateClick = async (value: CalendarValue) => {
     if (!value || Array.isArray(value)) return;
     
     const dayStatus = getDayStatus(value);
@@ -510,11 +571,29 @@ export default function DashboardPage() {
     const dateString = `${year}-${month}-${day}`;
     const status = reservationStatus[dateString];
     
-    if (status && !status.isOpen) {
-      alert('해당 날짜는 예약이 종료되었습니다.');
-      return;
+    // 기존 전체 예약 시스템 체크 제거 - 티어별 제어로 대체됨
+
+    // 티어별 예약 가능 여부 검증
+    if (user && userTier) {
+      try {
+        const targetDate = `${year}-${month}-${day}`;
+        const { canReserve, reason } = await tierAPI.canUserReserveByTier(
+          user.id,
+          userRegion,
+          targetDate
+        );
+
+        if (!canReserve) {
+          alert(reason || '현재 티어의 예약 기간이 아닙니다.');
+          return;
+        }
+      } catch (error) {
+        console.error('티어 검증 오류:', error);
+        alert('예약 가능 여부를 확인할 수 없습니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
     }
-    
+
     setSelectedDate(value);
     setActiveModal('reservation');
     
@@ -622,7 +701,7 @@ export default function DashboardPage() {
       );
 
       if (filteredSlots.length === 0) {
-        alert('최소 한 개의 시간대를 입력해야 합니다.');
+        alert('최소 한 개의 예약 시간을 입력해야 합니다.');
         setIsSubmitting(false);
         return;
       }
@@ -634,10 +713,10 @@ export default function DashboardPage() {
       }
 
       // 날짜를 문자열로 변환 (시간대 오류 방지)
-      const year = selectedDate.getFullYear();
-      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const dateYear = selectedDate.getFullYear();
+      const dateMonth = String(selectedDate.getMonth() + 1).padStart(2, '0');
       const day = String(selectedDate.getDate()).padStart(2, '0');
-      const dateString = `${year}-${month}-${day}`;
+      const dateString = `${dateYear}-${dateMonth}-${day}`;
 
       // 슬롯 데이터 변환
       const slotsData = filteredSlots.map((slot, index) => ({
@@ -652,33 +731,46 @@ export default function DashboardPage() {
       // 실제 예약 생성 API 호출
       const regionId = userRegion === 'south' ? 1 : 2;
       
-      // 현재 로그인된 사용자 정보 가져오기
-      const currentUser = localStorage.getItem('currentUser');
-      if (!currentUser) {
-        console.log('예약 제출 시 localStorage 없음');
+      // 세션에서 사용자 정보 가져오기
+      if (!user || !isAuthenticated) {
         alert('예약을 위해 로그인이 필요합니다.');
         setIsSubmitting(false);
-        router.push('/auth/login');
         return;
       }
 
-      let userId;
-      try {
-        const userData = JSON.parse(currentUser);
-        userId = userData.id;
-        
-        if (!userId) {
-          alert('사용자 정보가 올바르지 않습니다. 다시 로그인해주세요.');
-          setIsSubmitting(false);
-          return;
-        }
-      } catch (error) {
-        console.error('예약 제출 시 사용자 데이터 파싱 오류:', error);
-        alert('사용자 정보를 읽을 수 없습니다. 새로고침 후 다시 시도해주세요.');
+      const userId = user.id;
+      if (!userId) {
+        alert('사용자 정보가 올바르지 않습니다. 다시 로그인해주세요.');
         setIsSubmitting(false);
         return;
       }
-      
+
+      // 티어별 예약 가능 여부 검증
+      if (userTier) {
+        const targetDate = `${dateYear}-${dateMonth}-${dateDay}`;
+        const { canReserve, reason } = await tierAPI.canUserReserveByTier(
+          userId,
+          userRegion,
+          targetDate
+        );
+
+        if (!canReserve) {
+          alert(reason || '현재 티어의 예약 기간이 아닙니다.');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // 세션 토큰 확인
+      const sessionToken = localStorage.getItem('session_token');
+      if (!sessionToken) {
+        alert('세션이 만료되었습니다. 다시 로그인해주세요.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 통합된 예약 생성 API 호출 (모든 검증 및 동시성 제어 포함)
+      console.log('통합 예약 API 호출:', { userId, regionId, dateString });
       const result = await reservationAPI.createReservationWithValidation(
         userId,
         regionId,
@@ -738,11 +830,17 @@ export default function DashboardPage() {
     }
   };
 
-  // 로그아웃
-  const handleLogout = () => {
-    localStorage.removeItem('currentUser');
-    console.log('로그아웃: localStorage 정리 완료');
-    router.push('/');
+  // 세션 기반 로그아웃
+  const handleLogout = async () => {
+    try {
+      await logout(); // useSessionCheck hook의 logout 함수 사용
+      console.log('세션 기반 로그아웃 완료');
+    } catch (error) {
+      console.error('로그아웃 처리 오류:', error);
+      // 오류가 발생해도 강제 로그아웃
+      localStorage.clear();
+      window.location.href = '/auth/login';
+    }
   };
 
   // 계정 관리
@@ -758,95 +856,156 @@ export default function DashboardPage() {
       admin_cancelled: { label: '관리자취소', color: 'bg-red-100 text-red-800' },
       cancel_requested: { label: '취소요청', color: 'bg-orange-100 text-orange-800' }
     };
-    
+
     const { label, color } = statusMap[status] || { label: status, color: 'bg-gray-100 text-gray-800' };
-    
+
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${color}`}>
+      <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${color} break-keep`}>
         {label}
       </span>
     );
   };
 
+  // 세션 로딩 중일 때 로딩 화면 표시
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">인증 확인 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 인증되지 않았거나 세션 오류가 있는 경우
+  if (!isAuthenticated || sessionError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
+            <h2 className="text-lg font-medium text-red-800 mb-2">인증 실패</h2>
+            <p className="text-red-600 mb-4">{sessionError || '세션이 만료되었습니다.'}</p>
+            <button
+              onClick={() => window.location.href = '/auth/login'}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+            >
+              로그인 페이지로
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 sports-box-gradient rounded-lg flex items-center justify-center">
-                <Award className="w-6 h-6 text-white" />
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16">
+            <Link href="/" className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 sports-box-gradient rounded-lg flex items-center justify-center">
+                <Award className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">스포츠박스</h1>
-                <p className="text-sm text-blue-600">예약 대시보드</p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">스포츠박스</h1>
+                <p className="text-xs sm:text-sm text-blue-600">예약 대시보드</p>
               </div>
             </Link>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* 모바일용 티어 뱃지 */}
+              <div className="flex md:hidden">
+                {userTier && (
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    userTier.member_tiers?.tier_name === 'Priority'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {userTier.member_tiers?.tier_name === 'Priority' ? '🟡' : '⚪'}
+                  </span>
+                )}
+              </div>
+
+              {/* 데스크톱용 전체 정보 */}
               <div className="hidden md:flex items-center space-x-2 text-sm text-gray-600">
                 <User className="w-4 h-4" />
                 <span>{currentUserInfo.organization_name}</span>
                 <span className="text-gray-400">|</span>
                 <span>{currentUserInfo.region_name}</span>
+                {userTier && (
+                  <>
+                    <span className="text-gray-400">|</span>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      userTier.member_tiers?.tier_name === 'Priority'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {userTier.member_tiers?.tier_name === 'Priority' ? '🟡' : '⚪'} {userTier.member_tiers?.tier_name}
+                    </span>
+                  </>
+                )}
               </div>
+
               <button
                 onClick={() => setActiveModal('myReservations')}
-                className="flex items-center space-x-1 text-gray-700 hover:text-blue-600"
+                className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 p-1 sm:p-0"
               >
                 <List className="w-4 h-4" />
-                <span>내 예약</span>
+                <span className="hidden sm:inline text-sm">내 예약</span>
               </button>
               <button
                 onClick={handleAccountManagement}
-                className="flex items-center space-x-1 text-gray-700 hover:text-blue-600"
+                className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 p-1 sm:p-0"
               >
                 <UserCog className="w-4 h-4" />
-                <span>계정 관리</span>
+                <span className="hidden sm:inline text-sm">계정 관리</span>
               </button>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-1 text-gray-700 hover:text-red-600"
+                className="flex items-center space-x-1 text-gray-700 hover:text-red-600 p-1 sm:p-0"
               >
                 <LogOut className="w-4 h-4" />
-                <span>로그아웃</span>
+                <span className="hidden sm:inline text-sm">로그아웃</span>
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-8">
           {/* 달력 섹션 - 더 확대됨 */}
           <div className="xl:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm p-8">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-900">예약 달력</h2>
-                <div className="flex items-center space-x-6">
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-8">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-8 gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">예약 달력</h2>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
                   {/* 프리미엄 예약 카운터 */}
-                  <div className="flex items-center space-x-3">
-                    <div className={`relative inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-300 ${
-                      remainingDays > 2 ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-200' : 
-                      remainingDays > 0 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-200' : 
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+                    <div className={`relative inline-flex items-center px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all duration-300 ${
+                      remainingDays > 2 ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-emerald-200' :
+                      remainingDays > 0 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-200' :
                       'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-red-200'
                     }`}>
-                      <CalendarIcon className="w-5 h-5 mr-2" />
-                      <span>남은 예약: {remainingDays}일</span>
+                      <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                      <span className="text-xs sm:text-sm">
+                        남은 예약: <span className="font-bold">{remainingDays}일</span>
+                      </span>
                       {/* 펄스 애니메이션 */}
                       <div className={`absolute inset-0 rounded-xl animate-pulse ${
-                        remainingDays > 2 ? 'bg-emerald-500' : 
-                        remainingDays > 0 ? 'bg-amber-500' : 
+                        remainingDays > 2 ? 'bg-emerald-500' :
+                        remainingDays > 0 ? 'bg-amber-500' :
                         'bg-red-500'
                       } opacity-30`}></div>
                     </div>
-                    
+
                     {/* 진행률 바 */}
                     <div className="flex flex-col items-start">
                       <div className="text-xs text-gray-500 mb-1">이번 달 사용률</div>
-                      <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
+                      <div className="w-full sm:w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
                           className={`h-full transition-all duration-500 rounded-full ${
                             remainingDays > 2 ? 'bg-gradient-to-r from-emerald-400 to-green-500' :
                             remainingDays > 0 ? 'bg-gradient-to-r from-amber-400 to-orange-500' :
@@ -855,7 +1014,9 @@ export default function DashboardPage() {
                           style={{ width: `${((4 - remainingDays) / 4) * 100}%` }}
                         />
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">{4 - remainingDays}/4 사용</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        <span className="font-medium">{4 - remainingDays}</span>/4 사용
+                      </div>
                     </div>
                   </div>
                   
@@ -924,11 +1085,11 @@ export default function DashboardPage() {
                   showNeighboringMonth={false}
                 />
                 
-                {/* 월 전체 예약 종료 오버레이 - 네비게이션은 제외 */}
+                {/* 월 전체 예약 종료 오버레이 - 네비게이션은 남기고 달력 내용만 가리기 */}
                 {isMonthClosed && !isLoadingCalendar && (
-                  <div className="absolute bg-white bg-opacity-95 backdrop-blur-sm flex items-center justify-center z-10" 
+                  <div className="absolute bg-white bg-opacity-95 backdrop-blur-sm flex items-center justify-center z-10"
                        style={{
-                         top: '140px', // 네비게이션 + 요일 헤더를 완전히 피하여 달력 그리드만 덮기
+                         top: '80px', // 네비게이션 버튼(이전달/다음달)은 보이도록 하고 요일헤더부터 가리기
                          left: '0',
                          right: '0',
                          bottom: '0',
@@ -948,24 +1109,24 @@ export default function DashboardPage() {
                 )}
                 
                 {/* 범례 - 참조 이미지 스타일에 맞춰 업데이트 */}
-                <div className="mt-4 flex flex-wrap items-center space-x-4 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-pink-200 rounded-full"></div>
-                    <span>예약가능</span>
+                <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+                  <div className="flex items-center space-x-1 sm:space-x-2">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-pink-200 rounded-full"></div>
+                    <span className="break-keep">예약가능</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-pink-300 rounded-full"></div>
-                    <span>일부예약</span>
+                  <div className="flex items-center space-x-1 sm:space-x-2">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-pink-300 rounded-full"></div>
+                    <span className="break-keep">일부예약</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-gray-600 rounded-full"></div>
-                    <span>예약마감</span>
+                  <div className="flex items-center space-x-1 sm:space-x-2">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-gray-600 rounded-full"></div>
+                    <span className="break-keep">예약마감</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
-                    <span>예약불가</span>
+                  <div className="flex items-center space-x-1 sm:space-x-2">
+                    <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-gray-300 rounded-full"></div>
+                    <span className="break-keep">예약불가</span>
                   </div>
-                  <div className="text-xs text-gray-500 ml-4">
+                  <div className="text-xs text-gray-500 w-full sm:w-auto sm:ml-4 mt-1 sm:mt-0 break-keep">
                     * 숫자는 현재예약수/최대예약수를 나타냅니다
                   </div>
                 </div>
@@ -975,92 +1136,143 @@ export default function DashboardPage() {
           </div>
 
           {/* 프리미엄 사이드바 */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* 이용 안내 */}
-            <div className="bg-gradient-to-br from-white via-blue-50 to-white rounded-2xl shadow-lg p-6 border border-blue-100">
-              <div className="flex items-center mb-4">
-                <div className="w-2 h-8 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full mr-3"></div>
-                <h3 className="text-xl font-bold text-gray-900">이용 안내</h3>
+            <div className="bg-gradient-to-br from-white via-blue-50 to-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 border border-blue-100">
+              <div className="flex items-center mb-3 sm:mb-4">
+                <div className="w-2 h-6 sm:h-8 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full mr-2 sm:mr-3"></div>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">이용 안내</h3>
               </div>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all">
-                  <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-green-500 rounded-lg flex items-center justify-center shadow-md">
-                    <CalendarIcon className="w-4 h-4 text-white" />
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-emerald-400 to-green-500 rounded-lg flex items-center justify-center shadow-md">
+                    <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">월 최대 4일까지</div>
+                    <div className="text-xs sm:text-sm font-semibold text-gray-900">월 최대 4일까지</div>
                     <div className="text-xs text-gray-600">예약 가능</div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3 p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
-                    <Clock className="w-4 h-4 text-white" />
+                <div className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">하루 최대 2타임</div>
+                    <div className="text-xs sm:text-sm font-semibold text-gray-900">하루 최대 2타임</div>
                     <div className="text-xs text-gray-600">신청 가능</div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3 p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-500 rounded-lg flex items-center justify-center shadow-md">
-                    <Users className="w-4 h-4 text-white" />
+                <div className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-purple-400 to-pink-500 rounded-lg flex items-center justify-center shadow-md">
+                    <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">타임당 40분</div>
+                    <div className="text-xs sm:text-sm font-semibold text-gray-900">타임당 40분</div>
                     <div className="text-xs text-gray-600">운영 시간</div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3 p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-xl shadow-sm hover:shadow-md transition-all">
-                  <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-red-500 rounded-lg flex items-center justify-center shadow-md">
-                    <MapPin className="w-4 h-4 text-white" />
+                <div className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-orange-400 to-red-500 rounded-lg flex items-center justify-center shadow-md">
+                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">{userRegion === 'south' ? '경기남부' : '경기북부'}</div>
+                    <div className="text-xs sm:text-sm font-semibold text-gray-900 break-keep">
+                      {userRegion === 'south' ? '경기남부' : '경기북부'}
+                    </div>
                     <div className="text-xs text-gray-600">지역 서비스</div>
                   </div>
                 </div>
               </div>
-              
+
               {/* 문의하기 버튼 */}
-              <div className="mt-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-200">
+              <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg sm:rounded-xl border border-yellow-200">
                 <div className="text-center">
                   <div className="flex items-center justify-center mb-2">
-                    <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-md">
-                      <HelpCircle className="w-4 h-4 text-gray-900" />
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-md">
+                      <HelpCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-900" />
                     </div>
                   </div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-1">궁금한 점이 있으신가요?</h4>
-                  <p className="text-xs text-gray-600 mb-3">언제든지 편리하게 문의해보세요</p>
+                  <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-1 break-keep">
+                    궁금한 점이 있으신가요?
+                  </h4>
+                  <p className="text-xs text-gray-600 mb-3 break-keep">
+                    언제든지 편리하게 문의해보세요
+                  </p>
                   <a
                     href="https://open.kakao.com/o/sgewClQh"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                    className="inline-flex items-center gap-1.5 sm:gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                   >
-                    <MessageCircle className="w-4 h-4" />
+                    <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     톡으로 문의하기
                   </a>
                 </div>
               </div>
             </div>
 
-            {/* 최근 예약 현황 */}
-            <div className="bg-gradient-to-br from-white via-slate-50 to-white rounded-2xl shadow-lg p-6 border border-slate-200">
-              <div className="flex items-center mb-4">
-                <div className="w-2 h-8 bg-gradient-to-b from-slate-500 to-gray-600 rounded-full mr-3"></div>
-                <h3 className="text-xl font-bold text-gray-900">최근 예약 현황</h3>
+            {/* 회원 티어 정보 */}
+            {userTier && (
+              <div className={`rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 border ${
+                userTier.member_tiers?.tier_name === 'Priority'
+                  ? 'bg-gradient-to-br from-yellow-50 via-yellow-25 to-white border-yellow-200'
+                  : 'bg-gradient-to-br from-gray-50 via-gray-25 to-white border-gray-200'
+              }`}>
+                <div className="flex items-center mb-3 sm:mb-4">
+                  <div className={`w-2 h-6 sm:h-8 rounded-full mr-2 sm:mr-3 ${
+                    userTier.member_tiers?.tier_name === 'Priority'
+                      ? 'bg-gradient-to-b from-yellow-400 to-yellow-600'
+                      : 'bg-gradient-to-b from-gray-400 to-gray-600'
+                  }`}></div>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900">회원 등급</h3>
+                </div>
+
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs sm:text-sm text-gray-600">현재 등급</span>
+                    <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
+                      userTier.member_tiers?.tier_name === 'Priority'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {userTier.member_tiers?.tier_name === 'Priority' ? '🟡' : '⚪'} {userTier.member_tiers?.tier_name}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100">
+                    <h4 className="text-sm sm:text-base font-medium text-gray-900 mb-2">등급 혜택</h4>
+                    {userTier.member_tiers?.advance_reservation_days > 0 && (
+                      <div className="flex items-center text-xs sm:text-sm text-green-600">
+                        <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
+                        <span className="break-keep">매월 하루 먼저 예약 가능</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded text-center break-keep">
+                    관리자가 예약을 시작하면 예약 가능합니다
+                  </div>
+                </div>
               </div>
-              
+            )}
+
+            {/* 최근 예약 현황 */}
+            <div className="bg-gradient-to-br from-white via-slate-50 to-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 border border-slate-200">
+              <div className="flex items-center mb-3 sm:mb-4">
+                <div className="w-2 h-6 sm:h-8 bg-gradient-to-b from-slate-500 to-gray-600 rounded-full mr-2 sm:mr-3"></div>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900">최근 예약 현황</h3>
+              </div>
+
               {myReservations.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {myReservations.slice(0, 3).map((reservation, index) => (
-                    <div key={reservation.id} className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm border border-gray-100">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <CalendarIcon className="w-5 h-5 text-blue-600" />
+                    <div key={reservation.id} className="flex items-center justify-between p-2.5 sm:p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                      <div className="flex items-center space-x-2 sm:space-x-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                         </div>
                         <div>
-                          <div className="text-sm font-semibold text-gray-900">
+                          <div className="text-xs sm:text-sm font-semibold text-gray-900 break-keep">
                             {reservation.date.toLocaleDateString('ko-KR')}
                           </div>
                           <div className="text-xs text-gray-500">
@@ -1071,35 +1283,39 @@ export default function DashboardPage() {
                       <StatusBadge status={reservation.status} />
                     </div>
                   ))}
-                  
+
                   {myReservations.length > 3 && (
-                    <div className="text-center text-sm text-gray-500 pt-2">
+                    <div className="text-center text-xs sm:text-sm text-gray-500 pt-2">
                       +{myReservations.length - 3}개 더
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <div className="relative mb-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl mx-auto flex items-center justify-center shadow-lg">
-                      <CalendarIcon className="w-8 h-8 text-gray-500" />
+                <div className="text-center py-6 sm:py-8">
+                  <div className="relative mb-3 sm:mb-4">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl sm:rounded-2xl mx-auto flex items-center justify-center shadow-lg">
+                      <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-gray-500" />
                     </div>
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-blue-400 to-blue-500 rounded-full flex items-center justify-center shadow-md">
-                      <Plus className="w-3 h-3 text-white" />
+                    <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-br from-blue-400 to-blue-500 rounded-full flex items-center justify-center shadow-md">
+                      <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                     </div>
                   </div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">예약 내역이 없습니다</h4>
-                  <p className="text-sm text-gray-500 mb-4">달력에서 날짜를 선택해<br/>스포츠박스 프로그램을 예약해보세요</p>
+                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 break-keep">
+                    예약 내역이 없습니다
+                  </h4>
+                  <p className="text-xs sm:text-sm text-gray-500 mb-4 break-keep">
+                    달력에서 날짜를 선택해<br/>스포츠박스 프로그램을 예약해보세요
+                  </p>
                 </div>
               )}
-              
+
               <button
                 onClick={() => setActiveModal('myReservations')}
-                className="w-full mt-4 py-3 px-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+                className="w-full mt-3 sm:mt-4 py-2.5 sm:py-3 px-3 sm:px-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
               >
-                <div className="flex items-center justify-center space-x-2">
-                  <List className="w-4 h-4" />
-                  <span>전체 예약 내역 보기</span>
+                <div className="flex items-center justify-center space-x-1.5 sm:space-x-2">
+                  <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="text-sm sm:text-base break-keep">전체 예약 내역 보기</span>
                 </div>
               </button>
             </div>
@@ -1109,42 +1325,45 @@ export default function DashboardPage() {
 
       {/* 예약 모달 */}
       {activeModal === 'reservation' && selectedDate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg sm:rounded-xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6">
+              <div className="flex justify-between items-center mb-4 sm:mb-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 break-keep">
                   {selectedDate.toLocaleDateString('ko-KR')} 예약 신청
                 </h3>
                 <button
                   onClick={() => setActiveModal(null)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 p-1"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               </div>
 
-              <form onSubmit={handleReservationSubmit} className="space-y-6">
+              <form onSubmit={handleReservationSubmit} className="space-y-4 sm:space-y-6">
                 {reservationSlots.map((slot, index) => (
-                  <div key={index} className="border rounded-lg p-4 space-y-4">
+                  <div key={index} className="border rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4">
                     <div className="flex justify-between items-center">
-                      <h4 className="font-semibold text-gray-900">{index + 1}번째 타임</h4>
-                      <div className="flex space-x-2">
+                      <h4 className="text-sm sm:text-base font-semibold text-gray-900">
+                        {index + 1}번째 타임
+                      </h4>
+                      <div className="flex space-x-1 sm:space-x-2">
                         {reservationSlots.length > 1 && index > 0 && (
                           <button
                             type="button"
                             onClick={() => copyToSlot(0, index)}
-                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center"
+                            className="text-xs text-blue-600 hover:text-blue-700 flex items-center p-1"
                           >
                             <Copy className="w-3 h-3 mr-1" />
-                            위 정보 복사
+                            <span className="hidden sm:inline break-keep">위 정보 복사</span>
+                            <span className="sm:hidden">복사</span>
                           </button>
                         )}
                         {reservationSlots.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeTimeSlot(index)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 p-1"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -1152,16 +1371,16 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                           시작시간 *
                         </label>
                         <select
                           value={slot.startTime}
                           onChange={(e) => handleStartTimeChange(index, e.target.value)}
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">선택하세요</option>
                           {timeOptions.map(time => (
@@ -1170,22 +1389,22 @@ export default function DashboardPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                           종료시간
                         </label>
                         <input
                           type="text"
                           value={slot.endTime}
                           readOnly
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                          className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg bg-gray-50"
                           placeholder="자동 계산"
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                           학년 *
                         </label>
                         <select
@@ -1196,7 +1415,7 @@ export default function DashboardPage() {
                             setReservationSlots(updated);
                           }}
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">선택하세요</option>
                           {gradeOptions.map(grade => (
@@ -1205,7 +1424,7 @@ export default function DashboardPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                           인원 *
                         </label>
                         <input
@@ -1219,14 +1438,14 @@ export default function DashboardPage() {
                             setReservationSlots(updated);
                           }}
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="참여 인원"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                         장소 *
                       </label>
                       <input
@@ -1238,7 +1457,7 @@ export default function DashboardPage() {
                           setReservationSlots(updated);
                         }}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="운영 장소를 입력해주세요"
                       />
                     </div>
@@ -1249,35 +1468,35 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={addTimeSlot}
-                    className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-300 hover:text-blue-600 flex items-center justify-center space-x-2"
+                    className="w-full py-2.5 sm:py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm sm:text-base text-gray-600 hover:border-blue-300 hover:text-blue-600 flex items-center justify-center space-x-2"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>타임 추가 (최대 2개)</span>
+                    <span className="break-keep">타임 추가 (최대 2개)</span>
                   </button>
                 )}
 
-                <div className="flex space-x-3 pt-4 border-t">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-3 sm:pt-4 border-t">
                   <button
                     type="button"
                     onClick={() => setActiveModal(null)}
-                    className="flex-1 py-3 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    className="w-full sm:flex-1 py-2.5 sm:py-3 px-4 border border-gray-300 rounded-lg text-sm sm:text-base text-gray-700 hover:bg-gray-50"
                   >
                     취소
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting || remainingDays <= 0}
-                    className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100 flex items-center justify-center"
+                    className="w-full sm:flex-1 py-2.5 sm:py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-lg text-sm sm:text-base font-medium transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100 flex items-center justify-center"
                   >
                     {isSubmitting ? (
                       <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                        신청 중...
+                        <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white mr-2"></div>
+                        <span className="break-keep">신청 중...</span>
                       </>
                     ) : (
                       <>
-                        <CalendarIcon className="w-5 h-5 mr-2" />
-                        예약 신청
+                        <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                        <span className="break-keep">예약 신청</span>
                       </>
                     )}
                   </button>
@@ -1290,22 +1509,22 @@ export default function DashboardPage() {
 
       {/* 내 예약 목록 모달 */}
       {activeModal === 'myReservations' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">내 예약 목록</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg sm:rounded-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6">
+              <div className="flex justify-between items-center mb-4 sm:mb-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 break-keep">내 예약 목록</h3>
                 <button
                   onClick={() => setActiveModal(null)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 p-1"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               </div>
 
               {/* 월별 필터 */}
-              <div className="mb-6">
-                <select className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <div className="mb-4 sm:mb-6">
+                <select className="px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value={`${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`}>
                     {new Date().getFullYear()}년 {new Date().getMonth() + 1}월
                   </option>

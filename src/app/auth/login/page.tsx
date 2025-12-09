@@ -73,7 +73,7 @@ function LoginFormComponent() {
         return;
       }
 
-      // 일반 사용자 로그인 API 호출 (단순화된 버전)
+      // 일반 사용자 로그인 API 호출 (세션 관리 포함)
       const { data: result, error } = await memberAPI.login(data.organization_name, data.password);
 
       if (error) {
@@ -92,10 +92,16 @@ function LoginFormComponent() {
         if (result.status === 'pending') {
           setLoginError('회원가입 승인 대기중입니다. 관리자 승인 후 로그인하실 수 있습니다.');
         } else if (result.status === 'approved') {
-          // 로그인 성공 - 사용자 정보를 localStorage에 저장
+          // 로그인 성공 - 사용자 정보와 세션 토큰을 localStorage에 저장
           console.log('로그인 성공:', result);
           localStorage.setItem('currentUser', JSON.stringify(result));
-          console.log('localStorage에 사용자 정보 저장 완료');
+          
+          // 세션 토큰 별도 저장 (보안상 분리)
+          if (result.session_token) {
+            localStorage.setItem('session_token', result.session_token);
+          }
+          
+          console.log('localStorage에 사용자 정보 및 세션 저장 완료');
           router.push('/dashboard');
         } else if (result.status === 'rejected') {
           setLoginError('회원가입이 거부되었습니다. 관리자에게 문의하세요.');

@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   Key
 } from 'lucide-react'
-import { memberAPI } from '@/lib/supabase'
+import { memberAPI, tierAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
 
 interface Member {
@@ -25,12 +25,26 @@ interface Member {
   city: string
   status: 'pending' | 'approved' | 'rejected'
   created_at: string
+  tier_id: number
   cities: {
     name: string
     regions: {
       name: string
     }
   }
+  member_tiers?: {
+    id: number
+    tier_name: string
+    tier_level: number
+    description: string
+  }
+}
+
+interface Tier {
+  id: number
+  tier_name: string
+  tier_level: number
+  description: string
 }
 
 export default function MembersPage() {
@@ -42,14 +56,28 @@ export default function MembersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all')
   const [processing, setProcessing] = useState<string | null>(null)
+  const [tiers, setTiers] = useState<Tier[]>([])
+  const [updatingTier, setUpdatingTier] = useState<string | null>(null)
 
   useEffect(() => {
     checkAuth()
+    loadTiers()
   }, [])
 
   useEffect(() => {
     filterMembers()
   }, [members, searchTerm, statusFilter])
+
+  const loadTiers = async () => {
+    try {
+      const { data, error } = await tierAPI.getAllTiers()
+      if (!error && data) {
+        setTiers(data)
+      }
+    } catch (error) {
+      console.error('티어 데이터 로드 오류:', error)
+    }
+  }
 
   const checkAuth = () => {
     const adminAuth = localStorage.getItem('adminInfo')
@@ -157,6 +185,36 @@ export default function MembersPage() {
     }
   }
 
+  const handleTierChange = async (memberId: string, newTierId: number, organizationName: string) => {
+    const tierName = tiers.find(t => t.id === newTierId)?.tier_name || '티어'
+
+    if (!confirm(`${organizationName}의 티어를 ${tierName}로 변경하시겠습니까?`)) {
+      return
+    }
+
+    setUpdatingTier(memberId)
+    try {
+      const { error } = await tierAPI.updateMemberTier(memberId, newTierId)
+      if (error) {
+        console.error('회원 티어 업데이트 오류:', error)
+        alert('티어 변경에 실패했습니다.')
+        return
+      }
+
+      // 로컬 상태 업데이트
+      setMembers(prev => prev.map(member =>
+        member.id === memberId ? { ...member, tier_id: newTierId } : member
+      ))
+
+      alert(`${organizationName}의 티어가 ${tierName}로 변경되었습니다.`)
+    } catch (error) {
+      console.error('회원 티어 업데이트 예외:', error)
+      alert('티어 변경 중 오류가 발생했습니다.')
+    } finally {
+      setUpdatingTier(null)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -193,6 +251,27 @@ export default function MembersPage() {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  const getTierBadge = (tierId: number) => {
+    const tier = tiers.find(t => t.id === tierId)
+    if (!tier) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          미설정
+        </span>
+      )
+    }
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+        tier.tier_name === 'Priority'
+          ? 'bg-yellow-100 text-yellow-800'
+          : 'bg-gray-100 text-gray-800'
+      }`}>
+        {tier.tier_name === 'Priority' ? '🟡' : '⚪'} {tier.tier_name}
+      </span>
+    )
   }
 
   if (loading) {
@@ -326,6 +405,9 @@ export default function MembersPage() {
                       상태
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      티어
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       신청일
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -360,6 +442,25 @@ export default function MembersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(member.status)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          {getTierBadge(member.tier_id)}
+                          {member.status === 'approved' && (
+                            <select
+                              value={member.tier_id}
+                              onChange={(e) => handleTierChange(member.id, Number(e.target.value), member.organization_name)}
+                              disabled={updatingTier === member.id}
+                              className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                            >
+                              {tiers.map(tier => (
+                                <option key={tier.id} value={tier.id}>
+                                  {tier.tier_name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(member.created_at)}

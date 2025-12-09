@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Calendar, Eye, AlertCircle, Users, MapPin } from 'lucide-react'
+import { Bell, Calendar, AlertCircle, Users, MapPin } from 'lucide-react'
 import { useState } from 'react'
 
 interface Announcement {
@@ -9,7 +9,6 @@ interface Announcement {
   content: string
   target_type: 'all' | 'region'
   is_important: boolean
-  view_count: number
   created_at: string
   admins: {
     username: string
@@ -44,10 +43,35 @@ export default function AnnouncementCard({
   }
 
   const stripHtml = (html: string) => {
-    // HTML 태그 제거하고 엔터티 디코딩
-    const tmp = document.createElement('div')
-    tmp.innerHTML = html
-    return tmp.textContent || tmp.innerText || ''
+    // HTML 태그 제거하고 엔터티 디코딩 - 클라이언트 사이드에서만 실행
+    if (typeof window !== 'undefined') {
+      const tmp = document.createElement('div')
+      tmp.innerHTML = html
+      return tmp.textContent || tmp.innerText || ''
+    }
+
+    // 서버 사이드에서는 더 강력한 HTML 태그 제거
+    let text = html
+      // 스타일 태그와 내용 완전 제거
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      // 스크립트 태그와 내용 완전 제거
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      // 모든 HTML 태그 제거
+      .replace(/<[^>]*>/g, '')
+      // HTML 엔터티 디코딩
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&[^;]+;/g, ' ')
+      // 여러 공백을 하나로 정리
+      .replace(/\s+/g, ' ')
+      // 앞뒤 공백 제거
+      .trim()
+
+    return text
   }
 
   const truncateContent = (content: string, maxLength: number) => {
@@ -113,10 +137,6 @@ export default function AnnouncementCard({
             <div className="flex items-center gap-1">
               <Calendar className="w-3 h-3" />
               <span>{formatDate(announcement.created_at)}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Eye className="w-3 h-3" />
-              <span>{announcement.view_count}회 조회</span>
             </div>
             <span>작성자: {announcement.admins.username}</span>
           </div>

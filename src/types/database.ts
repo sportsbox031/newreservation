@@ -163,7 +163,7 @@ export interface Database {
           user_id: string
           region_id: number
           date: string
-          status: 'pending' | 'approved' | 'cancelled' | 'admin_cancelled'
+          status: 'pending' | 'approved' | 'cancelled' | 'admin_cancelled' | 'rejected' | 'cancel_requested'
           created_at: string
           updated_at: string
         }
@@ -172,7 +172,7 @@ export interface Database {
           user_id: string
           region_id: number
           date: string
-          status?: 'pending' | 'approved' | 'cancelled' | 'admin_cancelled'
+          status?: 'pending' | 'approved' | 'cancelled' | 'admin_cancelled' | 'rejected' | 'cancel_requested'
           created_at?: string
           updated_at?: string
         }
@@ -181,7 +181,7 @@ export interface Database {
           user_id?: string
           region_id?: number
           date?: string
-          status?: 'pending' | 'approved' | 'cancelled' | 'admin_cancelled'
+          status?: 'pending' | 'approved' | 'cancelled' | 'admin_cancelled' | 'rejected' | 'cancel_requested'
           created_at?: string
           updated_at?: string
         }

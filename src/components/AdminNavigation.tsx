@@ -68,7 +68,7 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
       href: '/admin/settings',
       label: '설정',
       icon: Settings,
-      roles: ['super']
+      roles: ['super', 'south', 'north']
     },
     {
       href: '/admin/reports',

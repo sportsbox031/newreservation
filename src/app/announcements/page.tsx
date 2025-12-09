@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { announcementAPI } from '@/lib/supabase'
-import { Bell, Calendar, Eye, AlertCircle } from 'lucide-react'
+import { Bell, Calendar, AlertCircle } from 'lucide-react'
 import { sanitizeHtml } from '@/components/RichTextEditor'
 
 interface Announcement {
@@ -11,7 +11,6 @@ interface Announcement {
   content: string
   target_type: 'all' | 'region'
   is_important: boolean
-  view_count: number
   created_at: string
   updated_at: string
   admins: {
@@ -64,30 +63,9 @@ export default function AnnouncementsPage() {
     }
   }
 
-  const handleAnnouncementClick = async (announcement: Announcement) => {
+  const handleAnnouncementClick = (announcement: Announcement) => {
     setSelectedAnnouncement(announcement)
     setShowModal(true)
-    
-    // 조회수 증가
-    try {
-      const userInfo = localStorage.getItem('userInfo')
-      const userId = userInfo ? JSON.parse(userInfo).id : null
-      
-      if (userId) {
-        await announcementAPI.incrementViewCount(announcement.id, userId)
-      }
-      
-      // 로컬 상태 업데이트
-      setAnnouncements(prev => 
-        prev.map(item => 
-          item.id === announcement.id 
-            ? { ...item, view_count: item.view_count + 1 }
-            : item
-        )
-      )
-    } catch (error) {
-      console.error('조회수 증가 오류:', error)
-    }
   }
 
   const formatDate = (dateString: string) => {
@@ -186,10 +164,6 @@ export default function AnnouncementsPage() {
                       <Calendar className="w-3 h-3" />
                       <span>{formatDate(announcement.created_at)}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Eye className="w-3 h-3" />
-                      <span>{announcement.view_count}회 조회</span>
-                    </div>
                     <span>작성자: {announcement.admins.username}</span>
                   </div>
                 </div>
@@ -233,7 +207,6 @@ export default function AnnouncementsPage() {
                   <div className="flex items-center gap-4 text-sm text-gray-500">
                     <span>작성자: {selectedAnnouncement.admins.username}</span>
                     <span>작성일: {formatDate(selectedAnnouncement.created_at)}</span>
-                    <span>조회: {selectedAnnouncement.view_count}회</span>
                   </div>
                 </div>
                 <button
