@@ -813,6 +813,17 @@ export const reservationAPI = {
     return { data, error }
   },
 
+  // 예약 완전 삭제 (거절, 취소 시 사용)
+  async deleteReservation(reservationId: string) {
+    const { data, error } = await supabase
+      .from('reservations')
+      .delete()
+      .eq('id', reservationId)
+      .select()
+
+    return { data, error }
+  },
+
   // 관리자 예약 강제 취소
   async forceCancel(reservationId: string) {
     // 먼저 단순 업데이트만 수행
@@ -986,13 +997,14 @@ export const reservationAPI = {
       return { data: null, error: statusError }
     }
 
-    if (!dateStatus?.is_open) {
-      return { data: null, error: { message: '해당 날짜는 예약이 종료되었습니다.' } }
-    }
+    // 티어 시스템이 예약 가능 여부를 검증하므로 기존 is_open 체크는 제거
+    // if (!dateStatus?.is_open) {
+    //   return { data: null, error: { message: '해당 날짜는 예약이 종료되었습니다.' } }
+    // }
 
     if (dateStatus?.is_full) {
-      return { 
-        data: null, 
+      return {
+        data: null,
         error: { message: `해당 날짜는 예약이 마감되었습니다. (최대 ${dateStatus.max_reservations_per_day}개)` }
       }
     }

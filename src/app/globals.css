@@ -12,10 +12,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* 다크 모드 비활성화 - 항상 라이트 모드 사용 */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #ffffff;
+    --foreground: #171717;
   }
 }
 
@@ -23,6 +24,22 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* 모든 텍스트 입력 요소에 명시적인 색상 지정 */
+input,
+select,
+textarea {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
+}
+
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  color: #9ca3af !important;
+  opacity: 1 !important;
 }
 
 /* 스포츠박스 커스텀 스타일 */

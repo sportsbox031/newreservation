@@ -715,8 +715,8 @@ ${otherSessions.map(session =>
       // 날짜를 문자열로 변환 (시간대 오류 방지)
       const dateYear = selectedDate.getFullYear();
       const dateMonth = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const day = String(selectedDate.getDate()).padStart(2, '0');
-      const dateString = `${dateYear}-${dateMonth}-${day}`;
+      const dateDay = String(selectedDate.getDate()).padStart(2, '0');
+      const dateString = `${dateYear}-${dateMonth}-${dateDay}`;
 
       // 슬롯 데이터 변환
       const slotsData = filteredSlots.map((slot, index) => ({
@@ -748,17 +748,28 @@ ${otherSessions.map(session =>
       // 티어별 예약 가능 여부 검증
       if (userTier) {
         const targetDate = `${dateYear}-${dateMonth}-${dateDay}`;
+        console.log('🔍 티어 검증 시작:', {
+          userId,
+          userRegion,
+          targetDate,
+          userTier: userTier
+        });
+
         const { canReserve, reason } = await tierAPI.canUserReserveByTier(
           userId,
           userRegion,
           targetDate
         );
 
+        console.log('🔍 티어 검증 결과:', { canReserve, reason });
+
         if (!canReserve) {
           alert(reason || '현재 티어의 예약 기간이 아닙니다.');
           setIsSubmitting(false);
           return;
         }
+      } else {
+        console.log('⚠️ userTier가 null입니다!');
       }
 
       // 세션 토큰 확인

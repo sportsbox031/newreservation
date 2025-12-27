@@ -3,12 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  Users, 
-  Calendar, 
-  Bell, 
-  Settings, 
-  BarChart3, 
+import {
+  Users,
+  Calendar,
+  Bell,
+  Settings,
   LogOut,
   Home,
   Monitor,
@@ -69,12 +68,6 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
       label: '설정',
       icon: Settings,
       roles: ['super', 'south', 'north']
-    },
-    {
-      href: '/admin/reports',
-      label: '통계',
-      icon: BarChart3,
-      roles: ['super']
     }
   ]
 

@@ -9,7 +9,6 @@ import {
   Bell,
   Monitor,
   Settings,
-  TrendingUp,
   Clock,
   CheckCircle,
   XCircle,
@@ -253,21 +252,6 @@ export default function AdminDashboard() {
                     </div>
                     <div className="p-3 bg-gray-50 rounded-full">
                       <Settings className="w-6 h-6 text-gray-600" />
-                    </div>
-                  </div>
-                </div>
-              </Link>
-
-              <Link href="/admin/reports" className="block">
-                <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border-l-4 border-red-500">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">통계 및 리포트</p>
-                      <p className="text-2xl font-bold text-gray-900">분석</p>
-                      <p className="text-xs text-gray-500 mt-1">이용 현황 및 통계</p>
-                    </div>
-                    <div className="p-3 bg-red-50 rounded-full">
-                      <TrendingUp className="w-6 h-6 text-red-600" />
                     </div>
                   </div>
                 </div>
