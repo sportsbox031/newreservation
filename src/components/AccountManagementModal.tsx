@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X, User, Mail, Phone, MapPin, Building } from 'lucide-react'
+import { memberAPI } from '@/lib/supabase'
 
 interface AccountManagementModalProps {
   isOpen: boolean
@@ -54,17 +55,83 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (showPasswordFields && formData.password !== formData.confirmPassword) {
       alert('비밀번호가 일치하지 않습니다.')
       return
     }
 
     setLoading(true)
-    
+
     try {
-      // TODO: API 호출 구현
-      console.log('계정 정보 업데이트:', formData)
+      // 관리자는 로컬스토리지만 업데이트
+      if (userType === 'admin') {
+        const storageKey = 'adminInfo'
+        const adminData = localStorage.getItem(storageKey)
+        if (adminData) {
+          const parsed = JSON.parse(adminData)
+          const updated = {
+            ...parsed,
+            username: formData.manager_name,
+            phone: formData.phone,
+            email: formData.email
+          }
+          localStorage.setItem(storageKey, JSON.stringify(updated))
+        }
+        alert('계정 정보가 업데이트되었습니다.')
+        onClose()
+        return
+      }
+
+      // 일반 사용자는 DB 업데이트
+      const currentUser = localStorage.getItem('currentUser')
+      if (!currentUser) {
+        alert('로그인 정보를 찾을 수 없습니다.')
+        return
+      }
+
+      const userData = JSON.parse(currentUser)
+      const userId = userData.id
+
+      // 1. 일반 정보 업데이트
+      const { data: updatedUser, error: updateError } = await memberAPI.updateUserInfo(userId, {
+        manager_name: formData.manager_name,
+        phone: formData.phone,
+        email: formData.email
+      })
+
+      if (updateError) {
+        console.error('정보 업데이트 오류:', updateError)
+        alert('정보 업데이트 중 오류가 발생했습니다.')
+        return
+      }
+
+      // 2. 비밀번호 변경 (선택사항)
+      if (showPasswordFields && formData.current_password && formData.password) {
+        const { data: passwordData, error: passwordError } = await memberAPI.changePassword(
+          userId,
+          formData.current_password,
+          formData.password
+        )
+
+        if (passwordError) {
+          console.error('비밀번호 변경 오류:', passwordError)
+          alert(passwordError.message || '비밀번호 변경 중 오류가 발생했습니다.')
+          return
+        }
+      }
+
+      // 3. 로컬스토리지 업데이트
+      if (updatedUser && updatedUser.length > 0) {
+        const updated = {
+          ...userData,
+          manager_name: updatedUser[0].manager_name,
+          phone: updatedUser[0].phone,
+          email: updatedUser[0].email
+        }
+        localStorage.setItem('currentUser', JSON.stringify(updated))
+      }
+
       alert('계정 정보가 업데이트되었습니다.')
       onClose()
     } catch (error) {

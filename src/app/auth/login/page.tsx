@@ -245,17 +245,6 @@ function LoginFormComponent() {
               </Link>
             </p>
           </div>
-
-          {/* 테스트 계정 안내 */}
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">테스트 계정</h3>
-            <div className="space-y-1 text-xs text-gray-600">
-              <p><strong>일반 사용자:</strong> 테스트단체 / 1234</p>
-              <p><strong>전체 관리자:</strong> admin / admin123</p>
-              <p><strong>남부 관리자:</strong> admin_south / admin123</p>
-              <p><strong>북부 관리자:</strong> admin_north / admin123</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

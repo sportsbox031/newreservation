@@ -255,10 +255,55 @@ export const memberAPI = {
   // 비밀번호 초기화 (관리자용)
   async resetPassword(userId: string, newPassword: string) {
     const password_hash = hashPassword(newPassword)
-    
+
     const { data, error } = await supabase
       .from('users')
       .update({ password_hash })
+      .eq('id', userId)
+      .select()
+
+    return { data, error }
+  },
+
+  // 사용자 정보 업데이트
+  async updateUserInfo(userId: string, updateData: {
+    manager_name?: string;
+    phone?: string;
+    email?: string;
+  }) {
+    const { data, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+
+    return { data, error }
+  },
+
+  // 비밀번호 변경 (현재 비밀번호 확인 필요)
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    // 현재 비밀번호 확인
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('password_hash')
+      .eq('id', userId)
+      .single()
+
+    if (fetchError) {
+      return { data: null, error: { message: '사용자 정보를 찾을 수 없습니다.' } }
+    }
+
+    // 현재 비밀번호 검증
+    const currentPasswordHash = hashPassword(currentPassword)
+    if (user.password_hash !== currentPasswordHash) {
+      return { data: null, error: { message: '현재 비밀번호가 일치하지 않습니다.' } }
+    }
+
+    // 새 비밀번호로 업데이트
+    const newPasswordHash = hashPassword(newPassword)
+    const { data, error } = await supabase
+      .from('users')
+      .update({ password_hash: newPasswordHash })
       .eq('id', userId)
       .select()
 
