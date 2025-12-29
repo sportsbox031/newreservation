@@ -40,8 +40,16 @@ export default function Home() {
       if (error) {
         console.error('공지사항 로드 오류:', error)
       } else {
+        // 중요 공지를 최상단에 표시하고, 그 다음 최신순으로 정렬
         const sortedData = (data || [])
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .sort((a, b) => {
+            // 1순위: 중요 공지 우선
+            if (a.is_important !== b.is_important) {
+              return b.is_important ? 1 : -1
+            }
+            // 2순위: 최신순
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          })
           .slice(0, 5)
         setAnnouncements(sortedData)
       }
@@ -230,7 +238,9 @@ export default function Home() {
                                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                                   announcement.target_type === 'all'
                                     ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-green-100 text-green-800'
+                                    : announcement.regions?.name === '경기남부'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-purple-100 text-purple-800'
                                 }`}>
                                   {announcement.target_type === 'all' ? '전체 공지' : `${announcement.regions?.name || '지역'} 공지`}
                                 </span>
@@ -538,7 +548,11 @@ export default function Home() {
                         전체 공지
                       </span>
                     ) : (
-                      <span className="inline-flex px-2.5 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                      <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${
+                        selectedAnnouncement.regions?.name === '경기남부'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-purple-100 text-purple-800'
+                      }`}>
                         {selectedAnnouncement.regions?.name || '지역'} 공지
                       </span>
                     )}

@@ -1210,6 +1210,7 @@ export const announcementAPI = {
 
   // 공개 공지사항만 조회 (로그인하지 않은 사용자용)
   async getPublicAnnouncements() {
+    // 홈페이지에서는 전체 공지와 지역 공지 모두 표시 (배지 색상으로 구분)
     const { data, error } = await supabase
       .from('announcements')
       .select(`
@@ -1218,7 +1219,7 @@ export const announcementAPI = {
         regions(name)
       `)
       .eq('is_published', true)
-      .eq('target_type', 'all')
+      // target_type 필터 제거 - 모든 공지사항 표시
       .order('is_important', { ascending: false })
       .order('created_at', { ascending: false })
 
