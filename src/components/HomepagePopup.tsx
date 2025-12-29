@@ -153,26 +153,18 @@ export default function HomepagePopupComponent() {
   const renderContent = (popup: HomepagePopup) => {
     if (popup.content_type === 'html') {
       return (
-        <div 
+        <div
           className="prose max-w-none"
-          style={{
-            isolation: 'isolate',
-            contain: 'layout style'
-          }}
-          dangerouslySetInnerHTML={{ 
+          dangerouslySetInnerHTML={{
             __html: sanitizeHtml(popup.content)
           }}
         />
       )
     } else if (popup.content_type === 'markdown') {
       return (
-        <div 
+        <div
           className="prose max-w-none"
-          style={{
-            isolation: 'isolate',
-            contain: 'layout style'
-          }}
-          dangerouslySetInnerHTML={{ 
+          dangerouslySetInnerHTML={{
             __html: sanitizeHtml(markdownToHtml(popup.content))
           }}
         />

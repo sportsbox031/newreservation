@@ -21,7 +21,7 @@ interface RichTextEditorProps {
   placeholder?: string
 }
 
-type EditorMode = 'visual' | 'html' | 'markdown'
+type EditorMode = 'text' | 'html' | 'markdown'
 
 // XSS 방지를 위한 HTML 새니타이징 함수 (개선된 버전) - export for reuse
 export const sanitizeHtml = (html: string): string => {
@@ -51,7 +51,7 @@ export const sanitizeHtml = (html: string): string => {
 }
 
 export default function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
-  const [mode, setMode] = useState<EditorMode>('visual')
+  const [mode, setMode] = useState<EditorMode>('text')
   const [showPreview, setShowPreview] = useState(false)
 
   // Markdown을 HTML로 변환하는 간단한 함수
@@ -130,12 +130,11 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
   }
 
   const getDisplayValue = () => {
-    if (mode === 'markdown') {
-      return value
-    } else if (mode === 'html') {
-      return value
+    if (mode === 'text') {
+      // 텍스트 모드에서는 <br>을 줄바꿈으로 변환하여 표시
+      return value.replace(/<br\s*\/?>/gi, '\n')
     } else {
-      // Visual 모드에서는 HTML을 렌더링
+      // HTML, 마크다운 모드에서는 그대로 표시
       return value
     }
   }
@@ -149,8 +148,10 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
       // 마크다운 모드에서는 HTML로 변환해서 저장
       const htmlContent = markdownToHtml(newValue)
       onChange(htmlContent)
-    } else {
-      onChange(newValue)
+    } else if (mode === 'text') {
+      // 텍스트 모드에서는 줄바꿈을 <br>로 변환하여 저장
+      const htmlContent = newValue.replace(/\n/g, '<br>')
+      onChange(htmlContent)
     }
   }
 
@@ -163,22 +164,22 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setMode('visual')}
+              onClick={() => setMode('text')}
               className={`px-3 py-1 text-sm rounded ${
-                mode === 'visual' 
-                  ? 'bg-blue-600 text-white' 
+                mode === 'text'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100'
               }`}
             >
-              <Eye className="w-4 h-4 inline mr-1" />
-              비주얼
+              <Type className="w-4 h-4 inline mr-1" />
+              텍스트
             </button>
             <button
               type="button"
               onClick={() => setMode('html')}
               className={`px-3 py-1 text-sm rounded ${
-                mode === 'html' 
-                  ? 'bg-blue-600 text-white' 
+                mode === 'html'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100'
               }`}
             >
@@ -189,8 +190,8 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
               type="button"
               onClick={() => setMode('markdown')}
               className={`px-3 py-1 text-sm rounded ${
-                mode === 'markdown' 
-                  ? 'bg-blue-600 text-white' 
+                mode === 'markdown'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100'
               }`}
             >
@@ -199,8 +200,8 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
             </button>
           </div>
 
-          {/* 도구 버튼들 (비주얼 모드에서만) */}
-          {mode === 'visual' && (
+          {/* 도구 버튼들 제거 (텍스트 모드에서는 불필요) */}
+          {false && (
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -274,41 +275,22 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
 
       {/* 에디터 영역 */}
       <div className="min-h-[200px]">
-        {mode === 'visual' ? (
-          <div
-            contentEditable
-            className="p-4 min-h-[200px] focus:outline-none prose prose-sm max-w-none"
-            style={{
-              // CSS 격리를 위한 스타일
-              isolation: 'isolate',
-              contain: 'layout style'
-            }}
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(value) }}
-            onInput={(e) => {
-              const content = (e.target as HTMLDivElement).innerHTML
-              handleContentChange(content)
-            }}
-            onPaste={(e) => {
-              e.preventDefault()
-              const text = e.clipboardData?.getData('text/plain') || ''
-              document.execCommand('insertText', false, text)
-            }}
-          />
-        ) : (
-          <textarea
-            id="content-editor"
-            value={getDisplayValue()}
-            onChange={(e) => handleContentChange(e.target.value)}
-            className="w-full h-64 p-4 resize-none focus:outline-none font-mono text-sm"
-            placeholder={
-              mode === 'html' 
-                ? 'HTML 코드를 입력하세요...' 
-                : mode === 'markdown'
-                ? '마크다운을 입력하세요...\n\n예시:\n# 제목\n**굵은글씨**\n*기울임*\n[링크](http://example.com)\n- 목록'
-                : placeholder
-            }
-          />
-        )}
+        <textarea
+          id="content-editor"
+          value={getDisplayValue()}
+          onChange={(e) => handleContentChange(e.target.value)}
+          className="w-full h-64 p-4 resize-none focus:outline-none text-sm"
+          style={{
+            fontFamily: mode === 'text' ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' : 'monospace'
+          }}
+          placeholder={
+            mode === 'text'
+              ? '공지사항 내용을 입력하세요...'
+              : mode === 'html'
+              ? 'HTML 코드를 입력하세요...\n\n예시:\n<div style="padding: 20px;">\n  <h1>제목</h1>\n  <p>내용</p>\n</div>'
+              : '마크다운을 입력하세요...\n\n예시:\n# 제목\n**굵은글씨**\n*기울임*\n[링크](http://example.com)\n- 목록'
+          }
+        />
       </div>
 
       {/* 미리보기 */}
@@ -317,15 +299,10 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
           <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">
             미리보기
           </div>
-          <div 
+          <div
             className="p-4 prose prose-sm max-w-none"
-            style={{
-              // CSS 격리를 위한 스타일
-              isolation: 'isolate',
-              contain: 'layout style'
-            }}
-            dangerouslySetInnerHTML={{ 
-              __html: sanitizeHtml(mode === 'markdown' ? markdownToHtml(value) : value) 
+            dangerouslySetInnerHTML={{
+              __html: sanitizeHtml(mode === 'markdown' ? markdownToHtml(value) : value)
             }}
           />
         </div>
@@ -347,7 +324,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
         </div>
         
         <div className="text-gray-500">
-          {mode === 'visual' && '비주얼 에디터'}
+          {mode === 'text' && '텍스트 모드'}
           {mode === 'html' && 'HTML 모드 (보안 필터링 적용)'}
           {mode === 'markdown' && '마크다운 모드'}
         </div>

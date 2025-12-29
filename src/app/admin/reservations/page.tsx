@@ -28,8 +28,10 @@ import {
   Trash2,
   Timer,
   GraduationCap,
+  Download,
   Users2
 } from 'lucide-react';
+import ExcelJS from 'exceljs';
 import { settingsAPI, reservationAPI } from '@/lib/supabase';
 import AdminNavigation from '@/components/AdminNavigation';
 
@@ -621,6 +623,166 @@ export default function AdminReservationsPage() {
     }
   };
 
+  // 엑셀 다운로드 함수
+  const handleDownloadExcel = async () => {
+    if (!currentMonth) return;
+
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+
+    // 해당 월의 첫날과 마지막 날
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    // 달력 시작일 (전월 마지막 주 포함)
+    const startDay = new Date(firstDay);
+    startDay.setDate(startDay.getDate() - startDay.getDay());
+
+    // 달력 종료일 (다음월 첫 주 포함)
+    const endDay = new Date(lastDay);
+    endDay.setDate(endDay.getDate() + (6 - endDay.getDay()));
+
+    // 주 수 계산
+    const weekCount = Math.ceil((endDay.getTime() - startDay.getTime()) / (7 * 24 * 60 * 60 * 1000));
+
+    // ExcelJS 워크북 생성
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(`${month + 1}월 예약현황`);
+
+    // 열 너비 설정
+    worksheet.columns = [
+      { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 },
+      { width: 16 }, { width: 16 }, { width: 16 }
+    ];
+
+    let currentRow = 1;
+
+    // 제목 행
+    const titleRow = worksheet.getRow(currentRow);
+    titleRow.getCell(1).value = `${year}년 ${month + 1}월 예약 현황`;
+    worksheet.mergeCells(currentRow, 1, currentRow, 7);
+    titleRow.getCell(1).font = { name: '맑은 고딕', size: 16, bold: true, color: { argb: 'FF1F4788' } };
+    titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6EAF8' } };
+    titleRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+    titleRow.getCell(1).border = {
+      top: { style: 'medium', color: { argb: 'FF1F4788' } },
+      bottom: { style: 'medium', color: { argb: 'FF1F4788' } },
+      left: { style: 'medium', color: { argb: 'FF1F4788' } },
+      right: { style: 'medium', color: { argb: 'FF1F4788' } }
+    };
+    titleRow.height = 30;
+    currentRow++;
+
+    // 빈 행
+    currentRow++;
+
+    // 요일 헤더
+    const headerRow = worksheet.getRow(currentRow);
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    weekdays.forEach((day, index) => {
+      const cell = headerRow.getCell(index + 1);
+      cell.value = day;
+      cell.font = { name: '맑은 고딕', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5DADE2' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF2874A6' } },
+        bottom: { style: 'medium', color: { argb: 'FF2874A6' } },
+        left: { style: 'thin', color: { argb: 'FF2874A6' } },
+        right: { style: 'thin', color: { argb: 'FF2874A6' } }
+      };
+    });
+    headerRow.height = 25;
+    currentRow++;
+
+    // 각 주별 데이터 생성
+    for (let week = 0; week < weekCount; week++) {
+      // 해당 주의 각 날짜별 예약 정보 수집
+      const weekReservations: any[][] = [];
+      let maxReservations = 0;
+
+      for (let day = 0; day < 7; day++) {
+        const currentDate = new Date(startDay);
+        currentDate.setDate(startDay.getDate() + (week * 7) + day);
+
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+
+        // 해당 날짜의 예약 찾기 (거절/취소 제외)
+        const dayReservations = allReservations.filter(r => {
+          const resDate = `${r.date.getFullYear()}-${String(r.date.getMonth() + 1).padStart(2, '0')}-${String(r.date.getDate()).padStart(2, '0')}`;
+          return resDate === dateStr &&
+                 r.status !== 'rejected' &&
+                 r.status !== 'cancelled' &&
+                 r.status !== 'admin_cancelled';
+        });
+
+        weekReservations[day] = dayReservations;
+        maxReservations = Math.max(maxReservations, dayReservations.length);
+      }
+
+      // 일자 행 추가
+      const dateRow = worksheet.getRow(currentRow);
+      for (let day = 0; day < 7; day++) {
+        const currentDate = new Date(startDay);
+        currentDate.setDate(startDay.getDate() + (week * 7) + day);
+        const cell = dateRow.getCell(day + 1);
+        cell.value = `${currentDate.getDate()}일`;
+        cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FF2C3E50' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBF5FB' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'medium', color: { argb: 'FF5DADE2' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+      }
+      dateRow.height = 20;
+      currentRow++;
+
+      // 예약 정보 행 추가 (최대 예약 수만큼)
+      for (let i = 0; i < maxReservations; i++) {
+        const reservationRow = worksheet.getRow(currentRow);
+        for (let day = 0; day < 7; day++) {
+          const reservation = weekReservations[day][i];
+          const cell = reservationRow.getCell(day + 1);
+          if (reservation) {
+            let content = reservation.organization_name;
+            if (reservation.slots && reservation.slots.length > 0) {
+              const firstSlot = reservation.slots[0];
+              const lastSlot = reservation.slots[reservation.slots.length - 1];
+              content += ` ${firstSlot.startTime}~${lastSlot.endTime}`;
+            }
+            cell.value = content;
+          } else {
+            cell.value = '';
+          }
+          cell.font = { name: '맑은 고딕', size: 9, color: { argb: 'FF000000' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF000000' } },
+            bottom: { style: 'thin', color: { argb: 'FF000000' } },
+            left: { style: 'thin', color: { argb: 'FF000000' } },
+            right: { style: 'thin', color: { argb: 'FF000000' } }
+          };
+        }
+        reservationRow.height = 18;
+        currentRow++;
+      }
+    }
+
+    // 엑셀 파일 다운로드
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `예약현황_${year}년${month + 1}월_${adminRegion}.xlsx`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   // 필터링된 예약 목록 (전체 리스트용)
   const filteredAllReservations = allReservations.filter(reservation => {
     const matchesStatus = statusFilter === 'all' || reservation.status === statusFilter;
@@ -744,6 +906,16 @@ export default function AdminReservationsPage() {
                 </div>
 
                 <div className="flex items-center space-x-4">
+                  {viewMode === 'calendar' && (
+                    <button
+                      onClick={handleDownloadExcel}
+                      className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      title="엑셀 다운로드"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>엑셀 다운로드</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       loadReservationStatus();

@@ -148,13 +148,9 @@ export default function AnnouncementsPage() {
                     {announcement.title}
                   </h3>
                   
-                  <div 
+                  <div
                     className="text-gray-600 text-sm mb-3 line-clamp-2 prose prose-sm max-w-none"
-                    style={{
-                      isolation: 'isolate',
-                      contain: 'layout style'
-                    }}
-                    dangerouslySetInnerHTML={{ 
+                    dangerouslySetInnerHTML={{
                       __html: sanitizeHtml(truncateContent(announcement.content))
                     }}
                   />
@@ -220,13 +216,9 @@ export default function AnnouncementsPage() {
             
             <div className="p-6">
               <div className="prose max-w-none">
-                <div 
+                <div
                   className="text-gray-700 leading-relaxed"
-                  style={{
-                    isolation: 'isolate',
-                    contain: 'layout style'
-                  }}
-                  dangerouslySetInnerHTML={{ 
+                  dangerouslySetInnerHTML={{
                     __html: sanitizeHtml(selectedAnnouncement.content)
                   }}
                 />

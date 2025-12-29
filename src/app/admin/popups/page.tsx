@@ -37,7 +37,7 @@ export default function PopupManagementPage() {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    content_type: 'html' as 'html' | 'markdown' | 'text',
+    content_type: 'text' as 'html' | 'markdown' | 'text',
     is_active: true,
     start_date: '',
     end_date: '',
@@ -81,7 +81,7 @@ export default function PopupManagementPage() {
     setFormData({
       title: '',
       content: '',
-      content_type: 'html',
+      content_type: 'text',
       is_active: true,
       start_date: '',
       end_date: '',

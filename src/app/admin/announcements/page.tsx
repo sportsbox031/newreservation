@@ -320,15 +320,11 @@ export default function AdminAnnouncementsPage() {
                       {announcement.title}
                     </h3>
                     
-                    <div 
+                    <div
                       className="text-gray-600 text-sm mb-3 line-clamp-2 prose prose-sm max-w-none"
-                      style={{
-                        isolation: 'isolate',
-                        contain: 'layout style'
-                      }}
-                      dangerouslySetInnerHTML={{ 
+                      dangerouslySetInnerHTML={{
                         __html: sanitizeHtml(
-                          announcement.content.length > 100 
+                          announcement.content.length > 100
                             ? announcement.content.substring(0, 100) + '...'
                             : announcement.content
                         )

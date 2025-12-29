@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지사항 HTML 템플릿 가이드</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .guide-section {
+      background: white;
+      padding: 30px;
+      margin-bottom: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .guide-title {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #1a73e8;
+      border-bottom: 3px solid #1a73e8;
+      padding-bottom: 10px;
+    }
+    .template-box {
+      background: #f9f9f9;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .template-title {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    .code-box {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 15px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .preview-box {
+      border: 2px solid #1a73e8;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 15px 0;
+      background: white;
+    }
+    .preview-label {
+      background: #1a73e8;
+      color: white;
+      padding: 5px 15px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 15px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .warning {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .tip {
+      background: #d1ecf1;
+      border-left: 4px solid #17a2b8;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .step {
+      background: #e3f2fd;
+      padding: 10px 15px;
+      margin: 10px 0;
+      border-left: 4px solid #2196f3;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="guide-section">
+  <h1 class="guide-title">🎨 공지사항 HTML 템플릿 가이드</h1>
+
+  <div class="warning">
+    <strong>⚠️ 중요: 사용 방법</strong>
+    <ol style="margin: 10px 0 0 20px; padding: 0;">
+      <li><strong>HTML 모드</strong>로 전환하세요 (비주얼 모드 ❌)</li>
+      <li>아래 템플릿에서 <code>&lt;!-- 여기부터 복사 --&gt;</code>와 <code>&lt;!-- 여기까지 복사 --&gt;</code> 사이의 코드만 복사하세요</li>
+      <li><code>&lt;!DOCTYPE html&gt;</code>, <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code>, <code>&lt;body&gt;</code> 태그는 복사하지 마세요</li>
+      <li>내용을 수정할 때는 텍스트만 변경하고 HTML 태그는 그대로 유지하세요</li>
+    </ol>
+  </div>
+
+  <div class="tip">
+    <strong>💡 팁</strong>
+    <ul style="margin: 10px 0 0 20px; padding: 0;">
+      <li>색상 변경: <code>style="background-color: #색상코드"</code>에서 색상코드를 변경하세요</li>
+      <li>텍스트 크기: <code>font-size: 16px</code>에서 숫자를 변경하세요</li>
+      <li>링크 추가: <code>&lt;a href="URL"&gt;링크 텍스트&lt;/a&gt;</code></li>
+    </ul>
+  </div>
+</div>
+
+<!-- 템플릿 1: 기본 공지사항 -->
+<div class="guide-section">
+  <div class="template-title">📋 템플릿 1: 기본 공지사항 (깔끔한 박스형)</div>
+
+  <div class="preview-label">미리보기</div>
+  <div class="preview-box">
+    <!-- 여기부터 복사 -->
+    <div style="max-width: 800px; margin: 20px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+        <h1 style="margin: 0; font-size: 28px; font-weight: bold;">공지사항 제목</h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 14px;">2025년 1월 1일</p>
+      </div>
+      <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <p style="line-height: 1.8; color: #333; font-size: 16px; margin: 0 0 20px 0;">
+          안녕하세요. 여기에 공지사항 내용을 작성하세요. 이 템플릿은 깔끔한 디자인으로 중요한 공지사항을 전달하기에 적합합니다.
+        </p>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0;">
+          <h3 style="margin: 0 0 10px 0; color: #667eea; font-size: 18px;">주요 안내사항</h3>
+          <ul style="margin: 0; padding-left: 20px; color: #555; line-height: 1.8;">
+            <li>첫 번째 안내사항</li>
+            <li>두 번째 안내사항</li>
+            <li>세 번째 안내사항</li>
+          </ul>
+        </div>
+        <p style="text-align: right; color: #999; font-size: 14px; margin: 20px 0 0 0;">
+          문의사항이 있으시면 관리자에게 연락주세요.
+        </p>
+      </div>
+    </div>
+    <!-- 여기까지 복사 -->
+  </div>
+
+  <div class="code-box">
+    <pre style="margin: 0; white-space: pre-wrap;">&lt;!-- 여기부터 복사 --&gt;
+&lt;div style="max-width: 800px; margin: 20px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"&gt;
+  &lt;div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;"&gt;
+    &lt;h1 style="margin: 0; font-size: 28px; font-weight: bold;"&gt;공지사항 제목&lt;/h1&gt;
+    &lt;p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 14px;"&gt;2025년 1월 1일&lt;/p&gt;
+  &lt;/div&gt;
+  &lt;div style="background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"&gt;
+    &lt;p style="line-height: 1.8; color: #333; font-size: 16px; margin: 0 0 20px 0;"&gt;
+      안녕하세요. 여기에 공지사항 내용을 작성하세요.
+    &lt;/p&gt;
+    &lt;div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin: 20px 0;"&gt;
+      &lt;h3 style="margin: 0 0 10px 0; color: #667eea; font-size: 18px;"&gt;주요 안내사항&lt;/h3&gt;
+      &lt;ul style="margin: 0; padding-left: 20px; color: #555; line-height: 1.8;"&gt;
+        &lt;li&gt;첫 번째 안내사항&lt;/li&gt;
+        &lt;li&gt;두 번째 안내사항&lt;/li&gt;
+        &lt;li&gt;세 번째 안내사항&lt;/li&gt;
+      &lt;/ul&gt;
+    &lt;/div&gt;
+    &lt;p style="text-align: right; color: #999; font-size: 14px; margin: 20px 0 0 0;"&gt;
+      문의사항이 있으시면 관리자에게 연락주세요.
+    &lt;/p&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+&lt;!-- 여기까지 복사 --&gt;</pre>
+  </div>
+</div>
+
+<!-- 템플릿 2: 단계별 가이드 -->
+<div class="guide-section">
+  <div class="template-title">📝 템플릿 2: 단계별 가이드 (번호 매김)</div>
+
+  <div class="preview-label">미리보기</div>
+  <div class="preview-box">
+    <!-- 여기부터 복사 -->
+    <div style="max-width: 800px; margin: 20px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="background: #1a73e8; color: white; padding: 25px; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0; font-size: 24px;">이용 방법 안내</h2>
+      </div>
+      <div style="background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="display: flex; margin: 20px 0; padding: 20px; background: #e3f2fd; border-radius: 8px; align-items: flex-start;">
+          <div style="background: #1a73e8; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; flex-shrink: 0;">1</div>
+          <div style="margin-left: 20px; flex: 1;">
+            <h3 style="margin: 0 0 10px 0; color: #1a73e8; font-size: 18px;">첫 번째 단계</h3>
+            <p style="margin: 0; line-height: 1.6; color: #555;">여기에 첫 번째 단계에 대한 설명을 작성하세요.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; margin: 20px 0; padding: 20px; background: #e8f5e9; border-radius: 8px; align-items: flex-start;">
+          <div style="background: #4caf50; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; flex-shrink: 0;">2</div>
+          <div style="margin-left: 20px; flex: 1;">
+            <h3 style="margin: 0 0 10px 0; color: #4caf50; font-size: 18px;">두 번째 단계</h3>
+            <p style="margin: 0; line-height: 1.6; color: #555;">여기에 두 번째 단계에 대한 설명을 작성하세요.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; margin: 20px 0; padding: 20px; background: #fff3e0; border-radius: 8px; align-items: flex-start;">
+          <div style="background: #ff9800; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; flex-shrink: 0;">3</div>
+          <div style="margin-left: 20px; flex: 1;">
+            <h3 style="margin: 0 0 10px 0; color: #ff9800; font-size: 18px;">세 번째 단계</h3>
+            <p style="margin: 0; line-height: 1.6; color: #555;">여기에 세 번째 단계에 대한 설명을 작성하세요.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 여기까지 복사 -->
+  </div>
+</div>
+
+<!-- 템플릿 3: 경고/주의사항 -->
+<div class="guide-section">
+  <div class="template-title">⚠️ 템플릿 3: 경고 및 주의사항</div>
+
+  <div class="preview-label">미리보기</div>
+  <div class="preview-box">
+    <!-- 여기부터 복사 -->
+    <div style="max-width: 800px; margin: 20px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="background: #fff3cd; border-left: 6px solid #ffc107; padding: 25px; border-radius: 8px; margin: 20px 0;">
+        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+          <span style="font-size: 32px; margin-right: 15px;">⚠️</span>
+          <h2 style="margin: 0; color: #856404; font-size: 22px;">중요 안내</h2>
+        </div>
+        <p style="margin: 0; line-height: 1.8; color: #856404; font-size: 16px;">
+          여기에 중요한 안내사항이나 주의해야 할 내용을 작성하세요. 사용자의 주의를 끌어야 하는 내용에 적합합니다.
+        </p>
+      </div>
+
+      <div style="background: #f8d7da; border-left: 6px solid #dc3545; padding: 25px; border-radius: 8px; margin: 20px 0;">
+        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+          <span style="font-size: 32px; margin-right: 15px;">🚫</span>
+          <h2 style="margin: 0; color: #721c24; font-size: 22px;">금지사항</h2>
+        </div>
+        <ul style="margin: 0; padding-left: 20px; line-height: 1.8; color: #721c24;">
+          <li>금지사항 1</li>
+          <li>금지사항 2</li>
+          <li>금지사항 3</li>
+        </ul>
+      </div>
+
+      <div style="background: #d1ecf1; border-left: 6px solid #17a2b8; padding: 25px; border-radius: 8px; margin: 20px 0;">
+        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+          <span style="font-size: 32px; margin-right: 15px;">💡</span>
+          <h2 style="margin: 0; color: #0c5460; font-size: 22px;">도움말</h2>
+        </div>
+        <p style="margin: 0; line-height: 1.8; color: #0c5460; font-size: 16px;">
+          유용한 팁이나 추가 정보를 여기에 작성하세요.
+        </p>
+      </div>
+    </div>
+    <!-- 여기까지 복사 -->
+  </div>
+</div>
+
+<!-- 템플릿 4: 표 형식 -->
+<div class="guide-section">
+  <div class="template-title">📊 템플릿 4: 표 형식 안내</div>
+
+  <div class="preview-label">미리보기</div>
+  <div class="preview-box">
+    <!-- 여기부터 복사 -->
+    <div style="max-width: 800px; margin: 20px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <h2 style="color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; margin-bottom: 20px;">시설 이용 시간표</h2>
+      <table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
+        <thead>
+          <tr style="background: #3498db; color: white;">
+            <th style="padding: 15px; text-align: left; font-size: 16px; border-bottom: 2px solid #2980b9;">시간</th>
+            <th style="padding: 15px; text-align: left; font-size: 16px; border-bottom: 2px solid #2980b9;">프로그램</th>
+            <th style="padding: 15px; text-align: left; font-size: 16px; border-bottom: 2px solid #2980b9;">정원</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #ecf0f1;">
+            <td style="padding: 15px; color: #555;">09:00 - 10:00</td>
+            <td style="padding: 15px; color: #555;">아침 운동</td>
+            <td style="padding: 15px; color: #555;">20명</td>
+          </tr>
+          <tr style="background: #f8f9fa; border-bottom: 1px solid #ecf0f1;">
+            <td style="padding: 15px; color: #555;">10:00 - 12:00</td>
+            <td style="padding: 15px; color: #555;">자유 이용</td>
+            <td style="padding: 15px; color: #555;">30명</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #ecf0f1;">
+            <td style="padding: 15px; color: #555;">14:00 - 16:00</td>
+            <td style="padding: 15px; color: #555;">체육 활동</td>
+            <td style="padding: 15px; color: #555;">25명</td>
+          </tr>
+          <tr style="background: #f8f9fa;">
+            <td style="padding: 15px; color: #555;">16:00 - 18:00</td>
+            <td style="padding: 15px; color: #555;">저녁 운동</td>
+            <td style="padding: 15px; color: #555;">20명</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- 여기까지 복사 -->
+  </div>
+</div>
+
+<!-- 템플릿 5: 카드형 안내 -->
+<div class="guide-section">
+  <div class="template-title">🎴 템플릿 5: 카드형 안내</div>
+
+  <div class="preview-label">미리보기</div>
+  <div class="preview-box">
+    <!-- 여기부터 복사 -->
+    <div style="max-width: 900px; margin: 20px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <h2 style="text-align: center; color: #2c3e50; margin-bottom: 30px; font-size: 28px;">서비스 안내</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+        <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 4px solid #e74c3c;">
+          <div style="font-size: 40px; text-align: center; margin-bottom: 15px;">📅</div>
+          <h3 style="text-align: center; color: #e74c3c; margin: 0 0 15px 0; font-size: 20px;">예약 시스템</h3>
+          <p style="text-align: center; color: #666; line-height: 1.6; margin: 0;">
+            온라인으로 간편하게 예약하고 관리하세요.
+          </p>
+        </div>
+
+        <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 4px solid #3498db;">
+          <div style="font-size: 40px; text-align: center; margin-bottom: 15px;">🏃</div>
+          <h3 style="text-align: center; color: #3498db; margin: 0 0 15px 0; font-size: 20px;">체육 프로그램</h3>
+          <p style="text-align: center; color: #666; line-height: 1.6; margin: 0;">
+            다양한 체육 프로그램을 제공합니다.
+          </p>
+        </div>
+
+        <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 4px solid #2ecc71;">
+          <div style="font-size: 40px; text-align: center; margin-bottom: 15px;">📞</div>
+          <h3 style="text-align: center; color: #2ecc71; margin: 0 0 15px 0; font-size: 20px;">고객 지원</h3>
+          <p style="text-align: center; color: #666; line-height: 1.6; margin: 0;">
+            언제든지 문의하실 수 있습니다.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!-- 여기까지 복사 -->
+  </div>
+</div>
+
+<!-- 템플릿 6: FAQ 형식 -->
+<div class="guide-section">
+  <div class="template-title">❓ 템플릿 6: FAQ (자주 묻는 질문)</div>
+
+  <div class="preview-label">미리보기</div>
+  <div class="preview-box">
+    <!-- 여기부터 복사 -->
+    <div style="max-width: 800px; margin: 20px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <h2 style="text-align: center; color: #2c3e50; margin-bottom: 30px; font-size: 28px;">자주 묻는 질문</h2>
+
+      <div style="background: white; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
+        <div style="background: #3498db; color: white; padding: 20px; font-weight: bold; font-size: 16px;">
+          Q. 예약은 어떻게 하나요?
+        </div>
+        <div style="padding: 20px; background: #ecf0f1; color: #555; line-height: 1.8;">
+          <strong>A.</strong> 로그인 후 대시보드에서 원하는 날짜와 시간을 선택하여 예약하실 수 있습니다.
+        </div>
+      </div>
+
+      <div style="background: white; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
+        <div style="background: #2ecc71; color: white; padding: 20px; font-weight: bold; font-size: 16px;">
+          Q. 예약 취소는 언제까지 가능한가요?
+        </div>
+        <div style="padding: 20px; background: #d5f4e6; color: #555; line-height: 1.8;">
+          <strong>A.</strong> 이용일 3일 전까지 취소가 가능합니다. 그 이후에는 관리자에게 문의해주세요.
+        </div>
+      </div>
+
+      <div style="background: white; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
+        <div style="background: #e67e22; color: white; padding: 20px; font-weight: bold; font-size: 16px;">
+          Q. 한 달에 몇 번까지 예약할 수 있나요?
+        </div>
+        <div style="padding: 20px; background: #fdebd0; color: #555; line-height: 1.8;">
+          <strong>A.</strong> 한 달에 최대 4일까지 예약하실 수 있으며, 하루에 2개의 타임까지 선택 가능합니다.
+        </div>
+      </div>
+    </div>
+    <!-- 여기까지 복사 -->
+  </div>
+</div>
+
+<!-- 빠른 참조 -->
+<div class="guide-section">
+  <div class="template-title">🚀 빠른 참조: 색상 코드</div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+    <div style="background: #3498db; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+      <div style="font-weight: bold; margin-bottom: 5px;">파란색</div>
+      <code style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px;">#3498db</code>
+    </div>
+    <div style="background: #2ecc71; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+      <div style="font-weight: bold; margin-bottom: 5px;">초록색</div>
+      <code style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px;">#2ecc71</code>
+    </div>
+    <div style="background: #e74c3c; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+      <div style="font-weight: bold; margin-bottom: 5px;">빨간색</div>
+      <code style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px;">#e74c3c</code>
+    </div>
+    <div style="background: #f39c12; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+      <div style="font-weight: bold; margin-bottom: 5px;">주황색</div>
+      <code style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px;">#f39c12</code>
+    </div>
+    <div style="background: #9b59b6; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+      <div style="font-weight: bold; margin-bottom: 5px;">보라색</div>
+      <code style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px;">#9b59b6</code>
+    </div>
+    <div style="background: #1abc9c; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+      <div style="font-weight: bold; margin-bottom: 5px;">청록색</div>
+      <code style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px;">#1abc9c</code>
+    </div>
+  </div>
+</div>
+
+<div class="guide-section">
+  <h3 style="color: #e74c3c; margin-bottom: 15px;">⚠️ 주의사항</h3>
+  <ul style="line-height: 2; color: #555;">
+    <li>템플릿 코드를 복사할 때 <code>&lt;!-- 여기부터 복사 --&gt;</code>와 <code>&lt;!-- 여기까지 복사 --&gt;</code> 주석 사이의 내용만 복사하세요</li>
+    <li><code>&lt;!DOCTYPE html&gt;</code>, <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code>, <code>&lt;body&gt;</code> 태그는 절대 포함하지 마세요</li>
+    <li>공지사항 작성 시 <strong>HTML 모드</strong>로 전환한 후 붙여넣기 하세요</li>
+    <li>텍스트만 수정하고 HTML 태그 구조는 유지하세요</li>
+    <li>색상을 변경하려면 <code>background:</code> 또는 <code>color:</code> 뒤의 색상 코드를 변경하세요</li>
+  </ul>
+</div>
+
+</body>
+</html>
