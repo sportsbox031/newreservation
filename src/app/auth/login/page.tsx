@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Award, Eye, EyeOff, ArrowLeft, AlertCircle, CheckCircle, Calendar } from 'lucide-react';
-import { memberAPI } from '@/lib/supabase';
+import { memberAPI, adminAPI } from '@/lib/supabase';
 
 const loginSchema = z.object({
   organization_name: z.string().min(1, '단체명을 입력해주세요'),
@@ -34,42 +34,27 @@ function LoginFormComponent() {
     setLoginError('');
 
     try {
-      // 관리자 계정 확인 (하드코딩)
-      if (data.organization_name === 'admin' && data.password === 'admin123') {
+      // 관리자 계정 확인 (admin으로 시작하는 경우)
+      if (data.organization_name.startsWith('admin')) {
+        const { data: adminData, error: adminError } = await adminAPI.login(data.organization_name, data.password);
+
+        if (adminError || !adminData) {
+          setLoginError(adminError?.message || '관리자 로그인에 실패했습니다.');
+          setIsSubmitting(false);
+          return;
+        }
+
         // 관리자 정보를 localStorage에 저장
-        const adminInfo = {
-          id: 'admin-super-id',
-          username: 'admin',
-          role: 'super',
-          region_id: null,
-          isAuthenticated: true
-        };
-        localStorage.setItem('adminInfo', JSON.stringify(adminInfo));
-        router.push('/admin');
-        return;
-      } else if (data.organization_name === 'admin_south' && data.password === 'admin123') {
-        // 남부 관리자 정보를 localStorage에 저장
-        const adminInfo = {
-          id: 'admin-south-id',
-          username: 'admin_south',
-          role: 'south',
-          region_id: 1,
-          isAuthenticated: true
-        };
-        localStorage.setItem('adminInfo', JSON.stringify(adminInfo));
-        router.push('/admin/south');
-        return;
-      } else if (data.organization_name === 'admin_north' && data.password === 'admin123') {
-        // 북부 관리자 정보를 localStorage에 저장
-        const adminInfo = {
-          id: 'admin-north-id',
-          username: 'admin_north',
-          role: 'north',
-          region_id: 2,
-          isAuthenticated: true
-        };
-        localStorage.setItem('adminInfo', JSON.stringify(adminInfo));
-        router.push('/admin/north');
+        localStorage.setItem('adminInfo', JSON.stringify(adminData));
+
+        // 역할에 따라 리다이렉트
+        if (adminData.role === 'super') {
+          router.push('/admin');
+        } else if (adminData.role === 'south') {
+          router.push('/admin/south');
+        } else if (adminData.role === 'north') {
+          router.push('/admin/north');
+        }
         return;
       }
 

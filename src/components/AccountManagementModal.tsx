@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X, User, Mail, Phone, MapPin, Building } from 'lucide-react'
-import { memberAPI } from '@/lib/supabase'
+import { memberAPI, adminAPI } from '@/lib/supabase'
 
 interface AccountManagementModalProps {
   isOpen: boolean
@@ -64,20 +64,80 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
     setLoading(true)
 
     try {
-      // 관리자는 로컬스토리지만 업데이트
+      // 관리자 계정 업데이트
       if (userType === 'admin') {
         const storageKey = 'adminInfo'
         const adminData = localStorage.getItem(storageKey)
-        if (adminData) {
-          const parsed = JSON.parse(adminData)
+        if (!adminData) {
+          alert('로그인 정보를 찾을 수 없습니다.')
+          return
+        }
+
+        const parsed = JSON.parse(adminData)
+        console.log('📦 localStorage에서 가져온 adminInfo:', parsed)
+
+        const adminId = parsed.id
+        console.log('🆔 추출한 adminId:', adminId, '(타입:', typeof adminId, ')')
+
+        if (!adminId || typeof adminId !== 'string' || adminId.length < 30) {
+          alert('관리자 ID가 유효하지 않습니다. 다시 로그인해주세요.')
+          localStorage.removeItem('adminInfo')
+          window.location.href = '/auth/login'
+          return
+        }
+
+        // 1. 일반 정보 업데이트 (username은 로그인 ID이므로 변경하지 않음)
+        console.log('🔍 업데이트 요청 데이터:', {
+          adminId,
+          phone: formData.phone,
+          email: formData.email
+        })
+
+        const updatePayload = {
+          phone: formData.phone || '',
+          email: formData.email || ''
+        }
+
+        const { data: updatedAdmin, error: updateError } = await adminAPI.updateAdminInfo(adminId, updatePayload)
+
+        console.log('📊 업데이트 응답:', { data: updatedAdmin, error: updateError })
+
+        if (updateError) {
+          console.error('정보 업데이트 오류:', updateError)
+          console.error('오류 타입:', typeof updateError)
+          console.error('오류 키:', Object.keys(updateError))
+          alert('정보 업데이트 중 오류가 발생했습니다.')
+          return
+        }
+
+        console.log('✅ 관리자 정보 업데이트 성공:', updatedAdmin)
+
+        // 2. 비밀번호 변경 (선택사항)
+        if (showPasswordFields && formData.current_password && formData.password) {
+          const { data: passwordData, error: passwordError } = await adminAPI.changeAdminPassword(
+            adminId,
+            formData.current_password,
+            formData.password
+          )
+
+          if (passwordError) {
+            console.error('비밀번호 변경 오류:', passwordError)
+            alert(passwordError.message || '비밀번호 변경 중 오류가 발생했습니다.')
+            return
+          }
+        }
+
+        // 3. 로컬스토리지 업데이트
+        if (updatedAdmin && updatedAdmin.length > 0) {
           const updated = {
             ...parsed,
-            username: formData.manager_name,
-            phone: formData.phone,
-            email: formData.email
+            username: updatedAdmin[0].username,
+            phone: updatedAdmin[0].phone,
+            email: updatedAdmin[0].email
           }
           localStorage.setItem(storageKey, JSON.stringify(updated))
         }
+
         alert('계정 정보가 업데이트되었습니다.')
         onClose()
         return
@@ -182,15 +242,23 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <User className="w-4 h-4 inline mr-1" />
-                {userType === 'admin' ? '관리자명' : '담당자명'}
+                {userType === 'admin' ? '사용자명 (로그인 ID)' : '담당자명'}
               </label>
               <input
                 type="text"
                 value={formData.manager_name}
                 onChange={(e) => handleInputChange('manager_name', e.target.value)}
+                disabled={userType === 'admin'}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg ${
+                  userType === 'admin'
+                    ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
+                    : 'focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                }`}
               />
+              {userType === 'admin' && (
+                <p className="text-xs text-gray-500 mt-1">로그인 ID는 변경할 수 없습니다.</p>
+              )}
             </div>
 
             {/* 전화번호 */}

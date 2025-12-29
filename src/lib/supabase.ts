@@ -1847,3 +1847,141 @@ export const tierAPI = {
     return { data, error }
   }
 }
+
+// 관리자 계정 관리 API
+export const adminAPI = {
+  // 관리자 로그인
+  async login(username: string, password: string) {
+    try {
+      // 관리자 조회
+      const { data: admin, error: fetchError } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('username', username)
+        .single()
+
+      if (fetchError || !admin) {
+        return { data: null, error: { message: '등록되지 않은 관리자 계정입니다.' } }
+      }
+
+      // 비밀번호 검증
+      const passwordHash = hashPassword(password)
+      if (admin.password_hash !== passwordHash) {
+        return { data: null, error: { message: '비밀번호가 일치하지 않습니다.' } }
+      }
+
+      // 지역 ID 가져오기 (role이 south/north인 경우)
+      let region_id = null
+      if (admin.role === 'south' || admin.role === 'north') {
+        const regionCode = admin.role === 'south' ? 'south' : 'north'
+        const regionIdResult = await this.getRegionIdByCode(regionCode)
+        region_id = regionIdResult
+      }
+
+      // 로그인 성공
+      return {
+        data: {
+          id: admin.id,
+          username: admin.username,
+          role: admin.role,
+          region_id: region_id,
+          phone: admin.phone,
+          email: admin.email,
+          isAuthenticated: true
+        },
+        error: null
+      }
+    } catch (error) {
+      console.error('관리자 로그인 오류:', error)
+      return { data: null, error: { message: '로그인 중 오류가 발생했습니다.' } }
+    }
+  },
+
+  // 지역 코드로 지역 ID 조회
+  async getRegionIdByCode(code: string): Promise<number | null> {
+    const { data, error } = await supabase
+      .from('regions')
+      .select('id')
+      .eq('code', code)
+      .single()
+
+    if (error) return null
+    return data.id
+  },
+
+  // 관리자 정보 업데이트
+  async updateAdminInfo(adminId: string, updates: { username?: string; phone?: string; email?: string }) {
+    try {
+      console.log('📥 updateAdminInfo 호출:', { adminId, updates })
+
+      const { data, error } = await supabase
+        .from('admins')
+        .update(updates)
+        .eq('id', adminId)
+        .select()
+
+      console.log('📤 Supabase 응답:', {
+        data,
+        error,
+        errorType: error ? typeof error : 'null',
+        errorKeys: error ? Object.keys(error) : []
+      })
+
+      if (error) {
+        console.error('DB 업데이트 오류:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          fullError: JSON.stringify(error)
+        })
+      }
+
+      return { data, error }
+    } catch (error) {
+      console.error('예외 발생:', error)
+      return { data: null, error: { message: '업데이트 중 예외가 발생했습니다.' } }
+    }
+  },
+
+  // 관리자 비밀번호 변경
+  async changeAdminPassword(adminId: string, currentPassword: string, newPassword: string) {
+    // 현재 비밀번호 확인
+    const { data: admin, error: fetchError } = await supabase
+      .from('admins')
+      .select('password_hash')
+      .eq('id', adminId)
+      .single()
+
+    if (fetchError) {
+      return { data: null, error: { message: '관리자 정보를 찾을 수 없습니다.' } }
+    }
+
+    // 현재 비밀번호 검증
+    const currentPasswordHash = hashPassword(currentPassword)
+    if (admin.password_hash !== currentPasswordHash) {
+      return { data: null, error: { message: '현재 비밀번호가 일치하지 않습니다.' } }
+    }
+
+    // 새 비밀번호로 업데이트
+    const newPasswordHash = hashPassword(newPassword)
+    const { data, error } = await supabase
+      .from('admins')
+      .update({ password_hash: newPasswordHash })
+      .eq('id', adminId)
+      .select()
+
+    return { data, error }
+  },
+
+  // 관리자 ID로 조회
+  async getAdminById(adminId: string) {
+    const { data, error } = await supabase
+      .from('admins')
+      .select('*')
+      .eq('id', adminId)
+      .single()
+
+    return { data, error }
+  }
+}
