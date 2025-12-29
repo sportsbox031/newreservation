@@ -616,14 +616,6 @@ export default function SettingsPage() {
                     <Clock className="w-3 h-3 mr-2" />
                     일 최대 {currentSettings.max_reservations_per_day}타임 예약 가능
                   </li>
-                  <li className="flex items-center">
-                    <Sun className="w-3 h-3 mr-2" />
-                    오전 타임: 09:00 - 12:00
-                  </li>
-                  <li className="flex items-center">
-                    <Clock className="w-3 h-3 mr-2" />
-                    오후 타임: 13:00 - 17:00
-                  </li>
                 </ul>
               </div>
             </div>

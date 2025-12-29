@@ -10,10 +10,12 @@ import {
   Search,
   Filter,
   AlertTriangle,
-  Key
+  Key,
+  Download
 } from 'lucide-react'
 import { memberAPI, tierAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
+import ExcelJS from 'exceljs'
 
 interface Member {
   id: string
@@ -55,6 +57,7 @@ export default function MembersPage() {
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all')
+  const [regionFilter, setRegionFilter] = useState<'all' | '경기남부' | '경기북부'>('all')
   const [processing, setProcessing] = useState<string | null>(null)
   const [tiers, setTiers] = useState<Tier[]>([])
   const [updatingTier, setUpdatingTier] = useState<string | null>(null)
@@ -66,7 +69,7 @@ export default function MembersPage() {
 
   useEffect(() => {
     filterMembers()
-  }, [members, searchTerm, statusFilter])
+  }, [members, searchTerm, statusFilter, regionFilter])
 
   const loadTiers = async () => {
     try {
@@ -133,6 +136,11 @@ export default function MembersPage() {
     // 상태 필터
     if (statusFilter !== 'all') {
       filtered = filtered.filter(member => member.status === statusFilter)
+    }
+
+    // 지역 필터
+    if (regionFilter !== 'all') {
+      filtered = filtered.filter(member => member.cities?.regions?.name === regionFilter)
     }
 
     setFilteredMembers(filtered)
@@ -274,6 +282,133 @@ export default function MembersPage() {
     )
   }
 
+  const handleDownloadExcel = async () => {
+    try {
+      // 엑셀 워크북 생성
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('회원 목록')
+
+      // 열 너비 설정
+      worksheet.columns = [
+        { width: 25 }, // 단체명
+        { width: 12 }, // 대표자명
+        { width: 15 }, // 전화번호
+        { width: 25 }, // 이메일
+        { width: 12 }, // 지역
+        { width: 15 }, // 시/군
+        { width: 12 }, // 회원등급
+        { width: 12 }, // 상태
+        { width: 20 }  // 가입일
+      ]
+
+      // 제목 행
+      const titleRow = worksheet.getRow(1)
+      titleRow.getCell(1).value = '회원 목록'
+      worksheet.mergeCells(1, 1, 1, 9)
+      titleRow.getCell(1).font = { name: '맑은 고딕', size: 16, bold: true, color: { argb: 'FF1F4788' } }
+      titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6EAF8' } }
+      titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
+      titleRow.getCell(1).border = {
+        top: { style: 'thin', color: { argb: 'FF5DADE2' } },
+        left: { style: 'thin', color: { argb: 'FF5DADE2' } },
+        bottom: { style: 'thin', color: { argb: 'FF5DADE2' } },
+        right: { style: 'thin', color: { argb: 'FF5DADE2' } }
+      }
+      titleRow.height = 30
+
+      // 빈 행
+      worksheet.getRow(2).height = 5
+
+      // 헤더 행
+      const headerRow = worksheet.getRow(3)
+      const headers = ['단체명', '대표자명', '전화번호', '이메일', '지역', '시/군', '회원등급', '상태', '가입일']
+      headers.forEach((header, index) => {
+        const cell = headerRow.getCell(index + 1)
+        cell.value = header
+        cell.font = { name: '맑은 고딕', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5DADE2' } }
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF3498DB' } },
+          left: { style: 'thin', color: { argb: 'FF3498DB' } },
+          bottom: { style: 'thin', color: { argb: 'FF3498DB' } },
+          right: { style: 'thin', color: { argb: 'FF3498DB' } }
+        }
+      })
+      headerRow.height = 25
+
+      // 데이터 행
+      filteredMembers.forEach((member, index) => {
+        const row = worksheet.getRow(4 + index)
+        const tier = tiers.find(t => t.id === member.tier_id)
+
+        const statusText = member.status === 'pending' ? '대기중'
+          : member.status === 'approved' ? '승인됨'
+          : '거절됨'
+
+        const rowData = [
+          member.organization_name,
+          member.manager_name,
+          member.phone,
+          member.email,
+          member.cities?.regions?.name || '',
+          member.cities?.name || '',
+          tier?.tier_name || '미설정',
+          statusText,
+          formatDate(member.created_at)
+        ]
+
+        rowData.forEach((value, colIndex) => {
+          const cell = row.getCell(colIndex + 1)
+          cell.value = value
+          cell.font = { name: '맑은 고딕', size: 10 }
+          cell.alignment = { horizontal: 'center', vertical: 'middle' }
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFD5DBDB' } },
+            left: { style: 'thin', color: { argb: 'FFD5DBDB' } },
+            bottom: { style: 'thin', color: { argb: 'FFD5DBDB' } },
+            right: { style: 'thin', color: { argb: 'FFD5DBDB' } }
+          }
+
+          // 상태에 따른 배경색
+          if (colIndex === 7) { // 상태 열
+            if (member.status === 'pending') {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF4E6' } }
+            } else if (member.status === 'approved') {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } }
+            } else {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE4EC' } }
+            }
+          }
+        })
+
+        row.height = 20
+      })
+
+      // 엑셀 파일 다운로드
+      const buffer = await workbook.xlsx.writeBuffer()
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+
+      const filterText = regionFilter !== 'all' ? `_${regionFilter}` : ''
+      const statusText = statusFilter !== 'all'
+        ? statusFilter === 'pending' ? '_대기중'
+        : '_승인됨'
+        : ''
+
+      link.download = `회원목록${filterText}${statusText}_${new Date().toLocaleDateString('ko-KR')}.xlsx`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Excel 다운로드 오류:', error)
+      alert('Excel 다운로드 중 오류가 발생했습니다.')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -305,30 +440,50 @@ export default function MembersPage() {
 
         {/* 검색 및 필터 */}
         <div className="bg-white p-6 rounded-lg shadow mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="단체명, 대표자명, 이메일, 전화번호로 검색..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="단체명, 대표자명, 이메일, 전화번호로 검색..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-gray-400" />
-              <select
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-              >
-                <option value="all">전체 상태</option>
-                <option value="pending">대기중</option>
-                <option value="approved">승인됨</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-gray-400" />
+                {adminInfo?.role === 'super' && (
+                  <select
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={regionFilter}
+                    onChange={(e) => setRegionFilter(e.target.value as any)}
+                  >
+                    <option value="all">전체 지역</option>
+                    <option value="경기남부">경기남부</option>
+                    <option value="경기북부">경기북부</option>
+                  </select>
+                )}
+                <select
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                >
+                  <option value="all">전체 상태</option>
+                  <option value="pending">대기중</option>
+                  <option value="approved">승인됨</option>
+                </select>
+                <button
+                  onClick={handleDownloadExcel}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Excel 다운로드
+                </button>
+              </div>
             </div>
           </div>
         </div>
