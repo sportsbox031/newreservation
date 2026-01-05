@@ -1739,24 +1739,36 @@ export const tierAPI = {
 
   // Get user's tier information with details
   async getUserTier(userId: string) {
-    const { data, error } = await supabase
+    const { data: user, error } = await supabase
       .from('users')
-      .select(`
-        tier_id,
-        member_tiers!inner(
-          id,
-          tier_name,
-          tier_level,
-          description,
-          advance_reservation_days,
-          monthly_reservation_limit,
-          daily_slot_limit
-        )
-      `)
+      .select('tier')
       .eq('id', userId)
       .single()
 
-    return { data, error }
+    if (error || !user) {
+      return { data: null, error }
+    }
+
+    // Map simple tier to expected structure
+    const tierName = user.tier || 'Standard'
+    const tierId = tierName === 'Priority' ? 1 : 2
+
+    const data = {
+      tier_id: tierId,
+      member_tiers: {
+        id: tierId,
+        tier_name: tierName,
+        tier_level: tierId,
+        description: tierName === 'Priority'
+          ? 'Priority 회원 (학생수 ≤240 OR 학급수 ≤11)'
+          : 'Standard 회원',
+        advance_reservation_days: tierName === 'Priority' ? 1 : 0,
+        monthly_reservation_limit: 4,
+        daily_slot_limit: 2
+      }
+    }
+
+    return { data, error: null }
   },
 
   // Update member tier (Admin only)
