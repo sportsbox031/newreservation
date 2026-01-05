@@ -1272,12 +1272,22 @@ ${otherSessions.map(session =>
                             <div className="text-xs text-gray-500 mt-1">
                               20일이 영업일이 아닌경우 이전 영업일에 예약가능
                             </div>
+                            <div className="text-xs text-blue-600 mt-1.5 bg-blue-50 p-2 rounded">
+                              예시: 21일이 토요일인 경우<br />
+                              Priority → 19일(목) 예약가능<br />
+                              Standard → 20일(금) 예약가능
+                            </div>
                           </>
                         ) : (
                           <>
                             <div className="font-medium">매월 21일 예약가능</div>
                             <div className="text-xs text-gray-500 mt-1">
                               21일이 영업일이 아닌경우 이전 영업일에 예약가능
+                            </div>
+                            <div className="text-xs text-blue-600 mt-1.5 bg-blue-50 p-2 rounded">
+                              예시: 21일이 토요일인 경우<br />
+                              Standard → 20일(금) 예약가능<br />
+                              Priority → 19일(목) 예약가능
                             </div>
                           </>
                         )}
