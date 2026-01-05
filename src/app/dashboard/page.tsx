@@ -1263,12 +1263,26 @@ ${otherSessions.map(session =>
 
                   <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100">
                     <h4 className="text-sm sm:text-base font-medium text-gray-900 mb-2">등급 혜택</h4>
-                    {userTier.member_tiers?.advance_reservation_days > 0 && (
-                      <div className="flex items-center text-xs sm:text-sm text-green-600">
-                        <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                        <span className="break-keep">매월 하루 먼저 예약 가능</span>
+                    <div className="flex items-start text-xs sm:text-sm text-green-600">
+                      <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 mt-0.5 flex-shrink-0" />
+                      <div className="break-keep">
+                        {userTier.member_tiers?.tier_name === 'Priority' ? (
+                          <>
+                            <div className="font-medium">매월 20일 예약가능</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              20일이 영업일이 아닌경우 이전 영업일에 예약가능
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-medium">매월 21일 예약가능</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              21일이 영업일이 아닌경우 이전 영업일에 예약가능
+                            </div>
+                          </>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded text-center break-keep">
