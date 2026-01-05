@@ -404,6 +404,46 @@ export default function SettingsPage() {
     }
   }
 
+  // 전체 예약 시작/종료
+  const toggleAllTierReservations = async (shouldOpen: boolean) => {
+    if (!confirm(`모든 티어의 예약을 ${shouldOpen ? '시작' : '종료'}하시겠습니까?`)) {
+      return
+    }
+
+    const regionCode = activeTab
+    const yearMonth = `${currentYear}-${currentMonth.toString().padStart(2, '0')}`
+
+    setSaving(true)
+    try {
+      // 모든 티어에 대해 순차적으로 상태 변경
+      for (const tier of tiers) {
+        const { error } = await tierAPI.updateTierReservationStatus(
+          regionCode,
+          yearMonth,
+          tier.id,
+          shouldOpen,
+          adminInfo?.id || 'admin'
+        )
+
+        if (error) {
+          showMessage('error', `${tier.tier_name} 예약 상태 변경에 실패했습니다.`)
+          console.error(`Update ${tier.tier_name} reservation error:`, error)
+          // 에러가 나도 계속 진행
+        }
+      }
+
+      showMessage('success', `모든 티어의 예약이 ${shouldOpen ? '시작' : '종료'}되었습니다.`)
+
+      // 티어 데이터 다시 로드
+      loadTierData()
+    } catch (error) {
+      showMessage('error', '전체 예약 상태 변경 중 오류가 발생했습니다.')
+      console.error('Toggle all tier reservations error:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const currentSettings = settings[activeTab] || { is_open: false, max_reservations_per_day: 2, max_days_per_month: 4 }
   const currentBlockedDates = blockedDates[activeTab] || []
   const currentDailyLimits = dailyLimits[activeTab] || []
@@ -500,6 +540,34 @@ export default function SettingsPage() {
             <p className="text-sm text-blue-800">
               예약 제어는 아래 티어별 설정에서 각각 관리됩니다. Priority와 Standard 회원의 예약을 개별적으로 시작/종료할 수 있습니다.
             </p>
+          </div>
+        </div>
+
+        {/* 전체 예약 제어 */}
+        <div className="bg-white rounded-lg shadow mb-8">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900">전체 예약 제어</h2>
+            <p className="text-sm text-gray-500 mt-1">모든 티어의 예약을 한 번에 시작하거나 종료합니다</p>
+          </div>
+          <div className="px-6 py-4">
+            <div className="flex gap-4">
+              <button
+                onClick={() => toggleAllTierReservations(true)}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center px-6 py-3 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg font-medium disabled:opacity-50 transition-colors"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                전체 예약 시작
+              </button>
+              <button
+                onClick={() => toggleAllTierReservations(false)}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center px-6 py-3 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg font-medium disabled:opacity-50 transition-colors"
+              >
+                <Pause className="w-5 h-5 mr-2" />
+                전체 예약 종료
+              </button>
+            </div>
           </div>
         </div>
 
