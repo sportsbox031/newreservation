@@ -22,7 +22,7 @@ import {
   MessageCircle,
   HelpCircle
 } from 'lucide-react';
-import { settingsAPI, reservationAPI, supabase } from '@/lib/supabase';
+import { settingsAPI, reservationAPI, tierAPI, supabase } from '@/lib/supabase';
 import AccountManagementModal from '@/components/AccountManagementModal';
 import { useSessionCheck, detectMultipleLogins } from '@/hooks/useSessionCheck';
 
