@@ -19,7 +19,9 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
     password: '',
     confirmPassword: '',
     city_id: '',
-    current_password: ''
+    current_password: '',
+    student_count: 0,
+    class_count: 0
   })
   const [loading, setLoading] = useState(false)
   const [showPasswordFields, setShowPasswordFields] = useState(false)
@@ -34,7 +36,7 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
     try {
       const storageKey = userType === 'admin' ? 'adminInfo' : 'currentUser'
       const userData = localStorage.getItem(storageKey)
-      
+
       if (userData) {
         const parsed = JSON.parse(userData)
         setFormData({
@@ -45,7 +47,9 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
           password: '',
           confirmPassword: '',
           city_id: parsed.city_id || '',
-          current_password: ''
+          current_password: '',
+          student_count: parsed.student_count || 0,
+          class_count: parsed.class_count || 0
         })
       }
     } catch (error) {
@@ -153,11 +157,13 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
       const userData = JSON.parse(currentUser)
       const userId = userData.id
 
-      // 1. 일반 정보 업데이트
+      // 1. 일반 정보 업데이트 (티어는 자동으로 변경되지 않음)
       const { data: updatedUser, error: updateError } = await memberAPI.updateUserInfo(userId, {
         manager_name: formData.manager_name,
         phone: formData.phone,
-        email: formData.email
+        email: formData.email,
+        student_count: formData.student_count,
+        class_count: formData.class_count
       })
 
       if (updateError) {
@@ -187,7 +193,9 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
           ...userData,
           manager_name: updatedUser[0].manager_name,
           phone: updatedUser[0].phone,
-          email: updatedUser[0].email
+          email: updatedUser[0].email,
+          student_count: updatedUser[0].student_count,
+          class_count: updatedUser[0].class_count
         }
         localStorage.setItem('currentUser', JSON.stringify(updated))
       }
@@ -290,6 +298,42 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+
+            {/* 학생수 (일반 사용자만) */}
+            {userType === 'user' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  학생 수
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.student_count}
+                  onChange={(e) => handleInputChange('student_count', e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">학생 수 변경 시 티어는 자동으로 변경되지 않습니다.</p>
+              </div>
+            )}
+
+            {/* 학급수 (일반 사용자만) */}
+            {userType === 'user' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  학급 수
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.class_count}
+                  onChange={(e) => handleInputChange('class_count', e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">학급 수 변경 시 티어는 자동으로 변경되지 않습니다.</p>
+              </div>
+            )}
 
             {/* 비밀번호 변경 토글 */}
             <div className="border-t pt-4">

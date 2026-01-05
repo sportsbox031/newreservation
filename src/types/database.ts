@@ -49,6 +49,9 @@ export interface Database {
           email: string
           privacy_consent: boolean
           status: 'pending' | 'approved' | 'rejected' | 'suspended'
+          student_count: number | null
+          class_count: number | null
+          tier: 'Priority' | 'Standard'
           created_at: string
           updated_at: string
         }
@@ -62,6 +65,9 @@ export interface Database {
           email: string
           privacy_consent: boolean
           status?: 'pending' | 'approved' | 'rejected' | 'suspended'
+          student_count?: number | null
+          class_count?: number | null
+          tier?: 'Priority' | 'Standard'
           created_at?: string
           updated_at?: string
         }
@@ -75,6 +81,9 @@ export interface Database {
           email?: string
           privacy_consent?: boolean
           status?: 'pending' | 'approved' | 'rejected' | 'suspended'
+          student_count?: number | null
+          class_count?: number | null
+          tier?: 'Priority' | 'Standard'
           created_at?: string
           updated_at?: string
         }

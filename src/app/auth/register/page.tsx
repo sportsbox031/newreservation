@@ -40,6 +40,14 @@ const registerSchema = z.object({
   email: z.string()
     .email('올바른 이메일 주소를 입력해주세요')
     .max(100, '이메일은 100자를 초과할 수 없습니다'),
+  student_count: z.coerce.number()
+    .int('학생 수는 정수여야 합니다')
+    .min(1, '학생 수는 1명 이상이어야 합니다')
+    .max(10000, '학생 수는 10,000명을 초과할 수 없습니다'),
+  class_count: z.coerce.number()
+    .int('학급 수는 정수여야 합니다')
+    .min(1, '학급 수는 1개 이상이어야 합니다')
+    .max(500, '학급 수는 500개를 초과할 수 없습니다'),
   privacy_consent: z.boolean().refine(val => val === true, {
     message: '개인정보 수집 및 이용에 동의해주세요'
   })
@@ -78,16 +86,29 @@ export default function RegisterPage() {
     setSubmitStatus('idle');
     setErrorMessage('');
 
+    console.log('📝 폼 데이터:', {
+      student_count: data.student_count,
+      class_count: data.class_count,
+      student_count_type: typeof data.student_count,
+      class_count_type: typeof data.class_count
+    });
+
     try {
-      const { data: result, error } = await memberAPI.register({
+      const registerData = {
         organization_name: data.organization_name,
         password: data.password,
         manager_name: data.manager_name,
         city_name: data.city,
         phone: data.phone,
         email: data.email,
+        student_count: data.student_count,
+        class_count: data.class_count,
         privacy_consent: data.privacy_consent
-      });
+      };
+
+      console.log('🚀 API 호출 데이터:', registerData);
+
+      const { data: result, error } = await memberAPI.register(registerData);
 
       if (error) {
         console.error('회원가입 오류:', error);
@@ -329,6 +350,40 @@ export default function RegisterPage() {
               )}
             </div>
 
+
+            {/* 학생 수 */}
+            <div>
+              <label htmlFor="student_count" className="block text-sm font-medium text-gray-700 mb-2">
+                학생 수 <span className="text-red-500">*</span>
+              </label>
+              <input
+                {...register('student_count')}
+                type="number"
+                min="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="학생 수를 입력해주세요"
+              />
+              {errors.student_count && (
+                <p className="mt-1 text-sm text-red-600">{errors.student_count.message}</p>
+              )}
+            </div>
+
+            {/* 학급 수 */}
+            <div>
+              <label htmlFor="class_count" className="block text-sm font-medium text-gray-700 mb-2">
+                학급 수 <span className="text-red-500">*</span>
+              </label>
+              <input
+                {...register('class_count')}
+                type="number"
+                min="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="학급 수를 입력해주세요"
+              />
+              {errors.class_count && (
+                <p className="mt-1 text-sm text-red-600">{errors.class_count.message}</p>
+              )}
+            </div>
             {/* 개인정보 수집 동의 */}
             <div>
               <div className="flex items-start">

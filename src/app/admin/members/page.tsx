@@ -13,7 +13,7 @@ import {
   Key,
   Download
 } from 'lucide-react'
-import { memberAPI, tierAPI } from '@/lib/supabase'
+import { memberAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
 import ExcelJS from 'exceljs'
 
@@ -27,26 +27,15 @@ interface Member {
   city: string
   status: 'pending' | 'approved' | 'rejected'
   created_at: string
-  tier_id: number
+  tier: 'Priority' | 'Standard'
+  student_count: number | null
+  class_count: number | null
   cities: {
     name: string
     regions: {
       name: string
     }
   }
-  member_tiers?: {
-    id: number
-    tier_name: string
-    tier_level: number
-    description: string
-  }
-}
-
-interface Tier {
-  id: number
-  tier_name: string
-  tier_level: number
-  description: string
 }
 
 export default function MembersPage() {
@@ -59,28 +48,14 @@ export default function MembersPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all')
   const [regionFilter, setRegionFilter] = useState<'all' | '경기남부' | '경기북부'>('all')
   const [processing, setProcessing] = useState<string | null>(null)
-  const [tiers, setTiers] = useState<Tier[]>([])
-  const [updatingTier, setUpdatingTier] = useState<string | null>(null)
 
   useEffect(() => {
     checkAuth()
-    loadTiers()
   }, [])
 
   useEffect(() => {
     filterMembers()
   }, [members, searchTerm, statusFilter, regionFilter])
-
-  const loadTiers = async () => {
-    try {
-      const { data, error } = await tierAPI.getAllTiers()
-      if (!error && data) {
-        setTiers(data)
-      }
-    } catch (error) {
-      console.error('티어 데이터 로드 오류:', error)
-    }
-  }
 
   const checkAuth = () => {
     const adminAuth = localStorage.getItem('adminInfo')
@@ -149,22 +124,42 @@ export default function MembersPage() {
   const handleStatusChange = async (memberId: string, status: 'approved' | 'rejected') => {
     setProcessing(memberId)
     try {
-      const { error } = await memberAPI.updateMemberStatus(memberId, status)
-      if (error) {
-        console.error('회원 상태 업데이트 오류:', error)
-        alert('상태 업데이트에 실패했습니다.')
-        return
+      if (status === 'rejected') {
+        // 거절 시 회원 삭제
+        if (!confirm('회원 가입을 거절하면 데이터가 영구 삭제됩니다. 계속하시겠습니까?')) {
+          setProcessing(null)
+          return
+        }
+
+        const { error } = await memberAPI.deleteMember(memberId)
+        if (error) {
+          console.error('회원 삭제 오류:', error)
+          alert('회원 삭제에 실패했습니다.')
+          return
+        }
+
+        // 로컬 상태에서 제거
+        setMembers(prev => prev.filter(member => member.id !== memberId))
+        alert('회원 가입이 거절되었으며 데이터가 삭제되었습니다.')
+      } else {
+        // 승인 시 상태만 업데이트
+        const { error } = await memberAPI.updateMemberStatus(memberId, status)
+        if (error) {
+          console.error('회원 상태 업데이트 오류:', error)
+          alert('상태 업데이트에 실패했습니다.')
+          return
+        }
+
+        // 로컬 상태 업데이트
+        setMembers(prev => prev.map(member =>
+          member.id === memberId ? { ...member, status } : member
+        ))
+
+        alert('회원이 승인되었습니다.')
       }
-      
-      // 로컬 상태 업데이트
-      setMembers(prev => prev.map(member =>
-        member.id === memberId ? { ...member, status } : member
-      ))
-      
-      alert(`회원이 ${status === 'approved' ? '승인' : '거절'}되었습니다.`)
     } catch (error) {
       console.error('회원 상태 업데이트 예외:', error)
-      alert('상태 업데이트 중 오류가 발생했습니다.')
+      alert('처리 중 오류가 발생했습니다.')
     } finally {
       setProcessing(null)
     }
@@ -193,16 +188,14 @@ export default function MembersPage() {
     }
   }
 
-  const handleTierChange = async (memberId: string, newTierId: number, organizationName: string) => {
-    const tierName = tiers.find(t => t.id === newTierId)?.tier_name || '티어'
-
-    if (!confirm(`${organizationName}의 티어를 ${tierName}로 변경하시겠습니까?`)) {
+  const handleTierChange = async (memberId: string, newTier: 'Priority' | 'Standard', organizationName: string) => {
+    if (!confirm(`${organizationName}의 티어를 ${newTier}로 변경하시겠습니까?`)) {
       return
     }
 
-    setUpdatingTier(memberId)
+    setProcessing(memberId)
     try {
-      const { error } = await tierAPI.updateMemberTier(memberId, newTierId)
+      const { error } = await memberAPI.updateMemberTier(memberId, newTier)
       if (error) {
         console.error('회원 티어 업데이트 오류:', error)
         alert('티어 변경에 실패했습니다.')
@@ -211,15 +204,40 @@ export default function MembersPage() {
 
       // 로컬 상태 업데이트
       setMembers(prev => prev.map(member =>
-        member.id === memberId ? { ...member, tier_id: newTierId } : member
+        member.id === memberId ? { ...member, tier: newTier } : member
       ))
 
-      alert(`${organizationName}의 티어가 ${tierName}로 변경되었습니다.`)
+      alert(`${organizationName}의 티어가 ${newTier}로 변경되었습니다.`)
     } catch (error) {
       console.error('회원 티어 업데이트 예외:', error)
       alert('티어 변경 중 오류가 발생했습니다.')
     } finally {
-      setUpdatingTier(null)
+      setProcessing(null)
+    }
+  }
+
+  const handleDeleteMember = async (memberId: string, organizationName: string) => {
+    if (!confirm(`${organizationName} 회원을 삭제하시겠습니까?\n\n관련된 모든 데이터가 영구 삭제됩니다.`)) {
+      return
+    }
+
+    setProcessing(memberId)
+    try {
+      const { error } = await memberAPI.deleteMember(memberId)
+      if (error) {
+        console.error('회원 삭제 오류:', error)
+        alert('회원 삭제에 실패했습니다.')
+        return
+      }
+
+      // 로컬 상태에서 제거
+      setMembers(prev => prev.filter(member => member.id !== memberId))
+      alert(`${organizationName} 회원이 삭제되었습니다.`)
+    } catch (error) {
+      console.error('회원 삭제 예외:', error)
+      alert('회원 삭제 중 오류가 발생했습니다.')
+    } finally {
+      setProcessing(null)
     }
   }
 
@@ -261,23 +279,14 @@ export default function MembersPage() {
     })
   }
 
-  const getTierBadge = (tierId: number) => {
-    const tier = tiers.find(t => t.id === tierId)
-    if (!tier) {
-      return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-          미설정
-        </span>
-      )
-    }
-
+  const getTierBadge = (tier: 'Priority' | 'Standard') => {
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        tier.tier_name === 'Priority'
+        tier === 'Priority'
           ? 'bg-yellow-100 text-yellow-800'
           : 'bg-gray-100 text-gray-800'
       }`}>
-        {tier.tier_name === 'Priority' ? '🟡' : '⚪'} {tier.tier_name}
+        {tier === 'Priority' ? '🟡' : '⚪'} {tier}
       </span>
     )
   }
@@ -296,6 +305,8 @@ export default function MembersPage() {
         { width: 25 }, // 이메일
         { width: 12 }, // 지역
         { width: 15 }, // 시/군
+        { width: 12 }, // 학생수
+        { width: 12 }, // 학급수
         { width: 12 }, // 회원등급
         { width: 12 }, // 상태
         { width: 20 }  // 가입일
@@ -304,7 +315,7 @@ export default function MembersPage() {
       // 제목 행
       const titleRow = worksheet.getRow(1)
       titleRow.getCell(1).value = '회원 목록'
-      worksheet.mergeCells(1, 1, 1, 9)
+      worksheet.mergeCells(1, 1, 1, 11)
       titleRow.getCell(1).font = { name: '맑은 고딕', size: 16, bold: true, color: { argb: 'FF1F4788' } }
       titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6EAF8' } }
       titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
@@ -321,7 +332,7 @@ export default function MembersPage() {
 
       // 헤더 행
       const headerRow = worksheet.getRow(3)
-      const headers = ['단체명', '대표자명', '전화번호', '이메일', '지역', '시/군', '회원등급', '상태', '가입일']
+      const headers = ['단체명', '대표자명', '전화번호', '이메일', '지역', '시/군', '학생수', '학급수', '회원등급', '상태', '가입일']
       headers.forEach((header, index) => {
         const cell = headerRow.getCell(index + 1)
         cell.value = header
@@ -340,7 +351,6 @@ export default function MembersPage() {
       // 데이터 행
       filteredMembers.forEach((member, index) => {
         const row = worksheet.getRow(4 + index)
-        const tier = tiers.find(t => t.id === member.tier_id)
 
         const statusText = member.status === 'pending' ? '대기중'
           : member.status === 'approved' ? '승인됨'
@@ -353,7 +363,9 @@ export default function MembersPage() {
           member.email,
           member.cities?.regions?.name || '',
           member.cities?.name || '',
-          tier?.tier_name || '미설정',
+          member.student_count || 0,
+          member.class_count || 0,
+          member.tier,
           statusText,
           formatDate(member.created_at)
         ]
@@ -557,13 +569,16 @@ export default function MembersPage() {
                       지역
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      학생수
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      학급수
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       상태
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       티어
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      신청일
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       액션
@@ -595,30 +610,33 @@ export default function MembersPage() {
                           {member.cities?.name || member.city}
                         </div>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {member.student_count || 0}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {member.class_count || 0}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(member.status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {getTierBadge(member.tier_id)}
-                          {member.status === 'approved' && (
-                            <select
-                              value={member.tier_id}
-                              onChange={(e) => handleTierChange(member.id, Number(e.target.value), member.organization_name)}
-                              disabled={updatingTier === member.id}
-                              className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
-                            >
-                              {tiers.map(tier => (
-                                <option key={tier.id} value={tier.id}>
-                                  {tier.tier_name}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(member.created_at)}
+                        {member.status === 'approved' ? (
+                          <select
+                            value={member.tier}
+                            onChange={(e) => handleTierChange(member.id, e.target.value as 'Priority' | 'Standard', member.organization_name)}
+                            disabled={processing === member.id}
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed ${
+                              member.tier === 'Priority'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            <option value="Priority">🟡 Priority</option>
+                            <option value="Standard">⚪ Standard</option>
+                          </select>
+                        ) : (
+                          getTierBadge(member.tier)
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
@@ -648,6 +666,15 @@ export default function MembersPage() {
                           >
                             <Key className="w-3 h-3" />
                             초기화
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMember(member.id, member.organization_name)}
+                            disabled={processing === member.id}
+                            className="flex items-center gap-1 text-red-600 hover:text-red-900 disabled:opacity-50"
+                            title="회원 삭제"
+                          >
+                            <XCircle className="w-3 h-3" />
+                            삭제
                           </button>
                         </div>
                       </td>

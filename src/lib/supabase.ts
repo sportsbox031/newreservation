@@ -64,6 +64,8 @@ export const memberAPI = {
     city_name: string;
     phone: string;
     email: string;
+    student_count: number;
+    class_count: number;
     privacy_consent: boolean;
   }) {
     // Get city_id from city name
@@ -75,19 +77,36 @@ export const memberAPI = {
     // Hash password
     const password_hash = hashPassword(userData.password)
 
+    console.log('🔍 회원가입 데이터:', {
+      student_count: userData.student_count,
+      class_count: userData.class_count,
+      student_count_type: typeof userData.student_count,
+      class_count_type: typeof userData.class_count
+    })
+
+    // 티어는 DB 트리거에서 자동 계산 (학생수 ≤240 OR 학급수 ≤11 → Priority)
+    const insertData = {
+      organization_name: userData.organization_name,
+      password_hash,
+      manager_name: userData.manager_name,
+      city_id: cityId,
+      phone: userData.phone,
+      email: userData.email,
+      student_count: userData.student_count,
+      class_count: userData.class_count,
+      privacy_consent: userData.privacy_consent,
+      status: 'pending'
+      // tier는 DB 트리거가 자동으로 설정
+    }
+
+    console.log('📤 Insert 데이터:', insertData)
+
     const { data, error } = await supabase
       .from('users')
-      .insert([{
-        organization_name: userData.organization_name,
-        password_hash,
-        manager_name: userData.manager_name,
-        city_id: cityId,
-        phone: userData.phone,
-        email: userData.email,
-        privacy_consent: userData.privacy_consent,
-        status: 'pending'
-      }])
+      .insert([insertData])
       .select()
+
+    console.log('✅ Insert 결과:', { data, error })
 
     return { data, error }
   },
@@ -265,11 +284,23 @@ export const memberAPI = {
     return { data, error }
   },
 
-  // 사용자 정보 업데이트
+  // 회원 삭제 (관리자용)
+  async deleteMember(userId: string) {
+    const { data, error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId)
+
+    return { data, error }
+  },
+
+  // 사용자 정보 업데이트 (티어는 자동으로 변경되지 않음)
   async updateUserInfo(userId: string, updateData: {
     manager_name?: string;
     phone?: string;
     email?: string;
+    student_count?: number;
+    class_count?: number;
   }) {
     const { data, error } = await supabase
       .from('users')
@@ -304,6 +335,28 @@ export const memberAPI = {
     const { data, error } = await supabase
       .from('users')
       .update({ password_hash: newPasswordHash })
+      .eq('id', userId)
+      .select()
+
+    return { data, error }
+  },
+
+  // 회원 등급 변경
+  async updateMemberTier(userId: string, tier: 'Priority' | 'Standard') {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ tier })
+      .eq('id', userId)
+      .select()
+
+    return { data, error }
+  },
+
+  // 회원 학생수/학급수 업데이트
+  async updateMemberCounts(userId: string, student_count: number, class_count: number) {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ student_count, class_count })
       .eq('id', userId)
       .select()
 

@@ -74,12 +74,17 @@ src/
 - **Schema Files**: Multiple SQL files for migrations and RLS policies
 
 ### API Layer (`lib/supabase.ts`)
-Centralized API functions organized by domain:
+Centralized API functions organized by domain (2013 lines total):
 - `memberAPI`: Registration, login, approval management
 - `reservationAPI`: Booking, status management, regional filtering
 - `settingsAPI`: Blocked dates, configuration management
 - `announcementAPI`: Public announcements and notifications
 - `popupAPI`: Homepage modal popup management
+- `sessionAPI`: Session management and tracking
+- `reservationConcurrencyAPI`: Concurrent reservation handling
+- `tierAPI`: User tier system management
+- `adminAPI`: Admin-specific operations
+- `utilityAPI`: Common utility functions
 
 ### Key Business Rules
 - Monthly reservation limit: 4 days per user

@@ -22,7 +22,7 @@ import {
   MessageCircle,
   HelpCircle
 } from 'lucide-react';
-import { settingsAPI, reservationAPI, tierAPI, supabase } from '@/lib/supabase';
+import { settingsAPI, reservationAPI, supabase } from '@/lib/supabase';
 import AccountManagementModal from '@/components/AccountManagementModal';
 import { useSessionCheck, detectMultipleLogins } from '@/hooks/useSessionCheck';
 
@@ -295,15 +295,26 @@ ${otherSessions.map(session =>
     if (!user?.id) return;
 
     try {
-      const { data, error } = await tierAPI.getUserTier(user.id);
-      if (error) {
-        console.error('사용자 티어 정보 로드 오류:', error);
-        return;
-      }
+      // 간단한 tier 시스템 사용 (user 객체에서 직접 가져오기)
+      const tierName = user.tier || 'Standard';
 
-      if (data) {
-        setUserTier(data);
-      }
+      // UserTier 인터페이스에 맞게 변환
+      const tierData: UserTier = {
+        tier_id: tierName === 'Priority' ? 1 : 2,
+        member_tiers: {
+          id: tierName === 'Priority' ? 1 : 2,
+          tier_name: tierName,
+          tier_level: tierName === 'Priority' ? 1 : 2,
+          description: tierName === 'Priority'
+            ? 'Priority 회원 (학생수 ≤240 OR 학급수 ≤11)'
+            : 'Standard 회원',
+          advance_reservation_days: tierName === 'Priority' ? 1 : 0,
+          monthly_reservation_limit: 4,
+          daily_slot_limit: 2
+        }
+      };
+
+      setUserTier(tierData);
     } catch (error) {
       console.error('사용자 티어 정보 로드 중 예외:', error);
     }
