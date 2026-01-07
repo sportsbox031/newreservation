@@ -303,6 +303,196 @@ export interface Database {
           updated_at?: string
         }
       }
+      announcements: {
+        Row: {
+          id: string
+          title: string
+          content: string
+          author_id: string
+          target_type: 'all' | 'region'
+          target_region_id: number | null
+          is_important: boolean
+          is_published: boolean
+          view_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          content: string
+          author_id: string
+          target_type: 'all' | 'region'
+          target_region_id?: number | null
+          is_important?: boolean
+          is_published?: boolean
+          view_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          content?: string
+          author_id?: string
+          target_type?: 'all' | 'region'
+          target_region_id?: number | null
+          is_important?: boolean
+          is_published?: boolean
+          view_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      announcement_views: {
+        Row: {
+          id: string
+          announcement_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          id?: string
+          announcement_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          id?: string
+          announcement_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+      }
+      announcement_attachments: {
+        Row: {
+          id: string
+          announcement_id: string
+          file_name: string
+          file_size: number
+          file_type: string
+          storage_path: string
+          uploaded_at: string
+        }
+        Insert: {
+          id?: string
+          announcement_id: string
+          file_name: string
+          file_size: number
+          file_type: string
+          storage_path: string
+          uploaded_at?: string
+        }
+        Update: {
+          id?: string
+          announcement_id?: string
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          storage_path?: string
+          uploaded_at?: string
+        }
+      }
+      user_sessions: {
+        Row: {
+          id: number
+          user_id: string
+          session_token: string
+          user_agent: string | null
+          ip_address: string | null
+          is_active: boolean
+          last_activity: string
+          created_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          session_token: string
+          user_agent?: string | null
+          ip_address?: string | null
+          is_active?: boolean
+          last_activity?: string
+          created_at?: string
+          expires_at: string
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          session_token?: string
+          user_agent?: string | null
+          ip_address?: string | null
+          is_active?: boolean
+          last_activity?: string
+          created_at?: string
+          expires_at?: string
+        }
+      }
+      daily_reservations_limit: {
+        Row: {
+          id: number
+          reservation_date: string
+          time_slot: string
+          max_capacity: number
+          current_count: number
+          is_full: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          reservation_date: string
+          time_slot: string
+          max_capacity?: number
+          current_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          reservation_date?: string
+          time_slot?: string
+          max_capacity?: number
+          current_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      reservation_transactions: {
+        Row: {
+          id: number
+          user_id: string
+          reservation_date: string
+          time_slot: string
+          transaction_id: string
+          status: 'pending' | 'success' | 'failed' | 'expired'
+          failure_reason: string | null
+          created_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          reservation_date: string
+          time_slot: string
+          transaction_id?: string
+          status?: 'pending' | 'success' | 'failed' | 'expired'
+          failure_reason?: string | null
+          created_at?: string
+          expires_at?: string
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          reservation_date?: string
+          time_slot?: string
+          transaction_id?: string
+          status?: 'pending' | 'success' | 'failed' | 'expired'
+          failure_reason?: string | null
+          created_at?: string
+          expires_at?: string
+        }
+      }
     }
     Views: {
       user_details: {
@@ -336,6 +526,37 @@ export interface Database {
         }
         Returns: number
       }
+      cleanup_expired_sessions: {
+        Args: Record<string, never>
+        Returns: void
+      }
+      try_reserve_slot: {
+        Args: {
+          p_user_id: string
+          p_date: string
+          p_time_slot: string
+        }
+        Returns: {
+          success: boolean
+          message: string
+          transaction_id: string
+          current_count: number
+          max_capacity: number
+        }
+      }
+      cancel_reservation_slot: {
+        Args: {
+          p_date: string
+          p_time_slot: string
+        }
+        Returns: void
+      }
+      count_announcement_attachments: {
+        Args: {
+          p_announcement_id: string
+        }
+        Returns: number
+      }
     }
   }
 }
@@ -365,3 +586,30 @@ export type ReservationSettings = Database['public']['Tables']['reservation_sett
 export type BlockedDate = Database['public']['Tables']['blocked_dates']['Row']
 
 export type Admin = Database['public']['Tables']['admins']['Row']
+
+// Announcements (공지사항)
+export type Announcement = Database['public']['Tables']['announcements']['Row']
+export type AnnouncementInsert = Database['public']['Tables']['announcements']['Insert']
+export type AnnouncementUpdate = Database['public']['Tables']['announcements']['Update']
+
+export type AnnouncementView = Database['public']['Tables']['announcement_views']['Row']
+export type AnnouncementViewInsert = Database['public']['Tables']['announcement_views']['Insert']
+
+export type AnnouncementAttachment = Database['public']['Tables']['announcement_attachments']['Row']
+export type AnnouncementAttachmentInsert = Database['public']['Tables']['announcement_attachments']['Insert']
+export type AnnouncementAttachmentUpdate = Database['public']['Tables']['announcement_attachments']['Update']
+
+// Sessions (세션 관리)
+export type UserSession = Database['public']['Tables']['user_sessions']['Row']
+export type UserSessionInsert = Database['public']['Tables']['user_sessions']['Insert']
+export type UserSessionUpdate = Database['public']['Tables']['user_sessions']['Update']
+
+// Reservation Limits (예약 정원 관리)
+export type DailyReservationsLimit = Database['public']['Tables']['daily_reservations_limit']['Row']
+export type DailyReservationsLimitInsert = Database['public']['Tables']['daily_reservations_limit']['Insert']
+export type DailyReservationsLimitUpdate = Database['public']['Tables']['daily_reservations_limit']['Update']
+
+// Reservation Transactions (예약 트랜잭션)
+export type ReservationTransaction = Database['public']['Tables']['reservation_transactions']['Row']
+export type ReservationTransactionInsert = Database['public']['Tables']['reservation_transactions']['Insert']
+export type ReservationTransactionUpdate = Database['public']['Tables']['reservation_transactions']['Update']
