@@ -1,11 +1,7 @@
 // 알리고 알림톡 API 유틸리티 함수
+// Fly.io 프록시 서버를 통해 알리고 API 호출
 
-// 전화번호 형식 정규화 (하이픈 제거)
-function normalizePhoneNumber(phone: string): string {
-  return phone.replace(/-/g, '')
-}
-
-// 알리고 API 호출 함수
+// 알리고 API 호출 함수 (Fly.io 프록시 서버 사용)
 export async function sendAligoKakaoTalk(params: {
   tplCode: string
   receiver: string
@@ -14,61 +10,34 @@ export async function sendAligoKakaoTalk(params: {
   failover?: boolean
 }): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    // 환경 변수 확인
-    const apiKey = process.env.ALIGO_API_KEY
-    const userId = process.env.ALIGO_USER_ID
-    const senderKey = process.env.ALIGO_SENDER_KEY
-    const sender = process.env.ALIGO_SENDER_PHONE
-
-    if (!apiKey || !userId || !senderKey || !sender) {
-      console.error('알리고 환경 변수가 설정되지 않았습니다.')
-      return {
-        success: false,
-        error: '알리고 API 환경 변수가 설정되지 않았습니다.'
-      }
-    }
-
-    // 전화번호 정규화
-    const normalizedReceiver = normalizePhoneNumber(params.receiver)
-    const normalizedSender = normalizePhoneNumber(sender)
-
-    // Form-data 생성
-    const formData = new FormData()
-    formData.append('apikey', apiKey)
-    formData.append('userid', userId)
-    formData.append('senderkey', senderKey)
-    formData.append('tpl_code', params.tplCode)
-    formData.append('sender', normalizedSender)
-    formData.append('receiver_1', normalizedReceiver)
-    formData.append('subject_1', params.subject)
-    formData.append('message_1', params.message)
-
-    // SMS 대체발송 설정
-    if (params.failover !== false) {
-      formData.append('failover', 'Y')
-      formData.append('fsubject_1', params.subject)
-      formData.append('fmessage_1', params.message)
-    }
-
-    // 알리고 API 호출
-    const response = await fetch('https://kakaoapi.aligo.in/akv10/alimtalk/send/', {
+    // Fly.io 프록시 서버로 요청 전송
+    const response = await fetch('https://sportsbox-aligo-proxy.fly.dev/proxy/aligo', {
       method: 'POST',
-      body: formData
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tplCode: params.tplCode,
+        receiver: params.receiver,
+        subject: params.subject,
+        message: params.message,
+        failover: params.failover !== false
+      })
     })
 
     const result = await response.json()
 
     // 응답 처리
-    if (result.code === 0) {
+    if (result.success) {
       return {
         success: true,
-        message: '알림톡이 성공적으로 발송되었습니다.'
+        message: result.message || '알림톡이 성공적으로 발송되었습니다.'
       }
     } else {
-      console.error('알리고 API 오류:', result)
+      console.error('알리고 프록시 오류:', result)
       return {
         success: false,
-        error: result.message || '알림톡 발송에 실패했습니다.'
+        error: result.error || '알림톡 발송에 실패했습니다.'
       }
     }
   } catch (error) {
