@@ -32,6 +32,26 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Outbound IP 확인 (알리고에 등록할 IP)
+app.get('/check-ip', async (req, res) => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+    console.log('🌐 Outbound IP:', data.ip);
+    res.json({
+      outboundIP: data.ip,
+      message: '이 IP를 알리고에 등록하세요!',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('IP 확인 실패:', error);
+    res.status(500).json({
+      error: 'IP 확인 실패',
+      details: error.message
+    });
+  }
+});
+
 // 알리고 API 프록시
 app.post('/proxy/aligo', async (req, res) => {
   try {
