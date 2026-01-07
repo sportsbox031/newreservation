@@ -1496,6 +1496,7 @@ ${otherSessions.map(session =>
                       </label>
                       <input
                         type="text"
+                        lang="ko"
                         value={slot.location}
                         onChange={(e) => {
                           const updated = [...reservationSlots];
