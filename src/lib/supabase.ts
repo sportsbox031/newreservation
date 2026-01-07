@@ -328,14 +328,66 @@ export const memberAPI = {
     return { data, error }
   },
 
-  // 회원 삭제 (관리자용)
+  // 회원 삭제 (관리자용) - 관련 데이터 모두 삭제
   async deleteMember(userId: string) {
-    const { data, error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', userId)
+    try {
+      // 1. 먼저 해당 사용자의 모든 예약 ID 조회
+      const { data: reservations } = await supabase
+        .from('reservations')
+        .select('id')
+        .eq('user_id', userId)
 
-    return { data, error }
+      const reservationIds = reservations?.map(r => r.id) || []
+
+      // 2. 예약 슬롯 삭제 (reservations를 참조)
+      if (reservationIds.length > 0) {
+        await supabase
+          .from('reservation_slots')
+          .delete()
+          .in('reservation_id', reservationIds)
+
+        // 3. 예약 로그 삭제 (reservations를 참조)
+        await supabase
+          .from('reservation_logs')
+          .delete()
+          .in('reservation_id', reservationIds)
+      }
+
+      // 4. 예약 삭제
+      await supabase
+        .from('reservations')
+        .delete()
+        .eq('user_id', userId)
+
+      // 5. 예약 트랜잭션 삭제
+      await supabase
+        .from('reservation_transactions')
+        .delete()
+        .eq('user_id', userId)
+
+      // 6. 공지사항 조회 기록 삭제
+      await supabase
+        .from('announcement_views')
+        .delete()
+        .eq('user_id', userId)
+
+      // 7. 사용자 세션 삭제
+      await supabase
+        .from('user_sessions')
+        .delete()
+        .eq('user_id', userId)
+
+      // 8. 마지막으로 사용자 삭제
+      const { data, error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId)
+
+      return { data, error }
+    } catch (error) {
+      console.error('회원 삭제 중 오류:', error)
+      return { data: null, error }
+    }
   },
 
   // 사용자 정보 업데이트 (티어는 자동으로 변경되지 않음)
