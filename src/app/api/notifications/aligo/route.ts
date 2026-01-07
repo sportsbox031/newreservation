@@ -23,6 +23,13 @@ type NotificationRequest = MemberApprovalRequest | ReservationApprovalRequest
 
 export async function POST(request: NextRequest) {
   try {
+    // Vercel의 실제 아웃바운드 IP 확인을 위한 로깅
+    console.log('🔍 Request Headers:', {
+      'x-forwarded-for': request.headers.get('x-forwarded-for'),
+      'x-real-ip': request.headers.get('x-real-ip'),
+      'x-vercel-forwarded-for': request.headers.get('x-vercel-forwarded-for'),
+    })
+
     const body: NotificationRequest = await request.json()
 
     // 요청 타입 검증
