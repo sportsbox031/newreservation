@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import RichTextEditor, { sanitizeHtml } from '@/components/RichTextEditor'
 import AdminNavigation from '@/components/AdminNavigation'
+import FileUploadManager, { FileAttachment } from '@/components/FileUploadManager'
 
 interface Announcement {
   id: string
@@ -63,6 +64,9 @@ export default function AdminAnnouncementsPage() {
     is_published: true
   })
 
+  // File attachment states
+  const [attachments, setAttachments] = useState<FileAttachment[]>([])
+  const [uploadingFiles, setUploadingFiles] = useState(false)
 
   useEffect(() => {
     checkAuth()
@@ -121,7 +125,7 @@ export default function AdminAnnouncementsPage() {
     setShowCreateModal(true)
   }
 
-  const handleEdit = (announcement: Announcement) => {
+  const handleEdit = async (announcement: Announcement) => {
     setFormData({
       title: announcement.title,
       content: announcement.content,
@@ -131,13 +135,28 @@ export default function AdminAnnouncementsPage() {
       is_published: announcement.is_published
     })
     setEditingAnnouncement(announcement)
+
+    // 기존 첨부파일 로드
+    const { data } = await announcementAPI.getAttachments(announcement.id)
+    if (data && data.length > 0) {
+      setAttachments(data.map(att => ({
+        id: att.id,
+        file_name: att.file_name,
+        file_size: att.file_size,
+        file_type: att.file_type,
+        storage_path: att.storage_path
+      })))
+    }
+
     setShowCreateModal(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
+      setUploadingFiles(true)
+
       const submitData = {
         title: formData.title,
         content: formData.content,
@@ -149,6 +168,8 @@ export default function AdminAnnouncementsPage() {
         // author_id: adminInfo.id
       }
 
+      let announcementId: string
+
       if (editingAnnouncement) {
         // 수정
         const { error } = await announcementAPI.updateAnnouncement(editingAnnouncement.id, submitData)
@@ -156,21 +177,53 @@ export default function AdminAnnouncementsPage() {
           alert('공지사항 수정 중 오류가 발생했습니다.')
           return
         }
+        announcementId = editingAnnouncement.id
       } else {
         // 생성
-        const { error } = await announcementAPI.createAnnouncement(submitData)
-        if (error) {
+        const { data, error } = await announcementAPI.createAnnouncement(submitData)
+        if (error || !data) {
           alert('공지사항 생성 중 오류가 발생했습니다.')
           return
         }
+        announcementId = data[0].id
+      }
+
+      // 새로 업로드할 파일들 처리
+      const newFiles = attachments.filter(att => att.file)
+
+      for (const attachment of newFiles) {
+        if (!attachment.file) continue
+
+        // Storage에 파일 업로드
+        const { data: storagePath, error: uploadError } = await announcementAPI.uploadAttachment(
+          announcementId,
+          attachment.file
+        )
+
+        if (uploadError || !storagePath) {
+          console.error('파일 업로드 실패:', uploadError)
+          continue
+        }
+
+        // 첨부파일 레코드 생성
+        await announcementAPI.createAttachment({
+          announcement_id: announcementId,
+          file_name: attachment.file_name,
+          file_size: attachment.file_size,
+          file_type: attachment.file_type,
+          storage_path: storagePath
+        })
       }
 
       setShowCreateModal(false)
       setEditingAnnouncement(null)
+      setAttachments([])
       loadData()
     } catch (error) {
       console.error('공지사항 저장 오류:', error)
       alert('공지사항 저장 중 오류가 발생했습니다.')
+    } finally {
+      setUploadingFiles(false)
     }
   }
 
@@ -429,6 +482,14 @@ export default function AdminAnnouncementsPage() {
                     placeholder="공지사항 내용을 입력하세요"
                   />
                 </div>
+
+                {/* 첨부파일 */}
+                <FileUploadManager
+                  files={attachments}
+                  onChange={setAttachments}
+                  maxFiles={3}
+                  maxFileSize={5 * 1024 * 1024}
+                />
 
                 {/* 대상 설정 */}
                 <div>

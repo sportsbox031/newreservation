@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { announcementAPI } from '@/lib/supabase'
 import { Bell, Calendar, AlertCircle } from 'lucide-react'
 import { sanitizeHtml } from '@/components/RichTextEditor'
+import AttachmentList from '@/components/AttachmentList'
 
 interface Announcement {
   id: string
@@ -26,6 +27,7 @@ export default function AnnouncementsPage() {
   const [loading, setLoading] = useState(true)
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [attachments, setAttachments] = useState<any[]>([])
 
   useEffect(() => {
     loadAnnouncements()
@@ -63,9 +65,28 @@ export default function AnnouncementsPage() {
     }
   }
 
-  const handleAnnouncementClick = (announcement: Announcement) => {
+  const handleAnnouncementClick = async (announcement: Announcement) => {
     setSelectedAnnouncement(announcement)
+
+    // 첨부파일 로드
+    const { data, error } = await announcementAPI.getAttachments(announcement.id)
+    console.log('📎 첨부파일 로드:', { announcement_id: announcement.id, data, error })
+    setAttachments(data || [])
+
     setShowModal(true)
+  }
+
+  // 파일 다운로드 핸들러
+  const handleDownload = async (attachment: any) => {
+    const { data: url, error } = await announcementAPI.getAttachmentDownloadUrl(attachment.storage_path)
+
+    if (error || !url) {
+      alert('파일 다운로드에 실패했습니다.')
+      return
+    }
+
+    // Supabase Signed URL로 직접 다운로드
+    window.open(url, '_blank')
   }
 
   const formatDate = (dateString: string) => {
@@ -223,6 +244,12 @@ export default function AnnouncementsPage() {
                   }}
                 />
               </div>
+
+              {/* 첨부파일 목록 */}
+              <AttachmentList
+                attachments={attachments}
+                onDownload={handleDownload}
+              />
             </div>
           </div>
         </div>

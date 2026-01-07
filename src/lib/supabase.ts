@@ -1413,6 +1413,94 @@ export const announcementAPI = {
     }
 
     return { data: null, error: null }
+  },
+
+  // 파일 첨부 관련 함수들
+
+  // Storage에 파일 업로드
+  async uploadAttachment(
+    announcementId: string,
+    file: File
+  ): Promise<{ data: string | null; error: any }> {
+    try {
+      const timestamp = Date.now()
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const filePath = `announcements/${announcementId}/${timestamp}_${sanitizedFileName}`
+
+      const { data, error } = await supabase.storage
+        .from('announcement-attachments')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (error) throw error
+
+      return { data: filePath, error: null }
+    } catch (error) {
+      console.error('File upload error:', error)
+      return { data: null, error }
+    }
+  },
+
+  // 첨부파일 레코드 생성
+  async createAttachment(attachmentData: {
+    announcement_id: string
+    file_name: string
+    file_size: number
+    file_type: string
+    storage_path: string
+  }) {
+    const { data, error } = await supabase
+      .from('announcement_attachments')
+      .insert([attachmentData])
+      .select()
+      .single()
+
+    return { data, error }
+  },
+
+  // 공지사항의 첨부파일 목록 조회
+  async getAttachments(announcementId: string) {
+    const { data, error } = await supabase
+      .from('announcement_attachments')
+      .select('*')
+      .eq('announcement_id', announcementId)
+      .order('uploaded_at', { ascending: true })
+
+    return { data, error }
+  },
+
+  // 첨부파일 삭제
+  async deleteAttachment(attachmentId: string, storagePath: string) {
+    // Storage에서 파일 삭제
+    const { error: storageError } = await supabase.storage
+      .from('announcement-attachments')
+      .remove([storagePath])
+
+    if (storageError) {
+      console.error('Storage deletion error:', storageError)
+      return { data: null, error: storageError }
+    }
+
+    // 데이터베이스에서 레코드 삭제
+    const { data, error } = await supabase
+      .from('announcement_attachments')
+      .delete()
+      .eq('id', attachmentId)
+
+    return { data, error }
+  },
+
+  // 파일 다운로드용 Signed URL 생성
+  async getAttachmentDownloadUrl(storagePath: string) {
+    const { data, error } = await supabase.storage
+      .from('announcement-attachments')
+      .createSignedUrl(storagePath, 3600, {
+        download: true  // 브라우저에서 열지 않고 바로 다운로드
+      })
+
+    return { data: data?.signedUrl || null, error }
   }
 }
 
