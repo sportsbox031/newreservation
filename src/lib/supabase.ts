@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 import { v4 as uuidv4 } from 'uuid'
+import bcrypt from 'bcryptjs'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -11,15 +12,23 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   }
 })
 
-// Helper function to hash password (simple implementation - use bcrypt in production)
-const hashPassword = (password: string): string => {
-  // This is a very simple hash - in production, use bcrypt or similar
-  // Use Buffer.from to handle UTF-8 characters properly
+// bcrypt를 사용한 안전한 비밀번호 해싱
+const hashPassword = async (password: string): Promise<string> => {
+  const saltRounds = 10
+  return await bcrypt.hash(password, saltRounds)
+}
+
+// 비밀번호 검증 (bcrypt)
+const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
+  return await bcrypt.compare(password, hash)
+}
+
+// 레거시: 기존 btoa 해싱 (마이그레이션용)
+const legacyHashPassword = (password: string): string => {
   try {
     return btoa(unescape(encodeURIComponent(password + 'sportsbox_salt')))
   } catch (error) {
     console.error('Password encoding error:', error)
-    // Fallback: use a simple transformation for problematic characters
     const safePassword = (password + 'sportsbox_salt').replace(/[^\x00-\x7F]/g, '_')
     return btoa(safePassword)
   }
@@ -74,8 +83,8 @@ export const memberAPI = {
       return { data: null, error: { message: '존재하지 않는 시/군입니다.' } }
     }
 
-    // Hash password
-    const password_hash = hashPassword(userData.password)
+    // Hash password with bcrypt (안전한 해싱)
+    const password_hash = await hashPassword(userData.password)
 
     console.log('🔍 회원가입 데이터:', {
       student_count: userData.student_count,
@@ -111,7 +120,7 @@ export const memberAPI = {
     return { data, error }
   },
 
-  // 로그인 (동시 접속 제한 포함)
+  // 로그인 (하이브리드: bcrypt + 레거시 btoa 지원)
   async login(organization_name: string, password: string, request?: Request) {
     const { data, error } = await supabase
       .from('users')
@@ -125,10 +134,38 @@ export const memberAPI = {
 
     if (error) return { data: null, error }
 
-    // Verify password
-    const hashedInput = hashPassword(password)
-    if (data.password_hash !== hashedInput) {
+    // 1단계: bcrypt로 검증 시도
+    let isPasswordValid = false
+    let needsMigration = false
+
+    try {
+      isPasswordValid = await verifyPassword(password, data.password_hash)
+    } catch (error) {
+      // bcrypt 검증 실패 → 레거시 btoa 해싱 시도
+      console.log('bcrypt 검증 실패, 레거시 방식 시도...')
+      const legacyHash = legacyHashPassword(password)
+      if (data.password_hash === legacyHash) {
+        isPasswordValid = true
+        needsMigration = true // 마이그레이션 필요 표시
+      }
+    }
+
+    if (!isPasswordValid) {
       return { data: null, error: { message: '비밀번호가 일치하지 않습니다.' } }
+    }
+
+    // 2단계: 레거시 해싱이면 bcrypt로 즉시 업데이트
+    if (needsMigration) {
+      console.log('🔄 비밀번호 마이그레이션 중...', organization_name)
+      const newHash = await hashPassword(password)
+      await supabase
+        .from('users')
+        .update({ password_hash: newHash })
+        .eq('id', data.id)
+
+      console.log('✅ 비밀번호가 bcrypt로 업데이트되었습니다.')
+      // 업데이트된 해시로 data 갱신
+      data.password_hash = newHash
     }
 
     // 기존 활성 세션 비활성화 (한 계정 한 세션 제한)
@@ -2004,7 +2041,7 @@ export const tierAPI = {
 
 // 관리자 계정 관리 API
 export const adminAPI = {
-  // 관리자 로그인
+  // 관리자 로그인 (하이브리드: bcrypt + 레거시 btoa 지원)
   async login(username: string, password: string) {
     try {
       // 관리자 조회
@@ -2018,10 +2055,35 @@ export const adminAPI = {
         return { data: null, error: { message: '등록되지 않은 관리자 계정입니다.' } }
       }
 
-      // 비밀번호 검증
-      const passwordHash = hashPassword(password)
-      if (admin.password_hash !== passwordHash) {
+      // 비밀번호 검증 (하이브리드)
+      let isPasswordValid = false
+      let needsMigration = false
+
+      try {
+        isPasswordValid = await verifyPassword(password, admin.password_hash)
+      } catch (error) {
+        // bcrypt 검증 실패 → 레거시 btoa 해싱 시도
+        const legacyHash = legacyHashPassword(password)
+        if (admin.password_hash === legacyHash) {
+          isPasswordValid = true
+          needsMigration = true
+        }
+      }
+
+      if (!isPasswordValid) {
         return { data: null, error: { message: '비밀번호가 일치하지 않습니다.' } }
+      }
+
+      // 레거시 해싱이면 bcrypt로 즉시 업데이트
+      if (needsMigration) {
+        console.log('🔄 관리자 비밀번호 마이그레이션 중...', username)
+        const newHash = await hashPassword(password)
+        await supabase
+          .from('admins')
+          .update({ password_hash: newHash })
+          .eq('id', admin.id)
+
+        console.log('✅ 관리자 비밀번호가 bcrypt로 업데이트되었습니다.')
       }
 
       // 지역 ID 가져오기 (role이 south/north인 경우)
