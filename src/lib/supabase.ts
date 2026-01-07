@@ -140,13 +140,20 @@ export const memberAPI = {
 
     try {
       isPasswordValid = await verifyPassword(password, data.password_hash)
+      console.log('bcrypt 검증 결과:', isPasswordValid)
     } catch (error) {
-      // bcrypt 검증 실패 → 레거시 btoa 해싱 시도
+      console.log('bcrypt 검증 중 에러:', error)
+    }
+
+    // bcrypt 검증 실패 시 → 레거시 btoa 해싱 시도
+    if (!isPasswordValid) {
       console.log('bcrypt 검증 실패, 레거시 방식 시도...')
       const legacyHash = legacyHashPassword(password)
+      console.log('레거시 해시 비교:', { stored: data.password_hash, generated: legacyHash })
       if (data.password_hash === legacyHash) {
         isPasswordValid = true
         needsMigration = true // 마이그레이션 필요 표시
+        console.log('✅ 레거시 방식으로 검증 성공')
       }
     }
 
@@ -2061,12 +2068,20 @@ export const adminAPI = {
 
       try {
         isPasswordValid = await verifyPassword(password, admin.password_hash)
+        console.log('관리자 bcrypt 검증 결과:', isPasswordValid)
       } catch (error) {
-        // bcrypt 검증 실패 → 레거시 btoa 해싱 시도
+        console.log('관리자 bcrypt 검증 중 에러:', error)
+      }
+
+      // bcrypt 검증 실패 시 → 레거시 btoa 해싱 시도
+      if (!isPasswordValid) {
+        console.log('관리자 bcrypt 검증 실패, 레거시 방식 시도...')
         const legacyHash = legacyHashPassword(password)
+        console.log('관리자 레거시 해시 비교:', { stored: admin.password_hash, generated: legacyHash })
         if (admin.password_hash === legacyHash) {
           isPasswordValid = true
           needsMigration = true
+          console.log('✅ 관리자 레거시 방식으로 검증 성공')
         }
       }
 
