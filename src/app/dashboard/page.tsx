@@ -83,6 +83,9 @@ export default function DashboardPage() {
     }
   ]);
   const [myReservations, setMyReservations] = useState<Reservation[]>([]);
+  const [selectedReservationMonth, setSelectedReservationMonth] = useState<string>(
+    `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(true);
   
@@ -222,8 +225,14 @@ export default function DashboardPage() {
 보안을 위해 다른 세션을 종료하시겠습니까?
 
 감지된 세션 정보:
-${otherSessions.map(session => 
-  `• ${session.user_agent} (${new Date(session.last_activity).toLocaleString()})`
+${otherSessions.map(session =>
+  `• ${session.user_agent} (${new Date(session.last_activity).toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })})`
 ).join('\n')}
               `;
               
@@ -1571,16 +1580,52 @@ ${otherSessions.map(session =>
 
               {/* 월별 필터 */}
               <div className="mb-4 sm:mb-6">
-                <select className="px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value={`${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`}>
-                    {new Date().getFullYear()}년 {new Date().getMonth() + 1}월
-                  </option>
+                <select
+                  value={selectedReservationMonth}
+                  onChange={(e) => setSelectedReservationMonth(e.target.value)}
+                  className="px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {(() => {
+                    // 예약이 있는 월들을 추출
+                    const monthsWithReservations = new Set<string>();
+                    myReservations.forEach(res => {
+                      const date = new Date(res.date);
+                      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                      monthsWithReservations.add(monthKey);
+                    });
+
+                    // 현재 월도 포함
+                    const currentMonthKey = `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`;
+                    monthsWithReservations.add(currentMonthKey);
+
+                    // 정렬된 월 목록 생성
+                    const sortedMonths = Array.from(monthsWithReservations).sort().reverse();
+
+                    return sortedMonths.map(monthKey => {
+                      const [year, month] = monthKey.split('-');
+                      return (
+                        <option key={monthKey} value={monthKey}>
+                          {year}년 {parseInt(month)}월
+                        </option>
+                      );
+                    });
+                  })()}
                 </select>
               </div>
 
               {/* 예약 목록 */}
               <div className="space-y-4">
-                {myReservations.length === 0 ? (
+                {(() => {
+                  // 선택된 월에 해당하는 예약만 필터링
+                  const [year, month] = selectedReservationMonth.split('-');
+                  const filteredReservations = myReservations.filter(res => {
+                    const resDate = new Date(res.date);
+                    const resYear = resDate.getFullYear();
+                    const resMonth = (resDate.getMonth() + 1).toString().padStart(2, '0');
+                    return resYear.toString() === year && resMonth === month;
+                  });
+
+                  return filteredReservations.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <CalendarIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                     <h4 className="text-lg font-medium text-gray-900 mb-2">예약 내역이 없습니다.</h4>
@@ -1594,7 +1639,7 @@ ${otherSessions.map(session =>
                     </button>
                   </div>
                 ) : (
-                  myReservations.map((reservation) => (
+                  filteredReservations.map((reservation) => (
                     <div key={reservation.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center space-x-4">
@@ -1636,7 +1681,7 @@ ${otherSessions.map(session =>
                           <div key={index} className="bg-blue-50 p-3 rounded-lg">
                             <div className="flex items-center space-x-4 text-sm">
                               <span className="font-medium text-blue-900">
-                                {slot.startTime} - {slot.endTime}
+                                {slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}
                               </span>
                               <span className="text-blue-700">{slot.grade}</span>
                               <span className="text-blue-700">{slot.participantCount}명</span>
@@ -1651,7 +1696,8 @@ ${otherSessions.map(session =>
                       </div>
                     </div>
                   ))
-                )}
+                );
+              })()}
               </div>
             </div>
           </div>
