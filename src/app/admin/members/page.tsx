@@ -150,12 +150,37 @@ export default function MembersPage() {
           return
         }
 
+        // 알림톡 발송 (비동기, 논블로킹)
+        const member = members.find(m => m.id === memberId)
+        if (member) {
+          // 알림톡 발송 (실패해도 승인 프로세스는 계속 진행)
+          fetch('/api/notifications/aligo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'member_approval',
+              phone: member.phone,
+              organizationName: member.organization_name,
+              tplCode: process.env.NEXT_PUBLIC_ALIGO_MEMBER_TPL_CODE || ''
+            })
+          })
+            .then(res => res.json())
+            .then(result => {
+              if (!result.success) {
+                console.error('알림톡 발송 실패:', result.error)
+              }
+            })
+            .catch(err => {
+              console.error('알림톡 API 호출 오류:', err)
+            })
+        }
+
         // 로컬 상태 업데이트
         setMembers(prev => prev.map(member =>
           member.id === memberId ? { ...member, status } : member
         ))
 
-        alert('회원이 승인되었습니다.')
+        alert('회원이 승인되었으며 알림톡이 발송되었습니다.')
       }
     } catch (error) {
       console.error('회원 상태 업데이트 예외:', error)

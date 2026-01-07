@@ -480,12 +480,53 @@ export default function AdminReservationsPage() {
   const handleApprove = async (reservationId: string) => {
     try {
       setActionLoading(reservationId);
+
+      // 예약 정보 찾기 (알림톡 발송을 위해)
+      const reservation = allReservations.find(r => r.id === reservationId);
+
       const { data, error } = await reservationAPI.updateReservationStatus(reservationId, 'approved');
 
       if (error) {
         console.error('승인 처리 오류:', error);
         alert('승인 처리 중 오류가 발생했습니다.');
         return;
+      }
+
+      // 알림톡 발송 (비동기, 논블로킹)
+      if (reservation) {
+        // 예약 날짜 포맷팅 (YYYY년 MM월 DD일)
+        const year = reservation.date.getFullYear();
+        const month = String(reservation.date.getMonth() + 1).padStart(2, '0');
+        const day = String(reservation.date.getDate()).padStart(2, '0');
+        const reservationDate = `${year}년 ${month}월 ${day}일`;
+
+        // 시간대 포맷팅 (첫 번째 슬롯의 시작-종료 시간)
+        const timeSlot = reservation.slots.length > 0
+          ? `${reservation.slots[0].startTime} - ${reservation.slots[reservation.slots.length - 1].endTime}`
+          : '';
+
+        // 알림톡 발송 (실패해도 승인 프로세스는 계속 진행)
+        fetch('/api/notifications/aligo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'reservation_approval',
+            phone: reservation.phone,
+            organizationName: reservation.organization_name,
+            reservationDate,
+            timeSlot,
+            tplCode: process.env.NEXT_PUBLIC_ALIGO_RESERVATION_TPL_CODE || ''
+          })
+        })
+          .then(res => res.json())
+          .then(result => {
+            if (!result.success) {
+              console.error('알림톡 발송 실패:', result.error)
+            }
+          })
+          .catch(err => {
+            console.error('알림톡 API 호출 오류:', err)
+          })
       }
 
       // 데이터 새로고침 후 업데이트된 예약 정보 가져오기
@@ -517,7 +558,7 @@ export default function AdminReservationsPage() {
         }
       }
 
-      alert('예약이 승인되었습니다.');
+      alert('예약이 승인되었으며 알림톡이 발송되었습니다.');
     } catch (error) {
       console.error('승인 처리 오류:', error);
       alert('승인 처리 중 오류가 발생했습니다.');
