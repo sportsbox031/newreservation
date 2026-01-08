@@ -1791,7 +1791,7 @@ ${otherSessions.map(session =>
 
         /* 일부 예약 - 참조 이미지의 핑크색 스타일 */
         .premium-calendar-container :global(.calendar-day-limited) {
-          @apply bg-pink-100 hover:bg-pink-150 border-pink-300;
+          @apply bg-pink-100 hover:bg-pink-200 border-pink-300;
         }
 
         .premium-calendar-container :global(.calendar-day-limited abbr) {
