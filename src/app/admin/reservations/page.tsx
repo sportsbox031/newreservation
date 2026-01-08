@@ -50,6 +50,7 @@ interface Reservation {
   manager_name: string;
   phone: string;
   email: string;
+  city_name: string;
   slots: {
     startTime: string;
     endTime: string;
@@ -256,6 +257,7 @@ export default function AdminReservationsPage() {
         manager_name: item.users?.manager_name || '',
         phone: item.users?.phone || '',
         email: item.users?.email || '',
+        city_name: item.users?.cities?.name || '',
         slots: item.reservation_slots?.map(slot => ({
           startTime: slot.start_time.substring(0, 5), // HH:MM 형식으로 자르기
           endTime: slot.end_time.substring(0, 5), // HH:MM 형식으로 자르기
@@ -1361,6 +1363,10 @@ export default function AdminReservationsPage() {
                           </div>
                           <div className="text-sm text-gray-600 space-y-1">
                             <div className="flex items-center">
+                              <MapPin className="w-4 h-4 mr-2" />
+                              {reservation.city_name}
+                            </div>
+                            <div className="flex items-center">
                               <User className="w-4 h-4 mr-2" />
                               {reservation.manager_name}
                             </div>
@@ -1523,6 +1529,13 @@ export default function AdminReservationsPage() {
                         <div>
                           <label className="text-xs text-gray-500 block">단체명</label>
                           <div className="font-bold text-gray-800 text-lg">{selectedReservation.organization_name}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <MapPin className="w-4 h-4 text-purple-600 mr-3" />
+                        <div>
+                          <label className="text-xs text-gray-500 block">시/군</label>
+                          <div className="font-semibold text-gray-800">{selectedReservation.city_name}</div>
                         </div>
                       </div>
                       <div className="flex items-center">
