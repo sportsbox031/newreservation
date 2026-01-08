@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Bell } from 'lucide-react'
+import { Bell, MessageCircle } from 'lucide-react'
 import { announcementAPI } from '@/lib/supabase'
 import { sanitizeHtml } from '@/components/RichTextEditor'
 import HomepagePopup from '@/components/HomepagePopup'
@@ -176,12 +176,23 @@ export default function Home() {
               <h1 className="text-6xl font-bold mb-6 text-white drop-shadow-lg">SPORTS BOX</h1>
               <h2 className="text-4xl font-bold mb-6 text-[#0066CC] drop-shadow">모두를 위한 스포츠</h2>
               <p className="text-xl mb-8 text-white drop-shadow-lg">경기도체육회 스포츠박스가 여러분의 건강한 생활을 지원합니다</p>
-              <Link
-                href="/auth/login"
-                className="rounded-lg bg-[#0066CC] text-white px-8 py-3 text-lg hover:bg-[#0066CC]/90 inline-block"
-              >
-                예약하기
-              </Link>
+              <div className="flex gap-4">
+                <Link
+                  href="/auth/login"
+                  className="rounded-lg bg-[#0066CC] text-white px-8 py-3 text-lg hover:bg-[#0066CC]/90 inline-block"
+                >
+                  예약하기
+                </Link>
+                <a
+                  href="https://open.kakao.com/o/sgewClQh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-3 rounded-lg font-medium text-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  톡으로 문의하기
+                </a>
+              </div>
             </div>
           </div>
         </section>
@@ -516,32 +527,19 @@ export default function Home() {
         {/* 푸터 */}
         <footer className="bg-gray-900 text-white py-12">
           <div className="container mx-auto px-6">
-            <div className="grid md:grid-cols-4 gap-8">
+            <div className="grid md:grid-cols-3 gap-8">
               <div>
                 <h3 className="text-lg font-bold mb-4">스포츠박스</h3>
                 <p className="text-gray-400">경기도체육회</p>
               </div>
               <div>
                 <h3 className="text-lg font-bold mb-4">연락처</h3>
-                <p className="text-gray-400">전화: 031-250-0474~7</p>
-                <p className="text-gray-400">이메일: <a href="mailto:hoseok0119@ggsc.or.kr" className="hover:text-white">hoseok0119@ggsc.or.kr</a></p>
+                <p className="text-gray-400">남부지역 031-250-0474~7 | 북부지역 031-872-6520~4</p>
               </div>
               <div>
                 <h3 className="text-lg font-bold mb-4">운영시간</h3>
                 <p className="text-gray-400">평일: 09:00 - 18:00</p>
                 <p className="text-gray-400">주말 및 공휴일 휴무</p>
-              </div>
-              <div>
-                <h3 className="text-lg font-bold mb-4">SNS</h3>
-                <div className="flex space-x-4">
-                  <a
-                    href="https://www.youtube.com/@%EC%8A%A4%ED%8F%AC%EC%B8%A0%EB%B0%95%EC%8A%A4-l7e"
-                    target="_blank"
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <i className="ri-youtube-fill text-xl"></i>
-                  </a>
-                </div>
               </div>
             </div>
             <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
