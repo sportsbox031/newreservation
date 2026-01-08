@@ -1067,6 +1067,10 @@ export default function AdminReservationsPage() {
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                                 <div className="flex items-center">
+                                  <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                                  <span>{reservation.city_name}</span>
+                                </div>
+                                <div className="flex items-center">
                                   <User className="w-4 h-4 mr-2 text-gray-400" />
                                   <span>{reservation.manager_name}</span>
                                 </div>
