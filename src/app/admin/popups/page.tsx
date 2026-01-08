@@ -128,7 +128,7 @@ export default function PopupManagementPage() {
       const submitData = {
         ...formData,
         end_date: formData.end_date || null,
-        author_id: 'admin' // API에서 기본값으로 설정
+        author_id: adminInfo?.id // 로그인한 관리자 ID 사용
       }
 
       if (editingPopup) {
