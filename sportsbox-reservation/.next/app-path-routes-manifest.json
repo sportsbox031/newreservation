@@ -1,0 +1,21 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/admin/announcements/page": "/admin/announcements",
+  "/admin/members/page": "/admin/members",
+  "/admin/north/page": "/admin/north",
+  "/admin/page": "/admin",
+  "/admin/popups/page": "/admin/popups",
+  "/admin/reservations/page": "/admin/reservations",
+  "/admin/settings/page": "/admin/settings",
+  "/admin/simple/page": "/admin/simple",
+  "/admin/south/page": "/admin/south",
+  "/admin/test/page": "/admin/test",
+  "/announcements/page": "/announcements",
+  "/api/admin/announcements/route": "/api/admin/announcements",
+  "/api/admin/popups/route": "/api/admin/popups",
+  "/auth/login/page": "/auth/login",
+  "/auth/register/page": "/auth/register",
+  "/dashboard/page": "/dashboard",
+  "/favicon.ico/route": "/favicon.ico",
+  "/page": "/"
+}

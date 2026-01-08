@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"  student_count: z.coerce.number\\(\\)\" )",
+      "Bash(\"    .int\\(''학생 수는 정수여야 합니다''\\)\" )",
+      "Bash(\"    .min\\(1, ''학생 수는 1명 이상이어야 합니다''\\)\" )",
+      "Bash(\"    .max\\(10000, ''학생 수는 10,000명을 초과할 수 없습니다''\\),\" )",
+      "Bash(\"  class_count: z.coerce.number\\(\\)\" )",
+      "Bash(\"    .int\\(''학급 수는 정수여야 합니다''\\)\" )",
+      "Bash(\"    .min\\(1, ''학급 수는 1개 이상이어야 합니다''\\)\" )",
+      "Bash(\"    .max\\(500, ''학급 수는 500개를 초과할 수 없습니다''\\),\")",
+      "Bash(python:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(git push)",
+      "Bash(git push:*)",
+      "Bash(vercel --prod)",
+      "Bash(vercel:*)",
+      "Bash(taskkill /F /PID 20856)",
+      "Bash(ssh:*)",
+      "Bash(powershell -Command \"iwr https://fly.io/install.ps1 -useb | iex\")",
+      "Bash(C:Userspkmlo.flybinflyctl.exe auth login)",
+      "Bash(/c/Users/pkmlo/.fly/bin/flyctl.exe auth login:*)",
+      "Bash(/c/Users/pkmlo/.fly/bin/flyctl.exe launch:*)",
+      "Bash(/c/Users/pkmlo/.fly/bin/flyctl.exe secrets set ALIGO_API_KEY=te4zerfgev9cb7q2e2u9z6snu4tnswng ALIGO_USER_ID=forzamin ALIGO_SENDER_KEY=0d3473bb3f8e2adbf27bf4669deb1efe79ffe95c ALIGO_SENDER_PHONE=010-6328-2938)",
+      "Bash(curl https://sportsbox-aligo-proxy.fly.dev/health)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(/c/Users/pkmlo/.fly/bin/flyctl.exe logs)",
+      "Bash(/c/Users/pkmlo/.fly/bin/flyctl.exe deploy)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx next dev)",
+      "WebFetch(domain:github.com)",
+      "Bash(git pull:*)"
+    ]
+  }
+}

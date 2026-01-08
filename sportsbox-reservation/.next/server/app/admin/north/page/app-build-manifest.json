@@ -1,0 +1,19 @@
+{
+  "pages": {
+    "/admin/north/page": [
+      "static/chunks/ab4c28ae763b62ff.js",
+      "static/chunks/4fafd216881d1230.js",
+      "static/chunks/2473c16c0c2f6b5f.css",
+      "static/chunks/311186c29d4ce273.css",
+      "static/chunks/98fc6dfd6b5557f5.js",
+      "static/chunks/9ac85b019ffa171e.js",
+      "static/chunks/842640e634ee6e15.js",
+      "static/chunks/e27193180adfb129.js",
+      "static/chunks/1d3b9bc4e4bfd249.js",
+      "static/chunks/df6fc2938d5d8571.js",
+      "static/chunks/e23e601bf2afb031.js",
+      "static/chunks/0fa4091ba6f3dd52.js",
+      "static/chunks/turbopack-e27c92f46657b1ab.js"
+    ]
+  }
+}

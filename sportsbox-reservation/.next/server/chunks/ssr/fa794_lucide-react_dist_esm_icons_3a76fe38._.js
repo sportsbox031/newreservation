@@ -1,0 +1,3 @@
+module.exports=[13324,a=>{"use strict";a.s(["CheckCircle",()=>b],13324);let b=(0,a.i(61512).default)("circle-check-big",[["path",{d:"M21.801 10A10 10 0 1 1 17 3.335",key:"yps3ct"}],["path",{d:"m9 11 3 3L22 4",key:"1pflzl"}]])},74025,a=>{"use strict";a.s(["Clock",()=>b],74025);let b=(0,a.i(61512).default)("clock",[["path",{d:"M12 6v6l4 2",key:"mmk7yg"}],["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}]])},84923,a=>{"use strict";a.s(["Plus",()=>b],84923);let b=(0,a.i(61512).default)("plus",[["path",{d:"M5 12h14",key:"1ays0h"}],["path",{d:"M12 5v14",key:"s699le"}]])}];
+
+//# sourceMappingURL=fa794_lucide-react_dist_esm_icons_3a76fe38._.js.map
