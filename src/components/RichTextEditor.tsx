@@ -1,15 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { 
-  Bold, 
-  Italic, 
-  Underline, 
-  Link2, 
-  List, 
-  ListOrdered, 
-  Type, 
-  Code, 
+import DOMPurify from 'dompurify'
+import {
+  Bold,
+  Italic,
+  Underline,
+  Link2,
+  List,
+  ListOrdered,
+  Type,
+  Code,
   Eye,
   FileText,
   AlertTriangle
@@ -23,31 +24,36 @@ interface RichTextEditorProps {
 
 type EditorMode = 'text' | 'html' | 'markdown'
 
-// XSS 방지를 위한 HTML 새니타이징 함수 (개선된 버전) - export for reuse
+/**
+ * XSS 방지를 위한 HTML 새니타이징 함수
+ * DOMPurify를 사용하여 안전한 HTML만 허용
+ */
 export const sanitizeHtml = (html: string): string => {
-  // 위험한 태그들 제거 (스타일 태그는 허용)
-  const dangerousTags = /<script[^>]*>.*?<\/script>|<iframe[^>]*>.*?<\/iframe>|<object[^>]*>.*?<\/object>|<embed[^>]*>|<link[^>]*>|<meta[^>]*>/gi
-  let sanitized = html.replace(dangerousTags, '')
-  
-  // 위험한 속성들 제거 (보다 정교한 패턴)
-  const dangerousAttributes = /\s*(on\w+|javascript:|vbscript:|mocha:|livescript:|expression\()="?[^"\s>]*"?/gi
-  sanitized = sanitized.replace(dangerousAttributes, '')
-  
-  // 허용된 태그 대폭 확장 (스타일 태그 포함)
-  const allowedTags = /^<\/?(?:p|br|strong|em|u|h[1-6]|ul|ol|li|a|code|pre|blockquote|div|span|style|body|html|head|title)(?:\s[^>]*)?>/i
-  const htmlTags = sanitized.match(/<[^>]+>/g) || []
-  
-  // 위험한 태그만 제거 (허용된 태그는 유지)
-  htmlTags.forEach(tag => {
-    if (!allowedTags.test(tag)) {
-      // script, iframe 등만 제거
-      if (/<\/?(?:script|iframe|object|embed|link|meta)/i.test(tag)) {
-        sanitized = sanitized.replace(tag, '')
-      }
-    }
+  // 브라우저 환경에서만 DOMPurify 실행
+  if (typeof window === 'undefined') {
+    return html
+  }
+
+  // DOMPurify 설정: 안전한 태그와 속성만 허용
+  const clean = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'u', 'b', 'i',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'ul', 'ol', 'li',
+      'a', 'code', 'pre', 'blockquote',
+      'div', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
+    ],
+    ALLOWED_ATTR: [
+      'href', 'title', 'target', 'rel',
+      'class', 'id',
+      'colspan', 'rowspan'
+    ],
+    ALLOW_DATA_ATTR: false,
+    ALLOW_UNKNOWN_PROTOCOLS: false,
+    SAFE_FOR_TEMPLATES: true
   })
-  
-  return sanitized
+
+  return clean
 }
 
 export default function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {

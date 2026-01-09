@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
+import { validateApiRequest, isAdmin } from '@/lib/auth'
 
 // 서버측에서 서비스 롤 키 사용
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -14,6 +15,17 @@ const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
 
 export async function POST(request: NextRequest) {
   try {
+    // 인증 검증
+    const authResult = await validateApiRequest(request)
+    if (!authResult.authenticated || !authResult.user) {
+      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
+    }
+
+    // 관리자 권한 검증
+    if (!isAdmin(authResult.user)) {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
+
     const data = await request.json()
     
     // 기본 관리자 ID 가져오기 (실제 존재하는 관리자 사용)
@@ -86,6 +98,17 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // 인증 검증
+    const authResult = await validateApiRequest(request)
+    if (!authResult.authenticated || !authResult.user) {
+      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
+    }
+
+    // 관리자 권한 검증
+    if (!isAdmin(authResult.user)) {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
+
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
     
@@ -112,6 +135,17 @@ export async function DELETE(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    // 인증 검증
+    const authResult = await validateApiRequest(request)
+    if (!authResult.authenticated || !authResult.user) {
+      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
+    }
+
+    // 관리자 권한 검증
+    if (!isAdmin(authResult.user)) {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
+
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
     

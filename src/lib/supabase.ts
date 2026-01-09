@@ -140,20 +140,16 @@ export const memberAPI = {
 
     try {
       isPasswordValid = await verifyPassword(password, data.password_hash)
-      console.log('bcrypt 검증 결과:', isPasswordValid)
     } catch (error) {
-      console.log('bcrypt 검증 중 에러:', error)
+      // bcrypt 검증 실패 - 레거시 방식 시도
     }
 
     // bcrypt 검증 실패 시 → 레거시 btoa 해싱 시도
     if (!isPasswordValid) {
-      console.log('bcrypt 검증 실패, 레거시 방식 시도...')
       const legacyHash = legacyHashPassword(password)
-      console.log('레거시 해시 비교:', { stored: data.password_hash, generated: legacyHash })
       if (data.password_hash === legacyHash) {
         isPasswordValid = true
         needsMigration = true // 마이그레이션 필요 표시
-        console.log('✅ 레거시 방식으로 검증 성공')
       }
     }
 
@@ -163,14 +159,12 @@ export const memberAPI = {
 
     // 2단계: 레거시 해싱이면 bcrypt로 즉시 업데이트
     if (needsMigration) {
-      console.log('🔄 비밀번호 마이그레이션 중...', organization_name)
       const newHash = await hashPassword(password)
       await supabase
         .from('users')
         .update({ password_hash: newHash })
         .eq('id', data.id)
 
-      console.log('✅ 비밀번호가 bcrypt로 업데이트되었습니다.')
       // 업데이트된 해시로 data 갱신
       data.password_hash = newHash
     }
@@ -187,14 +181,6 @@ export const memberAPI = {
     const clientInfo = getClientInfo(request)
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24시간 후 만료
 
-    // 디버깅을 위한 로그 추가
-    console.log('세션 생성 시도:', {
-      user_id: data.id,
-      user_id_type: typeof data.id,
-      session_token: sessionToken,
-      expires_at: expiresAt.toISOString()
-    })
-
     const { data: sessionData, error: sessionError } = await supabase
       .from('user_sessions')
       .insert([{
@@ -208,14 +194,8 @@ export const memberAPI = {
       .select()
 
     if (sessionError) {
-      console.error('세션 생성 오류 상세:', {
-        error: sessionError,
-        code: sessionError.code,
-        message: sessionError.message,
-        details: sessionError.details,
-        hint: sessionError.hint
-      })
-      return { data: null, error: { message: `로그인 처리 중 오류가 발생했습니다: ${sessionError.message}` } }
+      console.error('Session creation failed')
+      return { data: null, error: { message: '로그인 처리 중 오류가 발생했습니다.' } }
     }
 
     // Remove password_hash from response for security
@@ -2120,20 +2100,16 @@ export const adminAPI = {
 
       try {
         isPasswordValid = await verifyPassword(password, admin.password_hash)
-        console.log('관리자 bcrypt 검증 결과:', isPasswordValid)
       } catch (error) {
-        console.log('관리자 bcrypt 검증 중 에러:', error)
+        // bcrypt 검증 실패 - 레거시 방식 시도
       }
 
       // bcrypt 검증 실패 시 → 레거시 btoa 해싱 시도
       if (!isPasswordValid) {
-        console.log('관리자 bcrypt 검증 실패, 레거시 방식 시도...')
         const legacyHash = legacyHashPassword(password)
-        console.log('관리자 레거시 해시 비교:', { stored: admin.password_hash, generated: legacyHash })
         if (admin.password_hash === legacyHash) {
           isPasswordValid = true
           needsMigration = true
-          console.log('✅ 관리자 레거시 방식으로 검증 성공')
         }
       }
 
@@ -2143,14 +2119,11 @@ export const adminAPI = {
 
       // 레거시 해싱이면 bcrypt로 즉시 업데이트
       if (needsMigration) {
-        console.log('🔄 관리자 비밀번호 마이그레이션 중...', username)
         const newHash = await hashPassword(password)
         await supabase
           .from('admins')
           .update({ password_hash: newHash })
           .eq('id', admin.id)
-
-        console.log('✅ 관리자 비밀번호가 bcrypt로 업데이트되었습니다.')
       }
 
       // 지역 ID 가져오기 (role이 south/north인 경우)

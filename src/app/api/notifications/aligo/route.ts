@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendMemberApprovalNotification, sendReservationApprovalNotification } from '@/lib/aligo'
+import { validateApiRequest, isAdmin } from '@/lib/auth'
 
 // 회원 승인 알림톡 요청 타입
 interface MemberApprovalRequest {
@@ -23,6 +24,17 @@ type NotificationRequest = MemberApprovalRequest | ReservationApprovalRequest
 
 export async function POST(request: NextRequest) {
   try {
+    // 인증 검증
+    const authResult = await validateApiRequest(request)
+    if (!authResult.authenticated || !authResult.user) {
+      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
+    }
+
+    // 관리자 권한 검증 (알림톡은 관리자만 발송 가능)
+    if (!isAdmin(authResult.user)) {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
+
     // Vercel의 실제 아웃바운드 IP 확인을 위한 로깅
     console.log('🔍 Request Headers:', {
       'x-forwarded-for': request.headers.get('x-forwarded-for'),

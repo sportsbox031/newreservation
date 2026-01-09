@@ -36,7 +36,8 @@
       "Bash(npm run dev:*)",
       "Bash(npx next dev)",
       "WebFetch(domain:github.com)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Skill(sc:analyze)"
     ]
   }
 }

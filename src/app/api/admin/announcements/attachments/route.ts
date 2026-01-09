@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { validateApiRequest, isAdmin } from '@/lib/auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -11,6 +12,17 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 // POST - 첨부파일 레코드 생성 (파일 업로드 후 메타데이터 저장)
 export async function POST(request: NextRequest) {
   try {
+    // 인증 검증
+    const authResult = await validateApiRequest(request)
+    if (!authResult.authenticated || !authResult.user) {
+      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
+    }
+
+    // 관리자 권한 검증
+    if (!isAdmin(authResult.user)) {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
+
     const data = await request.json()
 
     // 필수 필드 검증
@@ -61,6 +73,17 @@ export async function POST(request: NextRequest) {
 // DELETE - 첨부파일 삭제
 export async function DELETE(request: NextRequest) {
   try {
+    // 인증 검증
+    const authResult = await validateApiRequest(request)
+    if (!authResult.authenticated || !authResult.user) {
+      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
+    }
+
+    // 관리자 권한 검증
+    if (!isAdmin(authResult.user)) {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
+
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
     const storagePath = url.searchParams.get('path')
