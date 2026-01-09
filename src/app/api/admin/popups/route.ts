@@ -111,9 +111,25 @@ export async function DELETE(request: NextRequest) {
 
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
-    
+
     if (!id) {
       return NextResponse.json({ error: 'ID가 필요합니다.' }, { status: 400 })
+    }
+
+    // 팝업 조회하여 작성자 확인
+    const { data: popup } = await supabaseAdmin
+      .from('homepage_popups')
+      .select('author_id')
+      .eq('id', id)
+      .single()
+
+    if (!popup) {
+      return NextResponse.json({ error: '팝업을 찾을 수 없습니다' }, { status: 404 })
+    }
+
+    // super 관리자가 아니면 본인이 작성한 팝업만 삭제 가능
+    if (authResult.user.role !== 'super' && popup.author_id !== authResult.user.id) {
+      return NextResponse.json({ error: '본인이 작성한 팝업만 삭제할 수 있습니다' }, { status: 403 })
     }
 
     const { error } = await supabaseAdmin
@@ -148,13 +164,29 @@ export async function PUT(request: NextRequest) {
 
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
-    
+
     if (!id) {
       return NextResponse.json({ error: 'ID가 필요합니다.' }, { status: 400 })
     }
 
+    // 팝업 조회하여 작성자 확인
+    const { data: existingPopup } = await supabaseAdmin
+      .from('homepage_popups')
+      .select('author_id')
+      .eq('id', id)
+      .single()
+
+    if (!existingPopup) {
+      return NextResponse.json({ error: '팝업을 찾을 수 없습니다' }, { status: 404 })
+    }
+
+    // super 관리자가 아니면 본인이 작성한 팝업만 수정 가능
+    if (authResult.user.role !== 'super' && existingPopup.author_id !== authResult.user.id) {
+      return NextResponse.json({ error: '본인이 작성한 팝업만 수정할 수 있습니다' }, { status: 403 })
+    }
+
     const data = await request.json()
-    
+
     const updateData = {
       title: data.title,
       content: data.content,
@@ -189,15 +221,42 @@ export async function PUT(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    // 인증 검증
+    const authResult = await validateApiRequest(request)
+    if (!authResult.authenticated || !authResult.user) {
+      return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
+    }
+
+    // 관리자 권한 검증
+    if (!isAdmin(authResult.user)) {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
+
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
-    
+
     if (!id) {
       return NextResponse.json({ error: 'ID가 필요합니다.' }, { status: 400 })
     }
 
+    // 팝업 조회하여 작성자 확인
+    const { data: existingPopup } = await supabaseAdmin
+      .from('homepage_popups')
+      .select('author_id')
+      .eq('id', id)
+      .single()
+
+    if (!existingPopup) {
+      return NextResponse.json({ error: '팝업을 찾을 수 없습니다' }, { status: 404 })
+    }
+
+    // super 관리자가 아니면 본인이 작성한 팝업만 상태 변경 가능
+    if (authResult.user.role !== 'super' && existingPopup.author_id !== authResult.user.id) {
+      return NextResponse.json({ error: '본인이 작성한 팝업만 상태를 변경할 수 있습니다' }, { status: 403 })
+    }
+
     const data = await request.json()
-    
+
     // 상태 토글용 업데이트 - is_active 필드만 업데이트
     const updateData = {
       is_active: data.is_active,

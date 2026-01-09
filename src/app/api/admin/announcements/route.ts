@@ -89,9 +89,25 @@ export async function DELETE(request: NextRequest) {
 
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
-    
+
     if (!id) {
       return NextResponse.json({ error: 'ID가 필요합니다.' }, { status: 400 })
+    }
+
+    // 공지사항 조회하여 작성자 확인
+    const { data: announcement } = await supabaseAdmin
+      .from('announcements')
+      .select('author_id')
+      .eq('id', id)
+      .single()
+
+    if (!announcement) {
+      return NextResponse.json({ error: '공지사항을 찾을 수 없습니다' }, { status: 404 })
+    }
+
+    // super 관리자가 아니면 본인이 작성한 글만 삭제 가능
+    if (authResult.user.role !== 'super' && announcement.author_id !== authResult.user.id) {
+      return NextResponse.json({ error: '본인이 작성한 공지사항만 삭제할 수 있습니다' }, { status: 403 })
     }
 
     const { error } = await supabaseAdmin
@@ -126,13 +142,29 @@ export async function PUT(request: NextRequest) {
 
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
-    
+
     if (!id) {
       return NextResponse.json({ error: 'ID가 필요합니다.' }, { status: 400 })
     }
 
+    // 공지사항 조회하여 작성자 확인
+    const { data: existingAnnouncement } = await supabaseAdmin
+      .from('announcements')
+      .select('author_id')
+      .eq('id', id)
+      .single()
+
+    if (!existingAnnouncement) {
+      return NextResponse.json({ error: '공지사항을 찾을 수 없습니다' }, { status: 404 })
+    }
+
+    // super 관리자가 아니면 본인이 작성한 글만 수정 가능
+    if (authResult.user.role !== 'super' && existingAnnouncement.author_id !== authResult.user.id) {
+      return NextResponse.json({ error: '본인이 작성한 공지사항만 수정할 수 있습니다' }, { status: 403 })
+    }
+
     const data = await request.json()
-    
+
     const updateData = {
       title: data.title,
       content: data.content,
