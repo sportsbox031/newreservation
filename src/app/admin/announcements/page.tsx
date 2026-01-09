@@ -30,7 +30,9 @@ interface Announcement {
   view_count: number
   created_at: string
   updated_at: string
+  author_id: string
   admins: {
+    id: string
     username: string
   }
   regions?: {
@@ -164,8 +166,7 @@ export default function AdminAnnouncementsPage() {
         target_region_id: formData.target_type === 'region' ? parseInt(formData.target_region_id) : undefined,
         is_important: formData.is_important,
         is_published: formData.is_published,
-        // Temporarily removing author_id to avoid foreign key constraint
-        // author_id: adminInfo.id
+        author_id: adminInfo.id
       }
 
       let announcementId: string
@@ -268,13 +269,13 @@ export default function AdminAnnouncementsPage() {
   const canEditAnnouncement = (announcement: Announcement) => {
     if (adminInfo?.role === 'super') return true
     // 지역 관리자는 자신이 작성한 공지사항만 수정 가능
-    return announcement.admins.username === adminInfo?.username
+    return announcement.author_id === adminInfo?.id
   }
 
   const canDeleteAnnouncement = (announcement: Announcement) => {
     if (adminInfo?.role === 'super') return true
     // 지역 관리자는 자신이 작성한 공지사항만 삭제 가능
-    return announcement.admins.username === adminInfo?.username
+    return announcement.author_id === adminInfo?.id
   }
 
   if (loading) {

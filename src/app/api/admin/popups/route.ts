@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       .insert([insertData])
       .select(`
         *,
-        admins(username)
+        admins(id, username)
       `)
 
     if (error) {
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       .from('homepage_popups')
       .select(`
         *,
-        admins(username)
+        admins(id, username)
       `)
       .order('created_at', { ascending: false })
 
@@ -204,7 +204,7 @@ export async function PUT(request: NextRequest) {
       .eq('id', id)
       .select(`
         *,
-        admins(username)
+        admins(id, username)
       `)
 
     if (error) {
@@ -269,7 +269,7 @@ export async function PATCH(request: NextRequest) {
       .eq('id', id)
       .select(`
         *,
-        admins(username)
+        admins(id, username)
       `)
 
     if (error) {

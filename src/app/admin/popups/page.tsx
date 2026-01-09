@@ -18,7 +18,9 @@ interface HomepagePopup {
   display_order: number
   created_at: string
   updated_at: string
+  author_id: string
   admins: {
+    id: string
     username: string
   }
 }
@@ -213,6 +215,18 @@ export default function PopupManagementPage() {
     }
   }
 
+  const canEditPopup = (popup: HomepagePopup) => {
+    if (adminInfo?.role === 'super') return true
+    // 지역 관리자는 자신이 작성한 팝업만 수정 가능
+    return popup.author_id === adminInfo?.id
+  }
+
+  const canDeletePopup = (popup: HomepagePopup) => {
+    if (adminInfo?.role === 'super') return true
+    // 지역 관리자는 자신이 작성한 팝업만 삭제 가능
+    return popup.author_id === adminInfo?.id
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -331,31 +345,37 @@ export default function PopupManagementPage() {
                   >
                     <Eye className="w-5 h-5" />
                   </button>
-                  <button
-                    onClick={() => handleToggleStatus(popup.id, popup.is_active)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      popup.is_active 
-                        ? 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                        : 'text-green-600 hover:text-green-800 hover:bg-green-50'
-                    }`}
-                    title={popup.is_active ? '비활성화' : '활성화'}
-                  >
-                    {popup.is_active ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                  <button
-                    onClick={() => handleEditClick(popup)}
-                    className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="수정"
-                  >
-                    <Edit className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(popup.id)}
-                    className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
-                    title="삭제"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  {canEditPopup(popup) && (
+                    <>
+                      <button
+                        onClick={() => handleToggleStatus(popup.id, popup.is_active)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          popup.is_active
+                            ? 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                            : 'text-green-600 hover:text-green-800 hover:bg-green-50'
+                        }`}
+                        title={popup.is_active ? '비활성화' : '활성화'}
+                      >
+                        {popup.is_active ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                      <button
+                        onClick={() => handleEditClick(popup)}
+                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="수정"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
+                  {canDeletePopup(popup) && (
+                    <button
+                      onClick={() => handleDelete(popup.id)}
+                      className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                      title="삭제"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

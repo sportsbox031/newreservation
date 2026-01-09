@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       .insert([insertData])
       .select(`
         *,
-        admins(username),
+        admins(id, username),
         regions(name)
       `)
 
@@ -181,7 +181,7 @@ export async function PUT(request: NextRequest) {
       .eq('id', id)
       .select(`
         *,
-        admins(username),
+        admins(id, username),
         regions(name)
       `)
 
