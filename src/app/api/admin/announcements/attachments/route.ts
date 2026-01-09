@@ -68,13 +68,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Attachment creation error:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: '첨부파일을 등록할 수 없습니다' }, { status: 400 })
     }
 
     return NextResponse.json({ data: attachment })
   } catch (error) {
     console.error('Attachment API error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: '요청을 처리할 수 없습니다' }, { status: 500 })
   }
 }
 
@@ -118,13 +118,13 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       console.error('Database deletion error:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: '첨부파일을 삭제할 수 없습니다' }, { status: 400 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Delete API error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: '요청을 처리할 수 없습니다' }, { status: 500 })
   }
 }
 
@@ -146,12 +146,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Get attachments error:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: '첨부파일을 조회할 수 없습니다' }, { status: 400 })
     }
 
     return NextResponse.json({ data })
   } catch (error) {
     console.error('Get API error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: '요청을 처리할 수 없습니다' }, { status: 500 })
   }
 }

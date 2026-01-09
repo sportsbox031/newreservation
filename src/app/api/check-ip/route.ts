@@ -11,9 +11,9 @@ export async function GET() {
       message: '이 IP를 알리고에 등록하세요!'
     })
   } catch (error) {
+    console.error('IP check error:', error)
     return NextResponse.json({
-      error: 'IP 확인 실패',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: 'IP 확인에 실패했습니다'
     }, { status: 500 })
   }
 }

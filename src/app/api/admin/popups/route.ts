@@ -64,13 +64,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('팝업 생성 오류:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: '팝업을 생성할 수 없습니다' }, { status: 400 })
     }
 
     return NextResponse.json({ data: popup })
   } catch (error) {
     console.error('API 오류:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: '요청을 처리할 수 없습니다' }, { status: 500 })
   }
 }
 
@@ -86,13 +86,13 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('팝업 조회 오류:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: '팝업을 조회할 수 없습니다' }, { status: 400 })
     }
 
     return NextResponse.json({ data })
   } catch (error) {
     console.error('API 오류:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: '요청을 처리할 수 없습니다' }, { status: 500 })
   }
 }
 
@@ -123,13 +123,13 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       console.error('팝업 삭제 오류:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: '팝업을 삭제할 수 없습니다' }, { status: 400 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('API 오류:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: '요청을 처리할 수 없습니다' }, { status: 500 })
   }
 }
 
@@ -177,13 +177,13 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('팝업 수정 오류:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: '팝업을 수정할 수 없습니다' }, { status: 400 })
     }
 
     return NextResponse.json({ data: popup })
   } catch (error) {
     console.error('API 오류:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: '요청을 처리할 수 없습니다' }, { status: 500 })
   }
 }
 
@@ -215,12 +215,12 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('팝업 상태 변경 오류:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ error: '팝업 상태를 변경할 수 없습니다' }, { status: 400 })
     }
 
     return NextResponse.json({ data: popup })
   } catch (error) {
     console.error('API 오류:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: '요청을 처리할 수 없습니다' }, { status: 500 })
   }
 }
