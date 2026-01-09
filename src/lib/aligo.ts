@@ -119,3 +119,112 @@ export async function sendReservationApprovalNotification(
     failover: true
   })
 }
+
+// 회원가입 반려 알림톡
+export async function sendMemberRejectionNotification(
+  phone: string,
+  organizationName: string,
+  tplCode: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const subject = '[경기도체육회 스포츠박스] 회원가입 반려 안내'
+
+  const message = `[경기도체육회 스포츠박스]
+회원가입 반려 안내
+안녕하세요, #{단체명} 담당자님.
+
+
+스포츠박스 회원가입 신청이 반려되었음을 안내드립니다.
+
+사이트 내 공지사항의 [회원가입 안내] 게시글을 반드시 확인해 주시기 바랍니다.
+
+공지사항에 명시된 기준을 보완하여 다시 회원가입을 진행해 주시기 바랍니다.
+
+[유의사항]
+담당자가 변경될 경우 계정관리에서 반드시 정보를 수정해 주시기 바랍니다.
+
+[문의사항]
+남부지역: 031-250-0474~7
+북부지역: 031-872-6520~4`
+    .replace(/#{단체명}/g, organizationName)
+
+  return sendAligoKakaoTalk({
+    tplCode,
+    receiver: phone,
+    subject,
+    message,
+    failover: true
+  })
+}
+
+// 예약 반려 알림톡
+export async function sendReservationRejectionNotification(
+  phone: string,
+  organizationName: string,
+  reservationDate: string,
+  tplCode: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const subject = '[경기도체육회 스포츠박스] 예약 반려 안내'
+
+  const message = `[경기도체육회 스포츠박스]
+예약 반려 안내
+안녕하세요, #{단체명} 담당자님.
+신청하신 스포츠박스 프로그램 예약이 반려되었습니다.
+
+예약 정보
+단체명: #{단체명}
+신청일자: #{예약일자}
+
+사이트 내 공지사항의 [예약 관련 안내] 게시글을 반드시 확인하여 주시기 바랍니다.
+
+공지사항에 명시된 기준에 따라 내용을 보완하여 다시 신청해 주시기 바랍니다.
+
+본 사업은 무료로 진행되는 공익 사업으로, 원활한 운영을 위해 협조 부탁드립니다.
+
+문의사항은 남부지역 031-250-0474~7 북부지역 031-872-6520~4으로 연락 바랍니다.`
+    .replace(/#{단체명}/g, organizationName)
+    .replace(/#{예약일자}/g, reservationDate)
+
+  return sendAligoKakaoTalk({
+    tplCode,
+    receiver: phone,
+    subject,
+    message,
+    failover: true
+  })
+}
+
+// 프로그램 이용 당일 안내 알림톡
+export async function sendProgramDayNotification(
+  phone: string,
+  organizationName: string,
+  timeSlot: string,
+  tplCode: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const subject = '[경기도체육회 스포츠박스] 프로그램 이용 당일 안내'
+
+  const message = `[경기도체육회 스포츠박스]
+프로그램 이용 당일 안내
+안녕하세요, #{단체명} 담당자님.
+오늘은 스포츠박스 프로그램 이용 예정일입니다. 즐겁고 안전한 활동이 되시길 바랍니다.
+
+■ 예약 확인 정보
+단체명: #{단체명}
+이용시간: #{이용시간}
+
+■ 협조 및 유의사항
+신청하신 장소가 변경되었을 경우 반드시 연락주시기 바랍니다.
+
+현장 상황 및 기상 변화에 따라 프로그램 내용이 일부 조정될 수 있습니다.
+
+문의사항은 남부지역 031-250-0474~7 북부지역 031-872-6520~4으로 연락 바랍니다.`
+    .replace(/#{단체명}/g, organizationName)
+    .replace(/#{이용시간}/g, timeSlot)
+
+  return sendAligoKakaoTalk({
+    tplCode,
+    receiver: phone,
+    subject,
+    message,
+    failover: true
+  })
+}

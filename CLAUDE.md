@@ -36,7 +36,7 @@ src/
 │   ├── admin/
 │   │   ├── announcements/ # Admin announcement management
 │   │   ├── members/     # User approval management
-│   │   ├── north/       # North region admin interface  
+│   │   ├── north/       # North region admin interface
 │   │   ├── popups/      # Homepage popup management
 │   │   ├── reports/     # Analytics and reporting
 │   │   ├── reservations/ # Reservation approval interface
@@ -88,7 +88,7 @@ Centralized API functions organized by domain (2013 lines total):
 
 ### Key Business Rules
 - Monthly reservation limit: 4 days per user
-- Daily slot limit: 2 time slots per day  
+- Daily slot limit: 2 time slots per day
 - Regional segregation: South/North admin can only manage their region
 - Approval workflow: All registrations and reservations require admin approval
 - Custom authentication system (not Supabase Auth) using organization_name + password
@@ -98,7 +98,7 @@ Centralized API functions organized by domain (2013 lines total):
 
 ### Test Accounts
 - **User**: 테스트단체 / 1234
-- **Super Admin**: admin / admin123  
+- **Super Admin**: admin / admin123
 - **Regional**: admin_south / admin123, admin_north / admin123
 
 ### Environment Configuration
@@ -117,7 +117,7 @@ Required environment variables in `.env.local`:
 - **Tailwind CSS v4**: Latest version with PostCSS configuration
 - **ESLint**: Flat config format with Next.js recommended rules
 - **Korean Language**: Interface text throughout application
-- **Key Dependencies**: 
+- **Key Dependencies**:
   - React Hook Form + Zod for form validation
   - date-fns for date manipulation
   - react-calendar for date picker UI

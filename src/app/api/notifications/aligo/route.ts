@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendMemberApprovalNotification, sendReservationApprovalNotification } from '@/lib/aligo'
+import {
+  sendMemberApprovalNotification,
+  sendReservationApprovalNotification,
+  sendMemberRejectionNotification,
+  sendReservationRejectionNotification,
+  sendProgramDayNotification
+} from '@/lib/aligo'
 import { validateApiRequest, isAdmin } from '@/lib/auth'
 
 // 회원 승인 알림톡 요청 타입
@@ -20,7 +26,38 @@ interface ReservationApprovalRequest {
   tplCode: string
 }
 
-type NotificationRequest = MemberApprovalRequest | ReservationApprovalRequest
+// 회원 반려 알림톡 요청 타입
+interface MemberRejectionRequest {
+  type: 'member_rejection'
+  phone: string
+  organizationName: string
+  tplCode: string
+}
+
+// 예약 반려 알림톡 요청 타입
+interface ReservationRejectionRequest {
+  type: 'reservation_rejection'
+  phone: string
+  organizationName: string
+  reservationDate: string
+  tplCode: string
+}
+
+// 프로그램 이용 당일 안내 알림톡 요청 타입
+interface ProgramDayRequest {
+  type: 'program_day'
+  phone: string
+  organizationName: string
+  timeSlot: string
+  tplCode: string
+}
+
+type NotificationRequest =
+  | MemberApprovalRequest
+  | ReservationApprovalRequest
+  | MemberRejectionRequest
+  | ReservationRejectionRequest
+  | ProgramDayRequest
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,6 +122,48 @@ export async function POST(request: NextRequest) {
           body.phone,
           body.organizationName,
           body.reservationDate,
+          body.timeSlot,
+          body.tplCode
+        )
+        break
+
+      case 'member_rejection':
+        result = await sendMemberRejectionNotification(
+          body.phone,
+          body.organizationName,
+          body.tplCode
+        )
+        break
+
+      case 'reservation_rejection':
+        // 예약 반려의 경우 추가 필드 검증
+        if (!body.reservationDate) {
+          return NextResponse.json(
+            { success: false, error: '예약 정보가 누락되었습니다.' },
+            { status: 400 }
+          )
+        }
+
+        result = await sendReservationRejectionNotification(
+          body.phone,
+          body.organizationName,
+          body.reservationDate,
+          body.tplCode
+        )
+        break
+
+      case 'program_day':
+        // 프로그램 이용 당일 안내의 경우 추가 필드 검증
+        if (!body.timeSlot) {
+          return NextResponse.json(
+            { success: false, error: '이용시간 정보가 누락되었습니다.' },
+            { status: 400 }
+          )
+        }
+
+        result = await sendProgramDayNotification(
+          body.phone,
+          body.organizationName,
           body.timeSlot,
           body.tplCode
         )
