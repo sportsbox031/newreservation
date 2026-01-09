@@ -1499,9 +1499,21 @@ export const announcementAPI = {
     file: File
   ): Promise<{ data: string | null; error: any }> {
     try {
+      // 파일 검증
+      const { validateFile, sanitizeFileName } = await import('@/lib/fileValidation')
+      const validation = validateFile(file)
+
+      if (!validation.valid) {
+        return {
+          data: null,
+          error: { message: validation.error }
+        }
+      }
+
+      // 안전한 파일명 생성
       const timestamp = Date.now()
-      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const filePath = `announcements/${announcementId}/${timestamp}_${sanitizedFileName}`
+      const safeFileName = sanitizeFileName(file.name)
+      const filePath = `announcements/${announcementId}/${timestamp}_${safeFileName}`
 
       const { data, error } = await supabase.storage
         .from('announcement-attachments')

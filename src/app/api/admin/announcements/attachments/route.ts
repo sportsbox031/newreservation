@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { validateApiRequest, isAdmin } from '@/lib/auth'
+import { validateFileMetadata, validateAttachmentCount } from '@/lib/fileValidation'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -30,19 +31,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // 파일 크기 검증 (5MB)
-    if (data.file_size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File size exceeds 5MB limit' }, { status: 400 })
-    }
-
     // 첨부파일 개수 확인 (최대 3개)
     const { data: existingAttachments } = await supabaseAdmin
       .from('announcement_attachments')
       .select('id')
       .eq('announcement_id', data.announcement_id)
 
-    if (existingAttachments && existingAttachments.length >= 3) {
-      return NextResponse.json({ error: 'Maximum 3 files per announcement' }, { status: 400 })
+    const countValidation = validateAttachmentCount(existingAttachments?.length || 0)
+    if (!countValidation.valid) {
+      return NextResponse.json({ error: countValidation.error }, { status: 400 })
+    }
+
+    // 서버 사이드 파일 메타데이터 검증
+    const fileValidation = validateFileMetadata(
+      data.file_name,
+      data.file_size,
+      data.file_type
+    )
+
+    if (!fileValidation.valid) {
+      return NextResponse.json({ error: fileValidation.error }, { status: 400 })
     }
 
     // 첨부파일 레코드 생성
