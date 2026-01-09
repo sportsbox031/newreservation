@@ -2098,7 +2098,7 @@ export const tierAPI = {
 // 관리자 계정 관리 API
 export const adminAPI = {
   // 관리자 로그인 (하이브리드: bcrypt + 레거시 btoa 지원)
-  async login(username: string, password: string) {
+  async login(username: string, password: string, request?: Request) {
     try {
       // 관리자 조회
       const { data: admin, error: fetchError } = await supabase
@@ -2143,6 +2143,34 @@ export const adminAPI = {
           .eq('id', admin.id)
       }
 
+      // 기존 활성 세션 비활성화 (한 계정 한 세션 제한)
+      await supabase
+        .from('sessions')
+        .update({ is_active: false })
+        .eq('user_id', admin.id)
+        .eq('is_active', true)
+
+      // 새 세션 생성
+      const sessionToken = generateSessionToken()
+      const clientInfo = getClientInfo(request)
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24시간 후 만료
+
+      const { error: sessionError } = await supabase
+        .from('sessions')
+        .insert([{
+          user_id: admin.id,
+          session_token: sessionToken,
+          user_agent: clientInfo.user_agent,
+          ip_address: clientInfo.ip_address,
+          expires_at: expiresAt.toISOString(),
+          is_active: true
+        }])
+
+      if (sessionError) {
+        console.error('Session creation failed')
+        return { data: null, error: { message: '로그인 처리 중 오류가 발생했습니다.' } }
+      }
+
       // 지역 ID 가져오기 (role이 south/north인 경우)
       let region_id = null
       if (admin.role === 'south' || admin.role === 'north') {
@@ -2151,7 +2179,7 @@ export const adminAPI = {
         region_id = regionIdResult
       }
 
-      // 로그인 성공
+      // 로그인 성공 (세션 토큰 포함)
       return {
         data: {
           id: admin.id,
@@ -2160,7 +2188,9 @@ export const adminAPI = {
           region_id: region_id,
           phone: admin.phone,
           email: admin.email,
-          isAuthenticated: true
+          isAuthenticated: true,
+          session_token: sessionToken,
+          session_expires: expiresAt
         },
         error: null
       }

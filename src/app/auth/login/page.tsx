@@ -47,6 +47,11 @@ function LoginFormComponent() {
         // 관리자 정보를 localStorage에 저장
         localStorage.setItem('adminInfo', JSON.stringify(adminData));
 
+        // 세션 토큰 저장 (API 인증용)
+        if (adminData.session_token) {
+          localStorage.setItem('sessionToken', adminData.session_token);
+        }
+
         // 역할에 따라 리다이렉트
         if (adminData.role === 'super') {
           router.push('/admin');
