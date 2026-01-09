@@ -12,6 +12,17 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   }
 })
 
+// 인증 헤더 생성 헬퍼 함수
+function getAuthHeaders(): HeadersInit {
+  if (typeof window === 'undefined') return { 'Content-Type': 'application/json' }
+
+  const sessionToken = localStorage.getItem('sessionToken')
+  return {
+    'Content-Type': 'application/json',
+    ...(sessionToken && { 'Authorization': `Bearer ${sessionToken}` })
+  }
+}
+
 // bcrypt를 사용한 안전한 비밀번호 해싱
 const hashPassword = async (password: string): Promise<string> => {
   const saltRounds = 10
@@ -1402,18 +1413,16 @@ export const announcementAPI = {
     try {
       const response = await fetch('/api/admin/announcements', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(announcementData)
       })
-      
+
       const result = await response.json()
-      
+
       if (!response.ok) {
         return { data: null, error: { message: result.error || 'Failed to create announcement' } }
       }
-      
+
       return { data: result.data, error: null }
     } catch (error) {
       console.error('API call error:', error)
@@ -1432,17 +1441,15 @@ export const announcementAPI = {
   }) {
     const response = await fetch(`/api/admin/announcements?id=${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(updateData)
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json()
       return { data: null, error: { message: errorData.error } }
     }
-    
+
     const data = await response.json()
     return { data: data.data, error: null }
   },
@@ -1451,13 +1458,14 @@ export const announcementAPI = {
   async deleteAnnouncement(id: string) {
     const response = await fetch(`/api/admin/announcements?id=${id}`, {
       method: 'DELETE',
+      headers: getAuthHeaders()
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json()
       return { data: null, error: { message: errorData.error } }
     }
-    
+
     const data = await response.json()
     return { data, error: null }
   },
@@ -1616,13 +1624,15 @@ export const popupAPI = {
   // 모든 팝업 조회 (관리자용)
   async getAllPopups() {
     try {
-      const response = await fetch('/api/admin/popups')
-      
+      const response = await fetch('/api/admin/popups', {
+        headers: getAuthHeaders()
+      })
+
       if (!response.ok) {
         const errorData = await response.json()
         return { data: null, error: { message: errorData.error || 'Failed to fetch popups' } }
       }
-      
+
       const result = await response.json()
       return { data: result.data, error: null }
     } catch (error) {
@@ -1644,18 +1654,16 @@ export const popupAPI = {
     try {
       const response = await fetch('/api/admin/popups', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(popupData)
       })
 
       const result = await response.json()
-      
+
       if (!response.ok) {
         return { data: null, error: result.error ? { message: result.error } : { message: 'Failed to create popup' } }
       }
-      
+
       return { data: result.data, error: null }
     } catch (error) {
       console.error('팝업 생성 중 예외:', error)
@@ -1675,17 +1683,15 @@ export const popupAPI = {
   }) {
     const response = await fetch(`/api/admin/popups?id=${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(updateData)
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json()
       return { data: null, error: { message: errorData.error } }
     }
-    
+
     const data = await response.json()
     return { data: data.data, error: null }
   },
@@ -1694,13 +1700,14 @@ export const popupAPI = {
   async deletePopup(id: string) {
     const response = await fetch(`/api/admin/popups?id=${id}`, {
       method: 'DELETE',
+      headers: getAuthHeaders()
     })
-    
+
     if (!response.ok) {
       const errorData = await response.json()
       return { data: null, error: { message: errorData.error } }
     }
-    
+
     const data = await response.json()
     return { data, error: null }
   },
@@ -1710,17 +1717,15 @@ export const popupAPI = {
     try {
       const response = await fetch(`/api/admin/popups?id=${id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ is_active: isActive })
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json()
         return { data: null, error: { message: errorData.error || 'Failed to toggle popup status' } }
       }
-      
+
       const data = await response.json()
       return { data: data.data, error: null }
     } catch (error) {
