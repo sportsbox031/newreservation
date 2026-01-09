@@ -35,54 +35,107 @@ export async function validateApiRequest(request: NextRequest): Promise<AuthResu
       return { authenticated: false, error: 'Token missing' }
     }
 
-    // 세션 토큰으로 세션 검증
-    const { data: session, error: sessionError } = await supabaseAdmin
-      .from('sessions')
+    // 먼저 관리자 세션 확인
+    const { data: adminSession, error: adminSessionError } = await supabaseAdmin
+      .from('admin_sessions')
+      .select(`
+        id,
+        admin_id,
+        expires_at,
+        is_active,
+        admins!inner(
+          id,
+          username,
+          role
+        )
+      `)
+      .eq('session_token', token)
+      .eq('is_active', true)
+      .single()
+
+    if (!adminSessionError && adminSession) {
+      // 세션 만료 확인
+      const now = new Date()
+      const expiresAt = new Date(adminSession.expires_at)
+      if (expiresAt < now) {
+        return { authenticated: false, error: 'Session expired' }
+      }
+
+      // 세션 활동 시간 업데이트
+      await supabaseAdmin
+        .from('admin_sessions')
+        .update({ last_activity: new Date().toISOString() })
+        .eq('id', adminSession.id)
+
+      const admin = Array.isArray(adminSession.admins) ? adminSession.admins[0] : adminSession.admins
+
+      return {
+        authenticated: true,
+        user: {
+          id: admin.id,
+          organization_name: admin.username,
+          role: admin.role,
+          region_id: null
+        }
+      }
+    }
+
+    // 관리자 세션이 없으면 일반 사용자 세션 확인
+    const { data: userSession, error: userSessionError } = await supabaseAdmin
+      .from('user_sessions')
       .select(`
         id,
         user_id,
         expires_at,
+        is_active,
         users!inner(
           id,
           organization_name,
-          role,
-          region_id,
+          city_id,
           status
         )
       `)
       .eq('session_token', token)
+      .eq('is_active', true)
       .single()
 
-    if (sessionError || !session) {
+    if (userSessionError || !userSession) {
       return { authenticated: false, error: 'Invalid session token' }
     }
 
     // 세션 만료 확인
     const now = new Date()
-    const expiresAt = new Date(session.expires_at)
+    const expiresAt = new Date(userSession.expires_at)
     if (expiresAt < now) {
       return { authenticated: false, error: 'Session expired' }
     }
 
     // 사용자 상태 확인 (approved만 허용)
-    const user = Array.isArray(session.users) ? session.users[0] : session.users
+    const user = Array.isArray(userSession.users) ? userSession.users[0] : userSession.users
     if (user.status !== 'approved') {
       return { authenticated: false, error: 'User not approved' }
     }
 
     // 세션 활동 시간 업데이트
     await supabaseAdmin
-      .from('sessions')
+      .from('user_sessions')
       .update({ last_activity: new Date().toISOString() })
-      .eq('id', session.id)
+      .eq('id', userSession.id)
+
+    // city_id로 region_id 조회
+    const { data: cityData } = await supabaseAdmin
+      .from('cities')
+      .select('region_id')
+      .eq('id', user.city_id)
+      .single()
 
     return {
       authenticated: true,
       user: {
         id: user.id,
         organization_name: user.organization_name,
-        role: user.role || 'user',
-        region_id: user.region_id
+        role: 'user',
+        region_id: cityData?.region_id || null
       }
     }
   } catch (error) {

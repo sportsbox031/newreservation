@@ -2145,9 +2145,9 @@ export const adminAPI = {
 
       // 기존 활성 세션 비활성화 (한 계정 한 세션 제한)
       await supabase
-        .from('sessions')
+        .from('admin_sessions')
         .update({ is_active: false })
-        .eq('user_id', admin.id)
+        .eq('admin_id', admin.id)
         .eq('is_active', true)
 
       // 새 세션 생성
@@ -2156,9 +2156,9 @@ export const adminAPI = {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24시간 후 만료
 
       const { error: sessionError } = await supabase
-        .from('sessions')
+        .from('admin_sessions')
         .insert([{
-          user_id: admin.id,
+          admin_id: admin.id,
           session_token: sessionToken,
           user_agent: clientInfo.user_agent,
           ip_address: clientInfo.ip_address,
@@ -2167,7 +2167,7 @@ export const adminAPI = {
         }])
 
       if (sessionError) {
-        console.error('Session creation failed')
+        console.error('Session creation failed:', sessionError)
         return { data: null, error: { message: '로그인 처리 중 오류가 발생했습니다.' } }
       }
 
