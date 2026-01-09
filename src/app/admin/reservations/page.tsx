@@ -508,16 +508,20 @@ export default function AdminReservationsPage() {
           : '';
 
         // 알림톡 발송 (실패해도 승인 프로세스는 계속 진행)
+        const sessionToken = localStorage.getItem('sessionToken')
         fetch('/api/notifications/aligo', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`
+          },
           body: JSON.stringify({
             type: 'reservation_approval',
             phone: reservation.phone,
             organizationName: reservation.organization_name,
             reservationDate,
             timeSlot,
-            tplCode: process.env.NEXT_PUBLIC_ALIGO_RESERVATION_TPL_CODE || ''
+            tplCode: process.env.NEXT_PUBLIC_ALIGO_RESERVATION_APPROVAL_TPL_CODE || ''
           })
         })
           .then(res => res.json())
@@ -573,6 +577,44 @@ export default function AdminReservationsPage() {
   const handleReject = async (reservationId: string) => {
     try {
       setActionLoading(reservationId);
+
+      // 알림톡 발송 (삭제 전에 먼저 발송)
+      const reservation = dayReservations.find(r => r.id === reservationId)
+      if (reservation) {
+        // 예약 날짜 포맷팅
+        const reservationDate = new Date(reservation.date).toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          weekday: 'long'
+        })
+
+        const sessionToken = localStorage.getItem('sessionToken')
+        fetch('/api/notifications/aligo', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`
+          },
+          body: JSON.stringify({
+            type: 'reservation_rejection',
+            phone: reservation.phone,
+            organizationName: reservation.organization_name,
+            reservationDate,
+            tplCode: process.env.NEXT_PUBLIC_ALIGO_RESERVATION_REJECTION_TPL_CODE || ''
+          })
+        })
+          .then(res => res.json())
+          .then(result => {
+            if (!result.success) {
+              console.error('알림톡 발송 실패:', result.error)
+            }
+          })
+          .catch(err => {
+            console.error('알림톡 API 호출 오류:', err)
+          })
+      }
+
       const { data, error } = await reservationAPI.deleteReservation(reservationId);
 
       if (error) {
@@ -589,7 +631,7 @@ export default function AdminReservationsPage() {
         await loadDayReservations(selectedDate);
       }
 
-      alert('예약이 거절되어 삭제되었습니다.');
+      alert('예약이 거절되었으며 반려 알림톡이 발송되었습니다.');
       setActiveModal(null);
       setSelectedReservation(null);
     } catch (error) {

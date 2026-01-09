@@ -131,6 +131,34 @@ export default function MembersPage() {
           return
         }
 
+        // 알림톡 발송 (삭제 전에 먼저 발송)
+        const member = members.find(m => m.id === memberId)
+        if (member) {
+          const sessionToken = localStorage.getItem('sessionToken')
+          fetch('/api/notifications/aligo', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({
+              type: 'member_rejection',
+              phone: member.phone,
+              organizationName: member.organization_name,
+              tplCode: process.env.NEXT_PUBLIC_ALIGO_MEMBER_REJECTION_TPL_CODE || ''
+            })
+          })
+            .then(res => res.json())
+            .then(result => {
+              if (!result.success) {
+                console.error('알림톡 발송 실패:', result.error)
+              }
+            })
+            .catch(err => {
+              console.error('알림톡 API 호출 오류:', err)
+            })
+        }
+
         const { error } = await memberAPI.deleteMember(memberId)
         if (error) {
           console.error('회원 삭제 오류:', error)
@@ -140,7 +168,7 @@ export default function MembersPage() {
 
         // 로컬 상태에서 제거
         setMembers(prev => prev.filter(member => member.id !== memberId))
-        alert('회원 가입이 거절되었으며 데이터가 삭제되었습니다.')
+        alert('회원 가입이 거절되었으며 반려 알림톡이 발송되었습니다.')
       } else {
         // 승인 시 상태만 업데이트
         const { error } = await memberAPI.updateMemberStatus(memberId, status)
@@ -154,14 +182,18 @@ export default function MembersPage() {
         const member = members.find(m => m.id === memberId)
         if (member) {
           // 알림톡 발송 (실패해도 승인 프로세스는 계속 진행)
+          const sessionToken = localStorage.getItem('sessionToken')
           fetch('/api/notifications/aligo', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${sessionToken}`
+            },
             body: JSON.stringify({
               type: 'member_approval',
               phone: member.phone,
               organizationName: member.organization_name,
-              tplCode: process.env.NEXT_PUBLIC_ALIGO_MEMBER_TPL_CODE || ''
+              tplCode: process.env.NEXT_PUBLIC_ALIGO_MEMBER_APPROVAL_TPL_CODE || ''
             })
           })
             .then(res => res.json())
