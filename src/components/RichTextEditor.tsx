@@ -41,12 +41,14 @@ export const sanitizeHtml = (html: string): string => {
       'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
       'ul', 'ol', 'li',
       'a', 'code', 'pre', 'blockquote',
-      'div', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
+      'div', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'img', 'hr', 'section', 'article', 'header', 'footer'
     ],
     ALLOWED_ATTR: [
       'href', 'title', 'target', 'rel',
-      'class', 'id',
-      'colspan', 'rowspan'
+      'class', 'id', 'style',
+      'colspan', 'rowspan',
+      'src', 'alt', 'width', 'height'
     ],
     ALLOW_DATA_ATTR: false,
     ALLOW_UNKNOWN_PROTOCOLS: false,
