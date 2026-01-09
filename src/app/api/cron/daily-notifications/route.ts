@@ -5,9 +5,23 @@ import { sendProgramDayNotification } from '@/lib/aligo'
 // Vercel Cron Job으로 매일 오전 9시에 호출됨
 export async function GET(request: NextRequest) {
   try {
-    // Cron Secret 검증 (보안)
+    // Vercel Cron Job 검증 (보안)
+    // Vercel Cron은 Authorization 헤더 대신 특수 헤더를 사용
     const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const cronSecret = request.headers.get('x-vercel-cron-secret')
+
+    // Authorization 헤더 또는 Vercel Cron 헤더 확인
+    const isAuthorized =
+      authHeader === `Bearer ${process.env.CRON_SECRET}` ||
+      cronSecret === process.env.CRON_SECRET ||
+      request.headers.get('user-agent')?.includes('vercel-cron')
+
+    if (!isAuthorized) {
+      console.error('❌ 인증 실패:', {
+        hasAuthHeader: !!authHeader,
+        hasCronSecret: !!cronSecret,
+        userAgent: request.headers.get('user-agent')
+      })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
