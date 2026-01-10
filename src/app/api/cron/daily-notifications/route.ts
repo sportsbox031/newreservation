@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
 
     console.log('📅 오늘 날짜:', todayString)
 
-    // 오늘 예약된 승인 완료 상태의 예약 조회
-    const { data: reservations, error } = await reservationAPI.getReservationsByDate(todayString)
+    // 오늘 예약된 승인 완료 상태의 예약 조회 (모든 지역)
+    const { data: reservations, error } = await reservationAPI.getReservationsByDate('', todayString)
 
     if (error) {
       console.error('예약 조회 오류:', error)
@@ -66,27 +66,32 @@ export async function GET(request: NextRequest) {
     // 각 예약에 대해 알림톡 발송
     for (const reservation of approvedReservations) {
       try {
+        // 데이터 추출
+        const organizationName = reservation.users?.organization_name || '단체명 없음'
+        const phone = reservation.users?.phone || ''
+        const slots = reservation.reservation_slots || []
+
         // 시간대 포맷팅
-        const timeSlot = reservation.slots && reservation.slots.length > 0
-          ? `${reservation.slots[0].startTime} - ${reservation.slots[reservation.slots.length - 1].endTime}`
+        const timeSlot = slots.length > 0
+          ? `${slots[0].start_time} - ${slots[slots.length - 1].end_time}`
           : '시간 정보 없음'
 
-        console.log(`📤 알림톡 발송 중: ${reservation.organization_name} (${timeSlot})`)
+        console.log(`📤 알림톡 발송 중: ${organizationName} (${timeSlot})`)
 
         // 알림톡 발송
         const result = await sendProgramDayNotification(
-          reservation.phone,
-          reservation.organization_name,
+          phone,
+          organizationName,
           timeSlot,
           process.env.NEXT_PUBLIC_ALIGO_PROGRAM_DAY_TPL_CODE || ''
         )
 
         if (result.success) {
           successCount++
-          console.log(`✅ 발송 성공: ${reservation.organization_name}`)
+          console.log(`✅ 발송 성공: ${organizationName}`)
         } else {
           failCount++
-          console.error(`❌ 발송 실패: ${reservation.organization_name}`, result.error)
+          console.error(`❌ 발송 실패: ${organizationName}`, result.error)
         }
 
         // API Rate Limiting 방지를 위해 약간의 딜레이
@@ -94,7 +99,8 @@ export async function GET(request: NextRequest) {
 
       } catch (error) {
         failCount++
-        console.error(`❌ 알림톡 발송 예외: ${reservation.organization_name}`, error)
+        const organizationName = reservation.users?.organization_name || '단체명 없음'
+        console.error(`❌ 알림톡 발송 예외: ${organizationName}`, error)
       }
     }
 
