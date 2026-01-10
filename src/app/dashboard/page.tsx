@@ -465,18 +465,18 @@ ${otherSessions.map(session =>
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth();
-    
-    // 이번 달의 승인된 예약 개수 계산
+
+    // 이번 달의 예약 개수 계산 (취소 확정되지 않은 모든 예약)
     const thisMonthReservations = reservations.filter(reservation => {
       const reservationDate = new Date(reservation.date);
       return reservationDate.getFullYear() === currentYear &&
              reservationDate.getMonth() === currentMonth &&
-             (reservation.status === 'approved' || reservation.status === 'pending'); // 승인된 것과 대기 중인 것 포함
+             (reservation.status === 'approved' || reservation.status === 'pending' || reservation.status === 'cancel_requested'); // 취소 요청 중인 것도 포함
     });
-    
+
     const usedDays = thisMonthReservations.length;
     const remaining = Math.max(0, 4 - usedDays); // 최대 4일에서 사용한 일수 빼기
-    
+
     setRemainingDays(remaining);
   };
 
