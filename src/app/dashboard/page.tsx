@@ -134,22 +134,22 @@ export default function DashboardPage() {
       setIsSubmitting(true);
 
       if (status === 'pending') {
-        // 승인 전 - 바로 취소
-        const result = await reservationAPI.updateReservationStatus(reservationId, 'cancelled' as any);
-        
+        // 승인대기 상태 - DB에서 즉시 완전 삭제
+        const result = await reservationAPI.deleteReservation(reservationId);
+
         if (result.error) {
           alert('예약 취소 실패: ' + result.error.message);
           return;
         }
-        
+
         alert('예약이 취소되었습니다.');
-        
+
         // 승인 전 취소는 즉시 데이터 새로고침 (달력 반영)
         await Promise.all([
           loadMyReservations(),
           loadReservationStatus()
         ]);
-        
+
       } else if (status === 'approved') {
         // 승인 후 - 취소 요청만 전송
         const result = await reservationAPI.requestCancellation(reservationId);
