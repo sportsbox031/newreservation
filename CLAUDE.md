@@ -74,17 +74,17 @@ src/
 - **Schema Files**: Multiple SQL files for migrations and RLS policies
 
 ### API Layer (`lib/supabase.ts`)
-Centralized API functions organized by domain (2013 lines total):
-- `memberAPI`: Registration, login, approval management
+Centralized API functions organized by domain (2000+ lines):
+- `memberAPI`: Registration, login, approval management, password migration support
 - `reservationAPI`: Booking, status management, regional filtering
 - `settingsAPI`: Blocked dates, configuration management
-- `announcementAPI`: Public announcements and notifications
+- `announcementAPI`: Public announcements with file attachments support
 - `popupAPI`: Homepage modal popup management
-- `sessionAPI`: Session management and tracking
+- `sessionAPI`: Session management with IP/user agent tracking
 - `reservationConcurrencyAPI`: Concurrent reservation handling
 - `tierAPI`: User tier system management
 - `adminAPI`: Admin-specific operations
-- `utilityAPI`: Common utility functions
+- `utilityAPI`: Common utility functions (city lookup, session token generation)
 
 ### Key Business Rules
 - Monthly reservation limit: 4 days per user
@@ -92,9 +92,10 @@ Centralized API functions organized by domain (2013 lines total):
 - Regional segregation: South/North admin can only manage their region
 - Approval workflow: All registrations and reservations require admin approval
 - Custom authentication system (not Supabase Auth) using organization_name + password
-- Simple password hashing (btoa-based) - should be upgraded to bcrypt for production
-- Content management: Announcements and popups for user communication
+- Content management: Announcements with file attachments and popups for user communication
 - Rich text editing: HTML content support for announcements
+- Notification system: Aligo KakaoTalk integration via Fly.io proxy server
+- Scheduled tasks: Daily notification cron job configured in Vercel
 
 ### Test Accounts
 - **User**: 테스트단체 / 1234
@@ -109,8 +110,14 @@ Required environment variables in `.env.local`:
 
 ### Deployment
 - **Platform**: Vercel with automatic deployments
-- **Configuration**: `vercel.json` for deployment settings
-- **Environment Variables**: Stored as Vercel secrets
+- **Region**: Korea (icn1) specified in `vercel.json`
+- **Configuration**: `vercel.json` for deployment settings and cron jobs
+- **Environment Variables**: Stored as Vercel secrets (see `vercel.json` for reference)
+- **Cron Jobs**: Daily notifications run at 00:00 KST via `/api/cron/daily-notifications`
+- **External Services**:
+  - Supabase for database
+  - Fly.io proxy server for Aligo KakaoTalk notifications
+  - Aligo API for SMS/KakaoTalk messaging
 
 ### Development Notes
 - **Next.js 15**: App Router with TypeScript strict mode and Turbopack for development
@@ -126,10 +133,11 @@ Required environment variables in `.env.local`:
 - **Path Aliases**: `@/*` maps to `src/*` for cleaner imports
 
 ### Security Considerations
-- Custom authentication system with basic password hashing
-- **Production TODO**: Replace btoa password hashing with bcrypt
-- **Production TODO**: Consider migrating to Supabase Auth for better security
+- Custom authentication system using bcrypt password hashing (migrated from legacy btoa)
+- Session management with UUID tokens stored in localStorage
 - Row Level Security (RLS) implemented in database
+- Content Security Policy configured in `next.config.ts`
+- Legacy password hash support for backward compatibility during migration
 
 ## Common Development Patterns
 
@@ -141,9 +149,12 @@ All database operations centralized in `lib/supabase.ts` with domain-specific AP
 
 ### Authentication Flow
 1. Login via `memberAPI.login()` with organization_name + password
-2. User data stored in component state or passed via props
-3. Admin role validation: `super` > `south`/`north` > regular user
-4. Regional access control enforced at API level
+2. Password verification supports both bcrypt (current) and legacy btoa hashes
+3. Session token generated (UUID + timestamp) and stored in localStorage
+4. Session tracking includes IP address and user agent for security
+5. User data stored in component state or passed via props
+6. Admin role validation: `super` > `south`/`north` > regular user
+7. Regional access control enforced at API level
 
 ### Form Handling Pattern
 Standard pattern across the application:
@@ -161,6 +172,36 @@ const form = useForm({ resolver: zodResolver(schema) })
 - Admin panels filtered by region: `/admin/south/` vs `/admin/north/`
 - Database queries include regional filtering where appropriate
 
+### Notification System (`lib/aligo.ts`)
+KakaoTalk notification integration via Aligo API:
+- **Architecture**: Next.js → Fly.io proxy server → Aligo API
+- **Templates**: Predefined message templates for member/reservation approval/rejection
+- **Failover**: Automatic SMS fallback when KakaoTalk delivery fails
+- **Usage**: Import `sendAligoKakaoTalk()` function with template code and message
+- **Scheduled**: Daily notifications for program day reminders via Vercel Cron
+
+### API Routes Structure
+```
+src/app/api/
+├── admin/
+│   ├── announcements/
+│   │   ├── route.ts           # CRUD operations for announcements
+│   │   └── attachments/
+│   │       └── route.ts       # File attachment management
+│   └── popups/
+│       └── route.ts           # Homepage popup management
+├── notifications/
+│   └── aligo/
+│       └── route.ts           # Manual notification testing endpoint
+├── cron/
+│   └── daily-notifications/
+│       └── route.ts           # Scheduled daily notification job
+├── test-cron/
+│   └── route.ts               # Manual cron job testing
+└── check-ip/
+    └── route.ts               # IP address checking utility
+```
+
 ## Debugging and Development Tips
 
 ### Database Schema Management
@@ -174,6 +215,10 @@ const form = useForm({ resolver: zodResolver(schema) })
 - **ESLint Warnings**: Configured as warnings, not errors - see `eslint.config.mjs`
 - **Authentication Issues**: Custom auth system bypasses Supabase Auth - debug via `memberAPI.login()`
 - **Regional Access**: Ensure user region matches admin panel region for proper data access
+- **Password Migration**: System supports both bcrypt and legacy btoa hashes for backward compatibility
+- **File Uploads**: Announcements support file attachments via Supabase Storage bucket
+- **Notification Failures**: Check Fly.io proxy server status and Aligo API credentials
+- **Cron Job Testing**: Use `/api/test-cron` endpoint for manual testing before deployment
 
 ### Performance Considerations
 - **Turbopack**: Development uses `--turbopack` flag for faster builds

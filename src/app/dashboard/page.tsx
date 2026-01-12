@@ -738,6 +738,29 @@ ${otherSessions.map(session =>
       const dateDay = String(selectedDate.getDate()).padStart(2, '0');
       const dateString = `${dateYear}-${dateMonth}-${dateDay}`;
 
+      // 같은 날짜 중복 예약 검증
+      const existingReservationOnDate = myReservations.find(reservation => {
+        const reservationDateString = `${reservation.date.getFullYear()}-${String(reservation.date.getMonth() + 1).padStart(2, '0')}-${String(reservation.date.getDate()).padStart(2, '0')}`;
+        return reservationDateString === dateString &&
+               (reservation.status === 'pending' || reservation.status === 'approved');
+      });
+
+      if (existingReservationOnDate) {
+        alert('이미 해당 날짜에 예약이 존재합니다. 같은 날짜에 중복 예약은 불가능합니다.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 시작 시간 중복 검증 (첫 번째 타임과 두 번째 타임이 같으면 안 됨)
+      const startTimes = filteredSlots.map(slot => slot.startTime);
+      const uniqueStartTimes = new Set(startTimes);
+
+      if (startTimes.length !== uniqueStartTimes.size) {
+        alert('시작 시간이 중복됩니다. 각 타임의 시작 시간은 서로 달라야 합니다.');
+        setIsSubmitting(false);
+        return;
+      }
+
       // 슬롯 데이터 변환
       const slotsData = filteredSlots.map((slot, index) => ({
         start_time: slot.startTime,

@@ -1168,11 +1168,20 @@ export const reservationAPI = {
       .lte('date', endDate)
       .in('status', ['pending', 'approved'])
 
+    // 같은 날짜 중복 예약 검증
+    const existingReservationOnDate = reservations?.find(r => r.date === date)
+    if (existingReservationOnDate) {
+      return {
+        data: null,
+        error: { message: '이미 해당 날짜에 예약이 존재합니다. 같은 날짜에 중복 예약은 불가능합니다.' }
+      }
+    }
+
     const uniqueDatesThisMonth = new Set(reservations?.map(r => r.date) || [])
     if (uniqueDatesThisMonth.size >= maxDaysPerMonth) {
-      return { 
-        data: null, 
-        error: { message: `월 예약 한도를 초과했습니다. (${uniqueDatesThisMonth.size}/${maxDaysPerMonth}일)` } 
+      return {
+        data: null,
+        error: { message: `월 예약 한도를 초과했습니다. (${uniqueDatesThisMonth.size}/${maxDaysPerMonth}일)` }
       }
     }
 
@@ -1229,6 +1238,23 @@ export const reservationAPI = {
 
       if (reservationError) {
         return { data: null, error: reservationError }
+      }
+
+      // 시작 시간 중복 검증
+      const startTimes = slots.map(slot => slot.start_time)
+      const uniqueStartTimes = new Set(startTimes)
+
+      if (startTimes.length !== uniqueStartTimes.size) {
+        // 예약 롤백
+        await supabase
+          .from('reservations')
+          .delete()
+          .eq('id', reservation.id)
+
+        return {
+          data: null,
+          error: { message: '시작 시간이 중복됩니다. 각 타임의 시작 시간은 서로 달라야 합니다.' }
+        }
       }
 
       // 슬롯 생성
