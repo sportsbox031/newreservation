@@ -108,41 +108,59 @@ export function useSessionCheck() {
   const [sessionError, setSessionError] = useState<string>('');
 
   useEffect(() => {
+    let isCheckingSession = false; // 중복 체크 방지
+    let lastCheckTime = 0; // 마지막 체크 시간
+
     const checkSession = async () => {
+      if (isCheckingSession) return; // 이미 체크 중이면 스킵
+
+      isCheckingSession = true;
       const result = await checkClientSession();
-      
+
       setIsAuthenticated(result.isValid);
       setUser(result.user || null);
       setSessionError(result.error || '');
       setIsLoading(false);
 
       if (!result.isValid && result.shouldLogout) {
-        await performLogout();
-      }
-    };
-
-    checkSession();
-
-    // 세션 모니터링 시작 (30초마다 - 멀티 로그인 방지를 위한 빠른 감지)
-    const intervalId = setInterval(async () => {
-      const result = await checkClientSession();
-
-      if (!result.isValid && result.shouldLogout) {
-        clearInterval(intervalId);
-
         // 사용자에게 알림
         alert('다른 기기에서 로그인되어 자동 로그아웃되었습니다.');
-
-        // 자동 로그아웃
         await performLogout();
       }
+
+      isCheckingSession = false;
+    };
+
+    // 초기 세션 체크
+    checkSession();
+
+    // 사용자 활동 감지 시 즉시 세션 체크 (Throttle: 1초에 최대 1회)
+    const handleUserActivity = async () => {
+      const now = Date.now();
+      if (now - lastCheckTime < 1000) return; // 1초 이내 중복 체크 방지
+
+      lastCheckTime = now;
+      await checkSession();
+    };
+
+    // 전역 이벤트 리스너 등록
+    document.addEventListener('click', handleUserActivity);
+    document.addEventListener('keydown', handleUserActivity);
+    document.addEventListener('touchstart', handleUserActivity);
+
+    // 백업: 30초마다 세션 체크 (사용자 활동이 없을 때를 대비)
+    const intervalId = setInterval(async () => {
+      await checkSession();
     }, 30 * 1000); // 30초
 
-    // 페이지 언로드 시 인터벌 정리
+    // 클린업
     return () => {
+      document.removeEventListener('click', handleUserActivity);
+      document.removeEventListener('keydown', handleUserActivity);
+      document.removeEventListener('touchstart', handleUserActivity);
       clearInterval(intervalId);
     };
-    
+
   }, []);
 
   const logout = async () => {
