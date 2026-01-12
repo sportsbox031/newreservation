@@ -24,6 +24,7 @@ export default function HomepagePopupComponent() {
   const [currentPopupIndex, setCurrentPopupIndex] = useState(0)
   const [showPopup, setShowPopup] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [dontShowToday, setDontShowToday] = useState(false)
 
   useEffect(() => {
     loadPopups()
@@ -77,22 +78,27 @@ export default function HomepagePopupComponent() {
 
   // 팝업 닫기
   const closePopup = () => {
-    if (popups[currentPopupIndex]) {
+    // 체크박스가 체크된 경우에만 24시간 동안 보지 않음으로 표시
+    if (dontShowToday && popups[currentPopupIndex]) {
       markPopupAsSeen(popups[currentPopupIndex].id)
     }
     setShowPopup(false)
+    setDontShowToday(false) // 상태 초기화
   }
 
   // 다음 팝업으로 이동
   const nextPopup = () => {
-    if (popups[currentPopupIndex]) {
+    // 체크박스가 체크된 경우에만 24시간 동안 보지 않음으로 표시
+    if (dontShowToday && popups[currentPopupIndex]) {
       markPopupAsSeen(popups[currentPopupIndex].id)
     }
-    
+
     if (currentPopupIndex < popups.length - 1) {
       setCurrentPopupIndex(currentPopupIndex + 1)
+      setDontShowToday(false) // 다음 팝업으로 넘어갈 때 체크박스 상태 초기화
     } else {
       setShowPopup(false)
+      setDontShowToday(false) // 상태 초기화
     }
   }
 
@@ -236,15 +242,12 @@ export default function HomepagePopupComponent() {
         {/* 하단 버튼 */}
         <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4">
           <div className="flex justify-between items-center">
-            <label className="flex items-center text-sm text-gray-600">
+            <label className="flex items-center text-sm text-gray-600 cursor-pointer">
               <input
                 type="checkbox"
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    closePopup()
-                  }
-                }}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2"
+                checked={dontShowToday}
+                onChange={(e) => setDontShowToday(e.target.checked)}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2 cursor-pointer"
               />
               24시간 내 다시 보지 않기
             </label>
