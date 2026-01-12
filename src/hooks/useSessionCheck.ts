@@ -122,21 +122,21 @@ export function useSessionCheck() {
     };
 
     checkSession();
-    
-    // 세션 모니터링 시작 (5분마다)
+
+    // 세션 모니터링 시작 (30초마다 - 멀티 로그인 방지를 위한 빠른 감지)
     const intervalId = setInterval(async () => {
       const result = await checkClientSession();
-      
+
       if (!result.isValid && result.shouldLogout) {
         clearInterval(intervalId);
-        
+
         // 사용자에게 알림
-        alert('세션이 만료되었습니다. 다시 로그인해주세요.');
-        
+        alert('다른 기기에서 로그인되어 자동 로그아웃되었습니다.');
+
         // 자동 로그아웃
         await performLogout();
       }
-    }, 5 * 60 * 1000); // 5분
+    }, 30 * 1000); // 30초
 
     // 페이지 언로드 시 인터벌 정리
     return () => {

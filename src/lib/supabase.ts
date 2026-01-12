@@ -180,7 +180,7 @@ export const memberAPI = {
       data.password_hash = newHash
     }
 
-    // 기존 활성 세션 비활성화 (한 계정 한 세션 제한)
+    // 멀티 로그인 방지: 기존 활성 세션 모두 비활성화 (일반 사용자는 한 PC에서만 로그인 가능)
     await supabase
       .from('user_sessions')
       .update({ is_active: false })
@@ -2169,12 +2169,8 @@ export const adminAPI = {
           .eq('id', admin.id)
       }
 
-      // 기존 활성 세션 비활성화 (한 계정 한 세션 제한)
-      await supabase
-        .from('admin_sessions')
-        .update({ is_active: false })
-        .eq('admin_id', admin.id)
-        .eq('is_active', true)
+      // 관리자는 여러 PC에서 동시 로그인 가능 (기존 세션 유지)
+      // 일반 사용자와 달리 관리자는 멀티 로그인 허용
 
       // 새 세션 생성
       const sessionToken = generateSessionToken()
