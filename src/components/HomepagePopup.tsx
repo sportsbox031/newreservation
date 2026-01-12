@@ -195,18 +195,18 @@ export default function HomepagePopupComponent() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-[9999]">
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
-          <div className="flex justify-between items-start gap-4">
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6">
+          <div className="flex justify-between items-start gap-3 sm:gap-4">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 break-words">
                 {currentPopup.title}
               </h2>
               {popups.length > 1 && (
                 <div className="flex items-center gap-2">
-                  <div className="text-sm text-gray-500">
+                  <div className="text-xs sm:text-sm text-gray-500">
                     {currentPopupIndex + 1} / {popups.length}
                   </div>
                   <div className="flex gap-1">
@@ -214,8 +214,8 @@ export default function HomepagePopupComponent() {
                       <div
                         key={index}
                         className={`w-2 h-2 rounded-full ${
-                          index === currentPopupIndex 
-                            ? 'bg-blue-600' 
+                          index === currentPopupIndex
+                            ? 'bg-blue-600'
                             : 'bg-gray-300'
                         }`}
                       />
@@ -226,44 +226,44 @@ export default function HomepagePopupComponent() {
             </div>
             <button
               onClick={closePopup}
-              className="text-gray-400 hover:text-gray-600 text-2xl font-semibold p-1 hover:bg-gray-100 rounded-full transition-colors"
+              className="text-gray-400 hover:text-gray-600 text-2xl font-semibold p-1 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
               title="닫기 (ESC)"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </div>
         </div>
-        
+
         {/* 콘텐츠 */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {renderContent(currentPopup)}
         </div>
-        
+
         {/* 하단 버튼 */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4">
-          <div className="flex justify-between items-center">
-            <label className="flex items-center text-sm text-gray-600 cursor-pointer">
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <label className="flex items-center text-xs sm:text-sm text-gray-600 cursor-pointer">
               <input
                 type="checkbox"
                 checked={dontShowToday}
                 onChange={(e) => setDontShowToday(e.target.checked)}
-                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2 cursor-pointer"
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2 cursor-pointer flex-shrink-0"
               />
-              24시간 내 다시 보지 않기
+              <span className="whitespace-nowrap">24시간 내 다시 보지 않기</span>
             </label>
-            
-            <div className="flex gap-3">
+
+            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
               {popups.length > 1 && currentPopupIndex < popups.length - 1 ? (
                 <>
                   <button
                     onClick={closePopup}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm sm:text-base text-gray-600 hover:text-gray-800 font-medium"
                   >
                     닫기
                   </button>
                   <button
                     onClick={nextPopup}
-                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                    className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm sm:text-base bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                   >
                     다음
                   </button>
@@ -271,7 +271,7 @@ export default function HomepagePopupComponent() {
               ) : (
                 <button
                   onClick={closePopup}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                  className="w-full sm:w-auto px-4 sm:px-6 py-2 text-sm sm:text-base bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                 >
                   확인
                 </button>

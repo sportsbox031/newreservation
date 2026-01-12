@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Bell, MessageCircle } from 'lucide-react'
+import { Bell, MessageCircle, X } from 'lucide-react'
 import { announcementAPI } from '@/lib/supabase'
 import { sanitizeHtml } from '@/components/RichTextEditor'
 import HomepagePopup from '@/components/HomepagePopup'
@@ -163,7 +163,7 @@ export default function Home() {
       <main className="pt-20">
         {/* 메인 비주얼 섹션 */}
         <section
-          className="relative h-[600px] bg-cover bg-no-repeat"
+          className="relative h-[400px] sm:h-[500px] md:h-[600px] bg-cover bg-no-repeat"
           style={{
             backgroundImage: "url('https://raw.githubusercontent.com/sportsbox031/sports/main/메인사진2.png')",
             backgroundPosition: 'center 20%',
@@ -171,15 +171,15 @@ export default function Home() {
           }}
         >
           <div className="absolute inset-0 bg-black/30"></div>
-          <div className="container mx-auto px-6 relative h-full flex items-center">
+          <div className="container mx-auto px-4 sm:px-6 relative h-full flex items-center">
             <div className="max-w-2xl">
-              <h1 className="text-6xl font-bold mb-6 text-white drop-shadow-lg">SPORTS BOX</h1>
-              <h2 className="text-4xl font-bold mb-6 text-[#0066CC] drop-shadow">모두를 위한 스포츠</h2>
-              <p className="text-xl mb-8 text-white drop-shadow-lg">경기도체육회 스포츠박스가 여러분의 건강한 생활을 지원합니다</p>
-              <div className="flex gap-4">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 text-white drop-shadow-lg">SPORTS BOX</h1>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 md:mb-6 text-[#0066CC] drop-shadow">모두를 위한 스포츠</h2>
+              <p className="text-base sm:text-lg md:text-xl mb-6 md:mb-8 text-white drop-shadow-lg">경기도체육회 스포츠박스가 여러분의 건강한 생활을 지원합니다</p>
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <Link
                   href="/auth/login"
-                  className="rounded-lg bg-[#0066CC] text-white px-8 py-3 text-lg hover:bg-[#0066CC]/90 inline-block"
+                  className="rounded-lg bg-[#0066CC] text-white px-6 sm:px-8 py-2.5 sm:py-3 text-base sm:text-lg hover:bg-[#0066CC]/90 inline-block text-center"
                 >
                   예약하기
                 </Link>
@@ -187,7 +187,7 @@ export default function Home() {
                   href="https://open.kakao.com/o/sgewClQh"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-8 py-3 rounded-lg font-medium text-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                  className="inline-flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-medium text-base sm:text-lg transition-all duration-200 shadow-md hover:shadow-lg"
                 >
                   <MessageCircle className="w-5 h-5" />
                   톡으로 문의하기
@@ -551,23 +551,23 @@ export default function Home() {
 
       {/* 공지사항 상세 모달 */}
       {showModal && selectedAnnouncement && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
-              <div className="flex justify-between items-start gap-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6">
+              <div className="flex justify-between items-start gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
                     {selectedAnnouncement.is_important && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+                      <span className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
                         중요
                       </span>
                     )}
                     {selectedAnnouncement.target_type === 'all' ? (
-                      <span className="inline-flex px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                      <span className="inline-flex px-2 sm:px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                         전체 공지
                       </span>
                     ) : (
-                      <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${
+                      <span className={`inline-flex px-2 sm:px-2.5 py-1 text-xs font-medium rounded-full ${
                         selectedAnnouncement.regions?.name === '경기남부'
                           ? 'bg-green-100 text-green-800'
                           : 'bg-purple-100 text-purple-800'
@@ -576,29 +576,30 @@ export default function Home() {
                       </span>
                     )}
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 break-words">
                     {selectedAnnouncement.title}
                   </h2>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-500">
                     <span>작성자: {selectedAnnouncement.admins.username}</span>
                     <span>작성일: {formatDate(selectedAnnouncement.created_at)}</span>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600 text-xl font-semibold"
+                  className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                  aria-label="닫기"
                 >
-                  ×
+                  <X className="w-6 h-6" />
                 </button>
               </div>
             </div>
 
-            <div className="p-6">
-              <div className="prose max-w-none">
+            <div className="p-4 sm:p-6">
+              <div className="prose prose-sm sm:prose max-w-none">
                 <div
-                  className="text-gray-700 leading-relaxed"
+                  className="text-gray-700 leading-relaxed text-sm sm:text-base break-words"
                   dangerouslySetInnerHTML={{
-                    __html: selectedAnnouncement.content
+                    __html: sanitizeHtml(selectedAnnouncement.content)
                   }}
                 />
               </div>
