@@ -1772,7 +1772,10 @@ export const sessionAPI = {
       .from('user_sessions')
       .select(`
         *,
-        users!inner(*)
+        users!inner(
+          *,
+          cities!inner(name, regions!inner(name, code))
+        )
       `)
       .eq('session_token', sessionToken)
       .eq('is_active', true)

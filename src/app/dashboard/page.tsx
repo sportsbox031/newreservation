@@ -1253,7 +1253,10 @@ ${otherSessions.map(session =>
                     언제든지 편리하게 문의해보세요
                   </p>
                   <a
-                    href="https://open.kakao.com/o/sgewClQh"
+                    href={currentUserInfo.region_name === '경기북부'
+                      ? 'https://open.kakao.com/o/sFPfe5ai'
+                      : 'https://open.kakao.com/o/sgewClQh'
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 sm:gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium text-xs sm:text-sm transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"

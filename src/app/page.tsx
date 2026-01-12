@@ -183,15 +183,26 @@ export default function Home() {
                 >
                   예약하기
                 </Link>
-                <a
-                  href="https://open.kakao.com/o/sgewClQh"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-medium text-base sm:text-lg transition-all duration-200 shadow-md hover:shadow-lg"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  톡으로 문의하기
-                </a>
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <a
+                    href="https://open.kakao.com/o/sgewClQh"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium text-sm sm:text-base transition-all duration-200 shadow-md hover:shadow-lg"
+                  >
+                    <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    남부담당자 문의
+                  </a>
+                  <a
+                    href="https://open.kakao.com/o/sFPfe5ai"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium text-sm sm:text-base transition-all duration-200 shadow-md hover:shadow-lg"
+                  >
+                    <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    북부담당자 문의
+                  </a>
+                </div>
               </div>
             </div>
           </div>
