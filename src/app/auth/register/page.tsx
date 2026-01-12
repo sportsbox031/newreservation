@@ -22,6 +22,9 @@ const cities = {
 };
 
 const registerSchema = z.object({
+  organization_type: z.enum(['school', 'welfare'], {
+    required_error: '단체 유형을 선택해주세요'
+  }),
   organization_name: z.string()
     .min(2, '단체명은 최소 2자 이상이어야 합니다')
     .max(50, '단체명은 50자를 초과할 수 없습니다')
@@ -36,7 +39,7 @@ const registerSchema = z.object({
     .regex(/^[가-힣]+$/, '담당자명은 한글만 입력 가능합니다'),
   city: z.string().min(1, '시/군을 선택해주세요'),
   phone: z.string()
-    .regex(/^010\d{8}$|^010-\d{4}-\d{4}$/, '휴대폰번호는 01012345678 또는 010-1234-5678 형식으로 입력해주세요'),
+    .regex(/^010-?\d{4}-?\d{4}$/, '휴대폰번호는 010으로 시작하는 11자리 번호를 입력해주세요 (예: 010-1234-5678 또는 01012345678)'),
   email: z.string()
     .email('올바른 이메일 주소를 입력해주세요')
     .max(100, '이메일은 100자를 초과할 수 없습니다'),
@@ -47,13 +50,23 @@ const registerSchema = z.object({
   class_count: z.coerce.number()
     .int('학급 수는 정수여야 합니다')
     .min(1, '학급 수는 1개 이상이어야 합니다')
-    .max(500, '학급 수는 500개를 초과할 수 없습니다'),
+    .max(500, '학급 수는 500개를 초과할 수 없습니다')
+    .optional(),
   privacy_consent: z.boolean().refine(val => val === true, {
     message: '개인정보 수집 및 이용에 동의해주세요'
   })
 }).refine((data) => data.password === data.confirmPassword, {
   message: "비밀번호가 일치하지 않습니다",
   path: ["confirmPassword"],
+}).refine((data) => {
+  // 학교인 경우 학급수 필수
+  if (data.organization_type === 'school') {
+    return data.class_count !== undefined;
+  }
+  return true;
+}, {
+  message: "학교는 학급 수를 입력해야 합니다",
+  path: ["class_count"],
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;
@@ -75,6 +88,8 @@ export default function RegisterPage() {
   });
 
   const selectedCity = watch('city');
+  const organizationType = watch('organization_type');
+
   const getRegion = () => {
     if (cities.south.includes(selectedCity)) return 'south';
     if (cities.north.includes(selectedCity)) return 'north';
@@ -95,6 +110,7 @@ export default function RegisterPage() {
 
     try {
       const registerData = {
+        organization_type: data.organization_type,
         organization_name: data.organization_name,
         password: data.password,
         manager_name: data.manager_name,
@@ -102,7 +118,7 @@ export default function RegisterPage() {
         phone: data.phone,
         email: data.email,
         student_count: data.student_count,
-        class_count: data.class_count,
+        class_count: data.organization_type === 'welfare' ? 1 : data.class_count!,
         privacy_consent: data.privacy_consent
       };
 
@@ -113,11 +129,26 @@ export default function RegisterPage() {
       if (error) {
         console.error('회원가입 오류:', error);
         setSubmitStatus('error');
-        if (error.code === '23505') { // 중복 키 오류
-          setErrorMessage('이미 등록된 단체명입니다.');
-        } else {
-          setErrorMessage('회원가입 중 오류가 발생했습니다. 다시 시도해주세요.');
+
+        let userMessage = '';
+
+        // 중복 단체명 오류
+        if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('already exists')) {
+          userMessage = `"${data.organization_name}"는 이미 등록된 단체명입니다.\n\n다른 이름을 사용해주세요.`;
         }
+        // 기타 데이터베이스 오류
+        else if (error.code && error.code.startsWith('23')) {
+          userMessage = '입력하신 정보에 문제가 있습니다.\n\n내용을 확인해주세요.';
+        }
+        // 일반 오류
+        else {
+          userMessage = `회원가입 중 오류가 발생했습니다.\n\n${error.message || '다시 시도해주세요.'}`;
+        }
+
+        // 팝업으로 즉시 표시
+        alert(userMessage);
+        setErrorMessage(userMessage);
+        setIsSubmitting(false);
         return;
       }
 
@@ -128,11 +159,14 @@ export default function RegisterPage() {
         router.push('/auth/login?registered=true');
       }, 2000);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('회원가입 예외:', error);
       setSubmitStatus('error');
-      setErrorMessage('회원가입 중 오류가 발생했습니다. 다시 시도해주세요.');
-    } finally {
+      const userMessage = `회원가입 중 예상치 못한 오류가 발생했습니다.\n\n${error?.message || '잠시 후 다시 시도해주세요.'}`;
+
+      // 팝업으로 즉시 표시
+      alert(userMessage);
+      setErrorMessage(userMessage);
       setIsSubmitting(false);
     }
   };
@@ -189,14 +223,32 @@ export default function RegisterPage() {
             <p className="text-gray-600">스포츠박스 프로그램 예약을 위한 회원가입</p>
           </div>
 
-          {submitStatus === 'error' && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-              <p className="text-red-700 text-sm">{errorMessage}</p>
+          {submitStatus === 'error' && errorMessage && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start">
+              <AlertCircle className="w-5 h-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
+              <p className="text-red-700 text-sm whitespace-pre-line">{errorMessage}</p>
             </div>
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* 단체 유형 */}
+            <div>
+              <label htmlFor="organization_type" className="block text-sm font-medium text-gray-700 mb-2">
+                단체 유형 <span className="text-red-500">*</span>
+              </label>
+              <select
+                {...register('organization_type')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">단체 유형을 선택해주세요</option>
+                <option value="school">학교</option>
+                <option value="welfare">아동복지시설</option>
+              </select>
+              {errors.organization_type && (
+                <p className="mt-1 text-sm text-red-600">{errors.organization_type.message}</p>
+              )}
+            </div>
+
             {/* 단체명 */}
             <div>
               <label htmlFor="organization_name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -351,7 +403,7 @@ export default function RegisterPage() {
             </div>
 
 
-            {/* 학생 수 */}
+            {/* 학생 수 - 항상 표시 */}
             <div>
               <label htmlFor="student_count" className="block text-sm font-medium text-gray-700 mb-2">
                 학생 수 <span className="text-red-500">*</span>
@@ -368,22 +420,24 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {/* 학급 수 */}
-            <div>
-              <label htmlFor="class_count" className="block text-sm font-medium text-gray-700 mb-2">
-                학급 수 <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register('class_count')}
-                type="number"
-                min="1"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="학급 수를 입력해주세요"
-              />
-              {errors.class_count && (
-                <p className="mt-1 text-sm text-red-600">{errors.class_count.message}</p>
-              )}
-            </div>
+            {/* 학급 수 - 학교만 표시 */}
+            {organizationType === 'school' && (
+              <div>
+                <label htmlFor="class_count" className="block text-sm font-medium text-gray-700 mb-2">
+                  학급 수 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  {...register('class_count')}
+                  type="number"
+                  min="1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="학급 수를 입력해주세요"
+                />
+                {errors.class_count && (
+                  <p className="mt-1 text-sm text-red-600">{errors.class_count.message}</p>
+                )}
+              </div>
+            )}
             {/* 개인정보 수집 동의 */}
             <div>
               <div className="flex items-start">

@@ -78,6 +78,7 @@ const getCityId = async (cityName: string): Promise<number | null> => {
 export const memberAPI = {
   // 회원가입
   async register(userData: {
+    organization_type: 'school' | 'welfare';
     organization_name: string;
     password: string;
     manager_name: string;
@@ -98,14 +99,17 @@ export const memberAPI = {
     const password_hash = await hashPassword(userData.password)
 
     console.log('🔍 회원가입 데이터:', {
+      organization_type: userData.organization_type,
       student_count: userData.student_count,
       class_count: userData.class_count,
       student_count_type: typeof userData.student_count,
       class_count_type: typeof userData.class_count
     })
 
-    // 티어는 DB 트리거에서 자동 계산 (학생수 ≤240 OR 학급수 ≤11 → Priority)
-    const insertData = {
+    // organization_type을 DB에 저장, DB 트리거가 이를 기반으로 tier 자동 계산
+    // welfare → 무조건 Standard, school → student_count/class_count 기반 계산
+    const insertData: any = {
+      organization_type: userData.organization_type,
       organization_name: userData.organization_name,
       password_hash,
       manager_name: userData.manager_name,
@@ -116,7 +120,6 @@ export const memberAPI = {
       class_count: userData.class_count,
       privacy_consent: userData.privacy_consent,
       status: 'pending'
-      // tier는 DB 트리거가 자동으로 설정
     }
 
     console.log('📤 Insert 데이터:', insertData)
