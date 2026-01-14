@@ -91,6 +91,8 @@ export default function RootLayout({
 
         {/* 표준 링크 정의 */}
         <link rel="canonical" href="https://ggsportsbox.or.kr" />
+        <link rel="icon" href="/icon.png" />
+        <link rel="shortcut icon" href="/icon.png" />
 
         {/* 구조화된 데이터 (JSON-LD) */}
         <script
