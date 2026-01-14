@@ -406,7 +406,7 @@ export default function RegisterPage() {
             {/* 학생 수 - 항상 표시 */}
             <div>
               <label htmlFor="student_count" className="block text-sm font-medium text-gray-700 mb-2">
-                학생 수 <span className="text-red-500">*</span>
+                전교학생수 <span className="text-red-500">*</span>
               </label>
               <input
                 {...register('student_count')}
@@ -418,13 +418,14 @@ export default function RegisterPage() {
               {errors.student_count && (
                 <p className="mt-1 text-sm text-red-600">{errors.student_count.message}</p>
               )}
+              <p className="text-xs text-gray-500 mt-1">학교알리미 기준으로 작성해주세요.</p>
             </div>
 
             {/* 학급 수 - 학교만 표시 */}
             {organizationType === 'school' && (
               <div>
                 <label htmlFor="class_count" className="block text-sm font-medium text-gray-700 mb-2">
-                  학급 수 <span className="text-red-500">*</span>
+                  전교학급수 <span className="text-red-500">*</span>
                 </label>
                 <input
                   {...register('class_count')}
@@ -436,6 +437,7 @@ export default function RegisterPage() {
                 {errors.class_count && (
                   <p className="mt-1 text-sm text-red-600">{errors.class_count.message}</p>
                 )}
+                <p className="text-xs text-gray-500 mt-1">학교알리미 기준으로 작성해주세요.</p>
               </div>
             )}
             {/* 개인정보 수집 동의 */}
