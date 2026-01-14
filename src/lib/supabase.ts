@@ -1188,45 +1188,9 @@ export const reservationAPI = {
       }
     }
 
-    // 3. 해당 날짜의 예약 현황 확인 (동시성 제어)
-    const { data: dateStatus, error: statusError } = await settingsAPI.getDateReservationStatus(regionCode, date)
-    if (statusError) {
-      return { data: null, error: statusError }
-    }
-
-    // 티어 시스템이 예약 가능 여부를 검증하므로 기존 is_open 체크는 제거
-    // if (!dateStatus?.is_open) {
-    //   return { data: null, error: { message: '해당 날짜는 예약이 종료되었습니다.' } }
-    // }
-
-    if (dateStatus?.is_full) {
-      return {
-        data: null,
-        error: { message: `해당 날짜는 예약이 마감되었습니다. (최대 ${dateStatus.max_reservations_per_day}개)` }
-      }
-    }
-
-    // 4. 동시성 제어를 위한 트랜잭션으로 예약 생성
+    // 3. 예약 생성 (DB Trigger가 정원 체크를 담당)
+    // Trigger: check_capacity_before_insert가 정원 초과 시 자동으로 에러 발생
     try {
-      // PostgreSQL 트랜잭션 시작 및 FOR UPDATE로 행 잠금
-      const { data: lockCheck } = await supabase
-        .from('reservations')
-        .select('id')
-        .eq('region_id', regionId)
-        .eq('date', date)
-        .in('status', ['pending', 'approved'])
-
-      // 다시 한번 정원 체크 (동시 요청 방지)
-      const currentCount = lockCheck?.length || 0
-      const maxReservations = dateStatus.max_reservations_per_day
-      
-      if (currentCount >= maxReservations) {
-        return { 
-          data: null, 
-          error: { message: `해당 날짜는 예약이 마감되었습니다. (최대 ${maxReservations}개)` }
-        }
-      }
-
       // 예약 생성
       const { data: reservation, error: reservationError } = await supabase
         .from('reservations')
@@ -1240,6 +1204,17 @@ export const reservationAPI = {
         .single()
 
       if (reservationError) {
+        // Trigger에서 발생한 정원 초과 에러 처리
+        // P0001: Advisory Lock 트리거 에러 코드
+        // 23505: 레거시 unique_violation 코드 (호환성 유지)
+        if (reservationError.message?.includes('예약이 마감되었습니다') ||
+            reservationError.code === 'P0001' ||
+            reservationError.code === '23505') {
+          return {
+            data: null,
+            error: { message: '예약이 마감되었습니다. 다른 날짜를 선택해주세요.' }
+          }
+        }
         return { data: null, error: reservationError }
       }
 
