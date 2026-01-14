@@ -1,0 +1,11 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# 크롤링 제외 경로
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+
+# Sitemap 위치
+Sitemap: https://ggsportsbox.or.kr/sitemap.xml
