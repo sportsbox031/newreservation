@@ -414,14 +414,14 @@ export const memberAPI = {
       return { data: null, error: { message: '사용자 정보를 찾을 수 없습니다.' } }
     }
 
-    // 현재 비밀번호 검증
-    const currentPasswordHash = hashPassword(currentPassword)
-    if (user.password_hash !== currentPasswordHash) {
+    // 현재 비밀번호 검증 (bcrypt 사용)
+    const isPasswordValid = await verifyPassword(currentPassword, user.password_hash)
+    if (!isPasswordValid) {
       return { data: null, error: { message: '현재 비밀번호가 일치하지 않습니다.' } }
     }
 
     // 새 비밀번호로 업데이트
-    const newPasswordHash = hashPassword(newPassword)
+    const newPasswordHash = await hashPassword(newPassword)
     const { data, error } = await supabase
       .from('users')
       .update({ password_hash: newPasswordHash })
@@ -2288,14 +2288,14 @@ export const adminAPI = {
       return { data: null, error: { message: '관리자 정보를 찾을 수 없습니다.' } }
     }
 
-    // 현재 비밀번호 검증
-    const currentPasswordHash = hashPassword(currentPassword)
-    if (admin.password_hash !== currentPasswordHash) {
+    // 현재 비밀번호 검증 (bcrypt 사용)
+    const isPasswordValid = await verifyPassword(currentPassword, admin.password_hash)
+    if (!isPasswordValid) {
       return { data: null, error: { message: '현재 비밀번호가 일치하지 않습니다.' } }
     }
 
     // 새 비밀번호로 업데이트
-    const newPasswordHash = hashPassword(newPassword)
+    const newPasswordHash = await hashPassword(newPassword)
     const { data, error } = await supabase
       .from('admins')
       .update({ password_hash: newPasswordHash })
