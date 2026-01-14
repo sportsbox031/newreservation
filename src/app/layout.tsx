@@ -69,7 +69,7 @@ export default function RootLayout({
         <title>경기도체육회 스포츠박스 예약 시스템</title>
 
         {/* 네이버 서치어드바이저 소유확인 태그 */}
-        <meta name="naver-site-verification" content="7d2fc828aa146612d27d875afdcfbad991a2910c" />
+        <meta name="naver-site-verification" content="8b2e89a8b5fd81b532ccd9510f1b0ffe107d2f16" />
 
         {/* SEO 메타태그 */}
         <meta name="description" content="경기도체육회 스포츠박스는 찾아가는 스포츠 프로그램, 스포츠교실, 스포츠체험존, 스포츠이벤트를 운영하여 모든 경기도민에게 스포츠 서비스를 제공합니다. 지금 바로 온라인으로 예약하세요!" />
