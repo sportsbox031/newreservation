@@ -542,16 +542,20 @@ ${otherSessions.map(session =>
   const getDayStatus = (date: Date): DayStatus => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // 과거 날짜는 선택 불가
     if (date < today) return 'blocked';
-    
+
+    // 주말(토요일=6, 일요일=0)은 예약 불가
+    const dayOfWeek = date.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) return 'blocked';
+
     // 로컬 시간대로 날짜 변환 (시간대 오류 방지)
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const dateString = `${year}-${month}-${day}`;
-    
+
     // 차단된 날짜 체크
     if (blockedDates.includes(dateString)) return 'blocked';
     
@@ -569,9 +573,16 @@ ${otherSessions.map(session =>
   // 달력 날짜 클릭 핸들러
   const handleDateClick = async (value: CalendarValue) => {
     if (!value || Array.isArray(value)) return;
-    
+
+    // 주말 체크 (토요일=6, 일요일=0)
+    const dayOfWeek = value.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      alert('주말은 예약할 수 없습니다. 평일만 예약 가능합니다.');
+      return;
+    }
+
     const dayStatus = getDayStatus(value);
-    
+
     // 클릭 불가능한 날짜들 처리
     if (dayStatus === 'blocked' || dayStatus === 'full' || dayStatus === 'closed') {
       if (dayStatus === 'full') {
@@ -657,7 +668,11 @@ ${otherSessions.map(session =>
     const dateString = `${year}-${month}-${day}`;
     const status = reservationStatus[dateString];
     const isBlocked = blockedDates.includes(dateString);
-    
+
+    // 주말 체크 (토요일=6, 일요일=0)
+    const dayOfWeek = date.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
     if (isLoadingCalendar) {
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -665,7 +680,18 @@ ${otherSessions.map(session =>
         </div>
       );
     }
-    
+
+    // 주말인 경우 "주말" 표시
+    if (isWeekend) {
+      return (
+        <div className="absolute inset-0 flex flex-col items-center justify-end p-1">
+          <div className="px-1.5 py-0.5 bg-gray-400 text-white text-xs font-medium rounded-md">
+            주말
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-end p-1 space-y-1">
         {isBlocked && (
