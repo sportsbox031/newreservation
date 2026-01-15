@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { sessionAPI } from '@/lib/supabase';
 
+// 로그아웃 진행 중 플래그 (수동 로그아웃과 강제 로그아웃 구분용)
+let isManualLogout = false;
+
 export interface SessionCheckResult {
   isValid: boolean;
   user?: any;
@@ -55,22 +58,25 @@ export async function checkClientSession(): Promise<SessionCheckResult> {
 
 // 로그아웃 처리
 export async function performLogout(sessionToken?: string): Promise<void> {
+  // 수동 로그아웃 플래그 설정 (세션 체크에서 "다른 기기" 메시지 방지)
+  isManualLogout = true;
+
   try {
     const token = sessionToken || localStorage.getItem('session_token');
-    
+
     if (token) {
       // 서버에서 세션 비활성화
       await sessionAPI.logout(token);
     }
-    
+
     // 로컬 스토리지 정리
     localStorage.removeItem('session_token');
     localStorage.removeItem('currentUser');
     localStorage.removeItem('adminInfo');
-    
+
     // 페이지 리디렉션
     window.location.href = '/auth/login';
-    
+
   } catch (error) {
     console.error('로그아웃 처리 오류:', error);
     // 오류가 발생해도 로컬 정보는 정리하고 로그인 페이지로 이동
@@ -123,9 +129,11 @@ export function useSessionCheck() {
       setIsLoading(false);
 
       if (!result.isValid && result.shouldLogout) {
-        // 사용자에게 알림
-        alert('다른 기기에서 로그인되어 자동 로그아웃되었습니다.');
-        await performLogout();
+        // 수동 로그아웃이 아닌 경우에만 "다른 기기" 메시지 표시
+        if (!isManualLogout) {
+          alert('다른 기기에서 로그인되어 자동 로그아웃되었습니다.');
+          await performLogout();
+        }
       }
 
       isCheckingSession = false;
