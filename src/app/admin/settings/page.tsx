@@ -25,6 +25,8 @@ interface BlockedDate {
   id: string
   date: string
   reason: string
+  start_time: string | null  // HH:MM 형식, null이면 하루 전체 차단
+  end_time: string | null    // HH:MM 형식, null이면 하루 전체 차단
   created_at: string
 }
 
@@ -80,7 +82,11 @@ export default function SettingsPage() {
   const [tierSettings, setTierSettings] = useState<{ [key: string]: TierReservationSetting[] }>({})
 
   // UI 상태
-  const [newBlockedDate, setNewBlockedDate] = useState({ date: '' })
+  const [newBlockedDate, setNewBlockedDate] = useState({
+    date: '',
+    startTime: '',  // 빈 문자열이면 하루 전체 차단
+    endTime: ''     // 빈 문자열이면 하루 전체 차단
+  })
   const [newDailyLimit, setNewDailyLimit] = useState({ date: '', max_reservations: 2 })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
@@ -288,23 +294,48 @@ export default function SettingsPage() {
       return
     }
 
+    // 시간대 검증: 둘 다 있거나 둘 다 없어야 함
+    if ((newBlockedDate.startTime && !newBlockedDate.endTime) ||
+        (!newBlockedDate.startTime && newBlockedDate.endTime)) {
+      showMessage('error', '시작 시간과 종료 시간을 모두 입력하거나 모두 비워야 합니다.')
+      return
+    }
+
+    // 시간 순서 검증
+    if (newBlockedDate.startTime && newBlockedDate.endTime &&
+        newBlockedDate.startTime >= newBlockedDate.endTime) {
+      showMessage('error', '종료 시간은 시작 시간보다 늦어야 합니다.')
+      return
+    }
+
     const regionCode = activeTab
     setSaving(true)
-    
+
     try {
+      // 차단 사유 생성 (시간대가 있으면 시간대 포함)
+      const reason = newBlockedDate.startTime && newBlockedDate.endTime
+        ? `${newBlockedDate.startTime}~${newBlockedDate.endTime} 예약 불가`
+        : '예약 불가'
+
       const { error } = await settingsAPI.addBlockedDate(
         newBlockedDate.date,
-        '예약 불가',
-        regionCode
+        reason,
+        regionCode,
+        newBlockedDate.startTime || null,
+        newBlockedDate.endTime || null
       )
-      
+
       if (error) {
-        showMessage('error', '예약 불가 날짜 추가에 실패했습니다.')
+        showMessage('error', (error as any).message || '예약 불가 날짜 추가에 실패했습니다.')
         return
       }
-      
-      showMessage('success', '예약 불가 날짜가 추가되었습니다.')
-      setNewBlockedDate({ date: '' })
+
+      const successMsg = newBlockedDate.startTime && newBlockedDate.endTime
+        ? `${newBlockedDate.date} ${newBlockedDate.startTime}~${newBlockedDate.endTime} 차단이 추가되었습니다.`
+        : `${newBlockedDate.date} 전체 차단이 추가되었습니다.`
+
+      showMessage('success', successMsg)
+      setNewBlockedDate({ date: '', startTime: '', endTime: '' })
       loadBlockedDates()
     } catch (error) {
       showMessage('error', '예약 불가 날짜 추가 중 오류가 발생했습니다.')
@@ -790,33 +821,81 @@ export default function SettingsPage() {
           
           {/* 새 차단 날짜 추가 */}
           <div className="p-6 border-b border-gray-200">
-            <h3 className="text-md font-medium text-gray-900 mb-4">새 예약 불가 날짜 추가</h3>
-            <div className="flex gap-4 items-end">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  날짜
-                </label>
-                <input
-                  type="date"
-                  value={newBlockedDate.date}
-                  onChange={(e) => setNewBlockedDate({date: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+            <h3 className="text-md font-medium text-gray-900 mb-4">새 예약 불가 날짜/시간 추가</h3>
+            <div className="space-y-4">
+              <div className="flex gap-4 items-end flex-wrap">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    날짜 *
+                  </label>
+                  <input
+                    type="date"
+                    value={newBlockedDate.date}
+                    onChange={(e) => setNewBlockedDate(prev => ({ ...prev, date: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="w-[140px]">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    시작 시간
+                  </label>
+                  <select
+                    value={newBlockedDate.startTime}
+                    onChange={(e) => setNewBlockedDate(prev => ({ ...prev, startTime: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">선택 안함</option>
+                    {Array.from({ length: 10 }, (_, h) =>
+                      Array.from({ length: 6 }, (_, m) => {
+                        const hour = (h + 9).toString().padStart(2, '0')
+                        const minute = (m * 10).toString().padStart(2, '0')
+                        return `${hour}:${minute}`
+                      })
+                    ).flat().map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-[140px]">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    종료 시간
+                  </label>
+                  <select
+                    value={newBlockedDate.endTime}
+                    onChange={(e) => setNewBlockedDate(prev => ({ ...prev, endTime: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">선택 안함</option>
+                    {Array.from({ length: 10 }, (_, h) =>
+                      Array.from({ length: 6 }, (_, m) => {
+                        const hour = (h + 9).toString().padStart(2, '0')
+                        const minute = (m * 10).toString().padStart(2, '0')
+                        return `${hour}:${minute}`
+                      })
+                    ).flat().map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={addBlockedDate}
+                  disabled={saving}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center whitespace-nowrap"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  추가
+                </button>
               </div>
-              <button
-                onClick={addBlockedDate}
-                disabled={saving}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                추가
-              </button>
+              <p className="text-sm text-gray-500">
+                <Info className="w-4 h-4 inline mr-1" />
+                시간을 선택하지 않으면 해당 날짜 <strong>전체</strong>가 차단됩니다. 특정 시간대만 차단하려면 시작/종료 시간을 모두 선택하세요.
+              </p>
             </div>
           </div>
 
           {/* 차단된 날짜 목록 */}
           <div className="p-6">
-            <h3 className="text-md font-medium text-gray-900 mb-4">예약 불가 날짜 목록</h3>
+            <h3 className="text-md font-medium text-gray-900 mb-4">예약 불가 날짜/시간 목록</h3>
             {currentBlockedDates.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
@@ -826,8 +905,20 @@ export default function SettingsPage() {
               <div className="space-y-3">
                 {currentBlockedDates.map((blockedDate) => (
                   <div key={blockedDate.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                    <div className="font-medium text-red-900">
-                      {formatDate(blockedDate.date)}
+                    <div className="flex items-center gap-3">
+                      <div className="font-medium text-red-900">
+                        {formatDate(blockedDate.date)}
+                      </div>
+                      {blockedDate.start_time && blockedDate.end_time ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {blockedDate.start_time.substring(0, 5)}~{blockedDate.end_time.substring(0, 5)}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-200 text-red-900">
+                          하루 전체
+                        </span>
+                      )}
                     </div>
                     <button
                       onClick={() => removeBlockedDate(blockedDate.id)}

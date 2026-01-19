@@ -149,6 +149,8 @@ export interface Database {
           region_id: number
           date: string
           reason: string | null
+          start_time: string | null  // HH:MM 형식, null이면 하루 전체 차단
+          end_time: string | null    // HH:MM 형식, null이면 하루 전체 차단
           created_at: string
         }
         Insert: {
@@ -156,6 +158,8 @@ export interface Database {
           region_id: number
           date: string
           reason?: string | null
+          start_time?: string | null
+          end_time?: string | null
           created_at?: string
         }
         Update: {
@@ -163,6 +167,8 @@ export interface Database {
           region_id?: number
           date?: string
           reason?: string | null
+          start_time?: string | null
+          end_time?: string | null
           created_at?: string
         }
       }

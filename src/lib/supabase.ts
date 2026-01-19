@@ -501,11 +501,27 @@ export const settingsAPI = {
     return { data, error }
   },
 
-  // 차단된 날짜 추가 (지역별)
-  async addBlockedDate(date: string, reason: string, regionCode: string) {
+  // 차단된 날짜 추가 (지역별) - 시간대별 차단 지원
+  async addBlockedDate(
+    date: string,
+    reason: string,
+    regionCode: string,
+    startTime?: string | null,  // HH:MM 형식, null이면 하루 전체 차단
+    endTime?: string | null     // HH:MM 형식, null이면 하루 전체 차단
+  ) {
     const regionId = await this.getRegionId(regionCode)
     if (!regionId) {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
+    }
+
+    // 시간대 검증: 둘 다 있거나 둘 다 없어야 함
+    if ((startTime && !endTime) || (!startTime && endTime)) {
+      return { data: null, error: { message: '시작 시간과 종료 시간을 모두 입력하거나 모두 비워야 합니다.' } }
+    }
+
+    // 시간 순서 검증
+    if (startTime && endTime && startTime >= endTime) {
+      return { data: null, error: { message: '종료 시간은 시작 시간보다 늦어야 합니다.' } }
     }
 
     const { data, error } = await supabase
@@ -513,7 +529,9 @@ export const settingsAPI = {
       .insert([{
         region_id: regionId,
         date,
-        reason
+        reason,
+        start_time: startTime || null,
+        end_time: endTime || null
       }])
       .select()
 
@@ -1185,6 +1203,43 @@ export const reservationAPI = {
       return {
         data: null,
         error: { message: `월 예약 한도를 초과했습니다. (${uniqueDatesThisMonth.size}/${maxDaysPerMonth}일)` }
+      }
+    }
+
+    // 2.5. 시간대별 차단 검증 (새 예약만 검증, 기존 예약에는 영향 없음)
+    const { data: blockedDates } = await supabase
+      .from('blocked_dates')
+      .select('*')
+      .eq('region_id', regionId)
+      .eq('date', date)
+
+    if (blockedDates && blockedDates.length > 0) {
+      for (const blocked of blockedDates) {
+        // 하루 전체 차단인 경우 (start_time, end_time이 null)
+        if (!blocked.start_time || !blocked.end_time) {
+          return {
+            data: null,
+            error: { message: `${date}은(는) 예약이 차단된 날짜입니다. 사유: ${blocked.reason || '관리자 설정'}` }
+          }
+        }
+
+        // 시간대별 차단인 경우 - 예약 슬롯과 차단 시간대 겹침 검사
+        for (const slot of slots) {
+          const slotStart = slot.start_time
+          const slotEnd = slot.end_time
+          const blockedStart = blocked.start_time
+          const blockedEnd = blocked.end_time
+
+          // 시간대 겹침 검사: 슬롯 시작 < 차단 종료 AND 슬롯 종료 > 차단 시작
+          if (slotStart < blockedEnd && slotEnd > blockedStart) {
+            return {
+              data: null,
+              error: {
+                message: `${date} ${blockedStart}~${blockedEnd}는 예약이 차단된 시간대입니다. 사유: ${blocked.reason || '관리자 설정'}`
+              }
+            }
+          }
+        }
       }
     }
 

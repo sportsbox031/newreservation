@@ -93,7 +93,13 @@ export default function DashboardPage() {
   const [reservationStatus, setReservationStatus] = useState<{
     [date: string]: { current: number; max: number; isFull: boolean; isOpen: boolean }
   }>({});
-  const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  // 차단 정보: 하루 전체 차단(start_time=null)과 시간대별 차단 구분
+  const [blockedDates, setBlockedDates] = useState<{
+    date: string;
+    start_time: string | null;
+    end_time: string | null;
+    reason: string | null;
+  }[]>([]);
   const [userRegion, setUserRegion] = useState<'south' | 'north'>('south');
   const [isMonthClosed, setIsMonthClosed] = useState(true); // 예약 종료가 기본값 (각 월마다 관리자가 수동으로 열어야 함)
   const [userTier, setUserTier] = useState<UserTier | null>(null);
@@ -400,7 +406,7 @@ ${otherSessions.map(session =>
     }
   };
 
-  // 차단된 날짜 로드
+  // 차단된 날짜 로드 (하루 전체 차단 + 시간대별 차단 구분)
   const loadBlockedDates = async () => {
     try {
       const { data, error } = await settingsAPI.getBlockedDates(userRegion);
@@ -408,9 +414,15 @@ ${otherSessions.map(session =>
         console.error('차단된 날짜 로드 오류:', error);
         return;
       }
-      
+
       if (data) {
-        const blocked = data.map((item: any) => item.date);
+        // 전체 차단 정보 저장 (시간대별 차단 구분을 위해)
+        const blocked = data.map((item: any) => ({
+          date: item.date,
+          start_time: item.start_time,
+          end_time: item.end_time,
+          reason: item.reason
+        }));
         setBlockedDates(blocked);
       }
     } catch (error) {
@@ -483,13 +495,53 @@ ${otherSessions.map(session =>
   // 종료시간 자동 계산 (시작시간 + 40분)
   const calculateEndTime = (startTime: string) => {
     if (!startTime) return '';
-    
+
     const [hours, minutes] = startTime.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes + 40;
     const endHours = Math.floor(totalMinutes / 60);
     const endMinutes = totalMinutes % 60;
-    
+
     return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+  };
+
+  // 특정 시간이 차단된 시간대와 겹치는지 확인 (시작시간 + 40분 기준)
+  const isTimeBlocked = (startTime: string): boolean => {
+    if (!selectedDate) return false;
+
+    const dateYear = selectedDate.getFullYear();
+    const dateMonth = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const dateDay = String(selectedDate.getDate()).padStart(2, '0');
+    const dateString = `${dateYear}-${dateMonth}-${dateDay}`;
+
+    const endTime = calculateEndTime(startTime);
+    if (!endTime) return false;
+
+    // 해당 날짜의 시간대별 차단 목록
+    const dateBlockedSlots = blockedDates.filter(
+      b => b.date === dateString && b.start_time && b.end_time
+    );
+
+    // 시간대 겹침 검사
+    for (const blocked of dateBlockedSlots) {
+      if (startTime < blocked.end_time! && endTime > blocked.start_time!) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // 선택된 날짜의 차단 시간대 정보 가져오기
+  const getBlockedTimeRanges = (): string[] => {
+    if (!selectedDate) return [];
+
+    const dateYear = selectedDate.getFullYear();
+    const dateMonth = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const dateDay = String(selectedDate.getDate()).padStart(2, '0');
+    const dateString = `${dateYear}-${dateMonth}-${dateDay}`;
+
+    return blockedDates
+      .filter(b => b.date === dateString && b.start_time && b.end_time)
+      .map(b => `${b.start_time?.substring(0, 5)}~${b.end_time?.substring(0, 5)}`);
   };
 
   // 시작시간 변경 핸들러
@@ -556,8 +608,12 @@ ${otherSessions.map(session =>
     const day = String(date.getDate()).padStart(2, '0');
     const dateString = `${year}-${month}-${day}`;
 
-    // 차단된 날짜 체크
-    if (blockedDates.includes(dateString)) return 'blocked';
+    // 차단된 날짜 체크: 하루 전체 차단(start_time=null)인 경우에만 날짜 자체를 막음
+    // 시간대별 차단은 날짜 클릭은 허용하고, 예약 모달에서 해당 시간대만 막음
+    const fullDayBlocked = blockedDates.some(
+      b => b.date === dateString && !b.start_time && !b.end_time
+    );
+    if (fullDayBlocked) return 'blocked';
     
     // 예약 현황 체크
     const status = reservationStatus[dateString];
@@ -667,7 +723,10 @@ ${otherSessions.map(session =>
     const day = String(date.getDate()).padStart(2, '0');
     const dateString = `${year}-${month}-${day}`;
     const status = reservationStatus[dateString];
-    const isBlocked = blockedDates.includes(dateString);
+    // 하루 전체 차단(start_time=null)인 경우에만 X 표시
+    const isFullDayBlocked = blockedDates.some(
+      b => b.date === dateString && !b.start_time && !b.end_time
+    );
 
     // 주말 체크 (토요일=6, 일요일=0)
     const dayOfWeek = date.getDay();
@@ -694,12 +753,12 @@ ${otherSessions.map(session =>
 
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-end p-1 space-y-1">
-        {isBlocked && (
-          <div className="flex items-center justify-center w-5 h-5 bg-red-500 rounded-full shadow-sm" title="예약 불가">
+        {isFullDayBlocked && (
+          <div className="flex items-center justify-center w-5 h-5 bg-red-500 rounded-full shadow-sm" title="예약 불가 (하루 전체)">
             <X className="w-3 h-3 text-white" />
           </div>
         )}
-        {status && !isBlocked && (
+        {status && !isFullDayBlocked && (
           <>
             {status.isFull ? (
               <div className="px-2 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-full shadow-md animate-pulse">
@@ -785,6 +844,19 @@ ${otherSessions.map(session =>
         alert('시작 시간이 중복됩니다. 각 타임의 시작 시간은 서로 달라야 합니다.');
         setIsSubmitting(false);
         return;
+      }
+
+      // 시간대별 차단 검증 (기존 예약에는 영향 없고, 새 예약만 검증)
+      const dateBlockedSlots = blockedDates.filter(b => b.date === dateString && b.start_time && b.end_time);
+      for (const slot of filteredSlots) {
+        for (const blocked of dateBlockedSlots) {
+          // 시간대 겹침 검사: 슬롯 시작 < 차단 종료 AND 슬롯 종료 > 차단 시작
+          if (slot.startTime < blocked.end_time! && slot.endTime > blocked.start_time!) {
+            alert(`${blocked.start_time?.substring(0, 5)}~${blocked.end_time?.substring(0, 5)} 시간대는 예약이 차단되어 있습니다.\n사유: ${blocked.reason || '관리자 설정'}`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
       }
 
       // 슬롯 데이터 변환
@@ -1478,6 +1550,18 @@ ${otherSessions.map(session =>
                       </div>
                     </div>
 
+                    {/* 차단된 시간대 안내 (첫 번째 슬롯에서만 표시) */}
+                    {index === 0 && getBlockedTimeRanges().length > 0 && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-2">
+                        <p className="text-sm text-red-700 flex items-center">
+                          <span className="mr-2">⛔</span>
+                          <span>
+                            <strong>차단된 시간대:</strong> {getBlockedTimeRanges().join(', ')}
+                          </span>
+                        </p>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
@@ -1490,9 +1574,19 @@ ${otherSessions.map(session =>
                           className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">선택하세요</option>
-                          {timeOptions.map(time => (
-                            <option key={time} value={time}>{time}</option>
-                          ))}
+                          {timeOptions.map(time => {
+                            const blocked = isTimeBlocked(time);
+                            return (
+                              <option
+                                key={time}
+                                value={time}
+                                disabled={blocked}
+                                className={blocked ? 'text-gray-400 bg-gray-100' : ''}
+                              >
+                                {time}{blocked ? ' (차단됨)' : ''}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                       <div>

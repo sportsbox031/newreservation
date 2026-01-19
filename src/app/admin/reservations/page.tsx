@@ -82,7 +82,13 @@ export default function AdminReservationsPage() {
   const [reservationStatus, setReservationStatus] = useState<{
     [date: string]: { current: number; max: number; isFull: boolean; isOpen: boolean }
   }>({});
-  const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  // 차단 정보: 하루 전체 차단(start_time=null)과 시간대별 차단 구분
+  const [blockedDates, setBlockedDates] = useState<{
+    date: string;
+    start_time: string | null;
+    end_time: string | null;
+    reason: string | null;
+  }[]>([]);
   const [dayReservations, setDayReservations] = useState<Reservation[]>([]);
   const [allReservations, setAllReservations] = useState<Reservation[]>([]);
   const [adminRegion, setAdminRegion] = useState<'south' | 'north'>('south');
@@ -217,7 +223,7 @@ export default function AdminReservationsPage() {
     }
   };
 
-  // 차단된 날짜 로드 (최적화)
+  // 차단된 날짜 로드 (하루 전체 차단 + 시간대별 차단 구분)
   const loadBlockedDates = async () => {
     try {
       const { data, error } = await settingsAPI.getBlockedDates(adminRegion);
@@ -227,8 +233,13 @@ export default function AdminReservationsPage() {
         return;
       }
 
-      // 날짜 형식으로 변환하여 저장
-      const blocked = data?.map((item: any) => item.date) || [];
+      // 전체 차단 정보 저장 (시간대별 차단 구분을 위해)
+      const blocked = data?.map((item: any) => ({
+        date: item.date,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        reason: item.reason
+      })) || [];
       setBlockedDates(blocked);
     } catch (error) {
       console.error('차단된 날짜 로드 중 오류:', error);
@@ -350,8 +361,11 @@ export default function AdminReservationsPage() {
     const day = String(date.getDate()).padStart(2, '0');
     const dateString = `${year}-${month}-${day}`;
 
-    // 차단된 날짜 체크
-    if (blockedDates.includes(dateString)) return 'blocked';
+    // 차단된 날짜 체크: 하루 전체 차단(start_time=null)인 경우에만 날짜 자체를 막음
+    const fullDayBlocked = blockedDates.some(
+      b => b.date === dateString && !b.start_time && !b.end_time
+    );
+    if (fullDayBlocked) return 'blocked';
 
     // 예약 현황 체크
     const status = reservationStatus[dateString];
@@ -393,7 +407,14 @@ export default function AdminReservationsPage() {
     const day = String(date.getDate()).padStart(2, '0');
     const dateString = `${year}-${month}-${day}`;
     const status = reservationStatus[dateString];
-    const isBlocked = blockedDates.includes(dateString);
+    // 하루 전체 차단(start_time=null)인 경우에만 X 표시
+    const isFullDayBlocked = blockedDates.some(
+      b => b.date === dateString && !b.start_time && !b.end_time
+    );
+    // 시간대별 차단이 있는지 확인 (정보 표시용)
+    const hasTimeBlocked = blockedDates.some(
+      b => b.date === dateString && b.start_time && b.end_time
+    );
 
     // 디버깅용 로그 - 현재 월의 모든 날짜
     const currentYear = currentMonth.getFullYear();
@@ -401,7 +422,8 @@ export default function AdminReservationsPage() {
     if (year === currentYear && date.getMonth() + 1 === currentMonthNum && day <= '05') {
       console.log(`[DEBUG] getTileContent for ${dateString}:`, {
         status,
-        isBlocked,
+        isFullDayBlocked,
+        hasTimeBlocked,
         hasReservationStatus: !!reservationStatus[dateString],
         reservationStatusKeys: Object.keys(reservationStatus).slice(0, 5)
       });
@@ -417,12 +439,12 @@ export default function AdminReservationsPage() {
 
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-end p-1 space-y-1">
-        {isBlocked && (
-          <div className="flex items-center justify-center w-5 h-5 bg-red-500 rounded-full shadow-sm" title="예약 불가">
+        {isFullDayBlocked && (
+          <div className="flex items-center justify-center w-5 h-5 bg-red-500 rounded-full shadow-sm" title="예약 불가 (하루 전체)">
             <X className="w-3 h-3 text-white" />
           </div>
         )}
-        {status && !isBlocked && (
+        {status && !isFullDayBlocked && (
           <>
             {status.isFull ? (
               <div className="px-2 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-full shadow-md animate-pulse">
