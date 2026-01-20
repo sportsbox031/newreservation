@@ -288,6 +288,19 @@ export default function SettingsPage() {
     }
   }
 
+  // 시간대 겹침 검사 함수
+  const isTimeOverlapping = (start1: string, end1: string, start2: string, end2: string): boolean => {
+    const toMinutes = (time: string) => {
+      const [h, m] = time.split(':').map(Number)
+      return h * 60 + m
+    }
+    const s1 = toMinutes(start1)
+    const e1 = toMinutes(end1)
+    const s2 = toMinutes(start2)
+    const e2 = toMinutes(end2)
+    return s1 < e2 && e1 > s2
+  }
+
   const addBlockedDate = async () => {
     if (!newBlockedDate.date) {
       showMessage('error', '날짜를 선택해주세요.')
@@ -306,6 +319,39 @@ export default function SettingsPage() {
         newBlockedDate.startTime >= newBlockedDate.endTime) {
       showMessage('error', '종료 시간은 시작 시간보다 늦어야 합니다.')
       return
+    }
+
+    // 같은 날짜의 기존 차단과 겹침/충돌 검증
+    const sameDateBlocks = currentBlockedDates.filter(b => b.date === newBlockedDate.date)
+
+    if (sameDateBlocks.length > 0) {
+      // 기존에 하루 전체 차단이 있는 경우
+      const hasFullDayBlock = sameDateBlocks.some(b => !b.start_time || !b.end_time)
+      if (hasFullDayBlock) {
+        showMessage('error', '이미 해당 날짜가 전체 차단되어 있습니다. 기존 차단을 삭제 후 다시 시도하세요.')
+        return
+      }
+
+      // 새로 추가하는 것이 하루 전체 차단인 경우
+      if (!newBlockedDate.startTime || !newBlockedDate.endTime) {
+        showMessage('error', '이미 해당 날짜에 시간대별 차단이 있습니다. 전체 차단하려면 기존 차단을 먼저 삭제하세요.')
+        return
+      }
+
+      // 시간대 겹침 검증
+      for (const existing of sameDateBlocks) {
+        if (existing.start_time && existing.end_time) {
+          if (isTimeOverlapping(
+            newBlockedDate.startTime,
+            newBlockedDate.endTime,
+            existing.start_time.substring(0, 5),
+            existing.end_time.substring(0, 5)
+          )) {
+            showMessage('error', `기존 차단 시간(${existing.start_time.substring(0, 5)}~${existing.end_time.substring(0, 5)})과 겹칩니다.`)
+            return
+          }
+        }
+      }
     }
 
     const regionCode = activeTab
