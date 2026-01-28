@@ -676,9 +676,17 @@ export default function SettingsPage() {
   }
 
   const currentSettings = settings[activeTab] || { is_open: false, max_reservations_per_day: 2, max_days_per_month: 4 }
-  const currentBlockedDates = blockedDates[activeTab] || []
-  const currentDailyLimits = dailyLimits[activeTab] || []
   const currentTierSettings = tierSettings[activeTab] || []
+
+  // 현재 선택된 월에 해당하는 데이터만 필터링
+  const currentBlockedDates = (blockedDates[activeTab] || []).filter(item => {
+    const [year, month] = item.date.split('-').map(Number)
+    return year === currentYear && month === currentMonth
+  })
+  const currentDailyLimits = (dailyLimits[activeTab] || []).filter(item => {
+    const [year, month] = item.date.split('-').map(Number)
+    return year === currentYear && month === currentMonth
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
