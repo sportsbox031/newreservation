@@ -935,31 +935,11 @@ ${otherSessions.map(session =>
         return;
       }
       
-      // 예약 현황 새로고침
-      await loadReservationStatus();
-      
-      // 내 예약 목록에 추가 및 남은 일수 재계산
-      if (result.data) {
-        const newReservation: Reservation = {
-          id: result.data.id,
-          date: selectedDate,
-          status: 'pending',
-          slots: slotsData.map(slot => ({
-            startTime: slot.start_time,
-            endTime: slot.end_time,
-            grade: slot.grade,
-            participantCount: slot.participant_count,
-            location: slot.location
-          })),
-          created_at: new Date()
-        };
-        
-        const updatedReservations = [...myReservations, newReservation];
-        setMyReservations(updatedReservations);
-        
-        // 남은 예약 일수 재계산
-        calculateRemainingReservations(updatedReservations);
-      }
+      // 예약 현황 및 내 예약 목록 새로고침 (서버에서 최신 데이터 가져오기)
+      await Promise.all([
+        loadReservationStatus(),
+        loadMyReservations()
+      ]);
       
       // 모달 닫기
       setActiveModal(null);
