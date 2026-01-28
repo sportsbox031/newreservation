@@ -37,7 +37,18 @@
       "Bash(npx next dev)",
       "WebFetch(domain:github.com)",
       "Bash(git pull:*)",
-      "Skill(sc:analyze)"
+      "Skill(sc:analyze)",
+      "Bash(timeout:*)",
+      "Bash(rundll32.exe keymgr.dll,KRShowKeyMgr)",
+      "Bash(gh auth:*)",
+      "Bash(git credential-manager:*)",
+      "Bash(cmdkey:*)",
+      "Bash(control:*)",
+      "Bash(gh:*)",
+      "Bash(start https://github.com/login/device)",
+      "Bash(git config:*)",
+      "Bash(start https://vercel.com/oauth/device?user_code=TQHS-PFXF)",
+      "Bash(start:*)"
     ]
   }
 }

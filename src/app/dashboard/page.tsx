@@ -934,12 +934,33 @@ ${otherSessions.map(session =>
         alert(`예약 신청 실패: ${result.error.message}`);
         return;
       }
-      
-      // 예약 현황 및 내 예약 목록 새로고침 (서버에서 최신 데이터 가져오기)
-      await Promise.all([
-        loadReservationStatus(),
-        loadMyReservations()
-      ]);
+
+      // API에서 반환된 새 예약 데이터를 즉시 로컬 상태에 추가 (서버 지연 문제 해결)
+      if (result.data) {
+        const newReservation: Reservation = {
+          id: result.data.id,
+          date: new Date(dateString + 'T00:00:00'),
+          status: 'pending' as const,
+          slots: result.data.reservation_slots.map((slot: any) => ({
+            startTime: slot.start_time,
+            endTime: slot.end_time,
+            grade: slot.grade,
+            participantCount: slot.participant_count,
+            location: slot.location
+          })),
+          created_at: new Date()
+        };
+
+        // 현재 예약 목록에 새 예약 추가
+        const updatedReservations = [...myReservations, newReservation];
+        setMyReservations(updatedReservations);
+
+        // 남은 예약 수 즉시 계산
+        calculateRemainingReservations(updatedReservations);
+      }
+
+      // 예약 현황도 새로고침 (달력 표시용)
+      await loadReservationStatus();
       
       // 모달 닫기
       setActiveModal(null);
