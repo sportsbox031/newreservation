@@ -663,7 +663,7 @@ export const settingsAPI = {
       .select('id')
       .eq('region_id', regionId)
       .eq('date', date)
-      .in('status', ['pending', 'approved'])
+      .in('status', ['pending', 'approved', 'cancel_requested'])
 
     if (reservationError) {
       return { data: null, error: reservationError }
@@ -722,7 +722,7 @@ export const settingsAPI = {
       .eq('region_id', regionId)
       .gte('date', startDate)
       .lte('date', endDate)
-      .in('status', ['pending', 'approved'])
+      .in('status', ['pending', 'approved', 'cancel_requested'])
 
     if (reservationError) {
       return { data: null, error: reservationError }
@@ -1082,7 +1082,7 @@ export const reservationAPI = {
         regions!inner(name, code)
       `)
       .eq('date', date)
-      .in('status', ['pending', 'approved'])
+      .in('status', ['pending', 'approved', 'cancel_requested'])
 
     if (regionCode) {
       query = query.eq('users.cities.regions.code', regionCode)
@@ -1187,7 +1187,7 @@ export const reservationAPI = {
       .eq('user_id', userId)
       .gte('date', startDate)
       .lte('date', endDate)
-      .in('status', ['pending', 'approved'])
+      .in('status', ['pending', 'approved', 'cancel_requested'])
 
     // 같은 날짜 중복 예약 검증
     const existingReservationOnDate = reservations?.find(r => r.date === date)
