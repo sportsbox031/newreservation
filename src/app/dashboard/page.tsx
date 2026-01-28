@@ -472,17 +472,17 @@ ${otherSessions.map(session =>
     }
   };
 
-  // 이번 달 남은 예약 횟수 계산
+  // 달력에서 보고 있는 월 기준 남은 예약 횟수 계산
   const calculateRemainingReservations = (reservations: Reservation[]) => {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth();
+    // 달력에서 현재 보고 있는 월을 기준으로 계산 (상태 currentMonth 사용)
+    const calendarYear = currentMonth.getFullYear();
+    const calendarMonthNum = currentMonth.getMonth();
 
-    // 이번 달의 예약 개수 계산 (취소 확정되지 않은 모든 예약)
+    // 해당 월의 예약 개수 계산 (취소 확정되지 않은 모든 예약)
     const thisMonthReservations = reservations.filter(reservation => {
       const reservationDate = new Date(reservation.date);
-      return reservationDate.getFullYear() === currentYear &&
-             reservationDate.getMonth() === currentMonth &&
+      return reservationDate.getFullYear() === calendarYear &&
+             reservationDate.getMonth() === calendarMonthNum &&
              (reservation.status === 'approved' || reservation.status === 'pending' || reservation.status === 'cancel_requested'); // 취소 요청 중인 것도 포함
     });
 
