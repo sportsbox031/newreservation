@@ -87,6 +87,14 @@ export default function SettingsPage() {
     startTime: '',  // 빈 문자열이면 하루 전체 차단
     endTime: ''     // 빈 문자열이면 하루 전체 차단
   })
+  const [bulkBlockMode, setBulkBlockMode] = useState(false) // 일괄 차단 모드
+  const [bulkBlockData, setBulkBlockData] = useState({
+    startDate: '',
+    endDate: '',
+    startTime: '',
+    endTime: '',
+    includeWeekends: true // 주말 포함 여부
+  })
   const [newDailyLimit, setNewDailyLimit] = useState({ date: '', max_reservations: 2 })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
@@ -396,16 +404,149 @@ export default function SettingsPage() {
     setSaving(true)
     try {
       const { error } = await settingsAPI.removeBlockedDate(dateId)
-      
+
       if (error) {
         showMessage('error', '차단 날짜 삭제에 실패했습니다.')
         return
       }
-      
+
       showMessage('success', '차단 날짜가 삭제되었습니다.')
       loadBlockedDates()
     } catch (error) {
       showMessage('error', '차단 날짜 삭제 중 오류가 발생했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // 일괄 차단 추가
+  const addBulkBlockedDates = async () => {
+    if (!bulkBlockData.startDate || !bulkBlockData.endDate) {
+      showMessage('error', '시작일과 종료일을 모두 선택해주세요.')
+      return
+    }
+
+    if (bulkBlockData.startDate > bulkBlockData.endDate) {
+      showMessage('error', '종료일은 시작일보다 같거나 늦어야 합니다.')
+      return
+    }
+
+    // 시간대 검증
+    if ((bulkBlockData.startTime && !bulkBlockData.endTime) ||
+        (!bulkBlockData.startTime && bulkBlockData.endTime)) {
+      showMessage('error', '시작 시간과 종료 시간을 모두 입력하거나 모두 비워야 합니다.')
+      return
+    }
+
+    if (bulkBlockData.startTime && bulkBlockData.endTime &&
+        bulkBlockData.startTime >= bulkBlockData.endTime) {
+      showMessage('error', '종료 시간은 시작 시간보다 늦어야 합니다.')
+      return
+    }
+
+    const regionCode = activeTab
+    setSaving(true)
+
+    try {
+      // 날짜 범위 내 모든 날짜 생성
+      const dates: string[] = []
+      const start = new Date(bulkBlockData.startDate)
+      const end = new Date(bulkBlockData.endDate)
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dayOfWeek = d.getDay()
+        // 주말 제외 옵션 체크 (0: 일요일, 6: 토요일)
+        if (!bulkBlockData.includeWeekends && (dayOfWeek === 0 || dayOfWeek === 6)) {
+          continue
+        }
+        const dateStr = d.toISOString().split('T')[0]
+        dates.push(dateStr)
+      }
+
+      if (dates.length === 0) {
+        showMessage('error', '차단할 날짜가 없습니다.')
+        setSaving(false)
+        return
+      }
+
+      // 확인 메시지
+      const timeInfo = bulkBlockData.startTime && bulkBlockData.endTime
+        ? `${bulkBlockData.startTime}~${bulkBlockData.endTime}`
+        : '전체 시간'
+
+      if (!confirm(`${dates.length}개 날짜에 ${timeInfo} 차단을 추가하시겠습니까?`)) {
+        setSaving(false)
+        return
+      }
+
+      // 각 날짜에 차단 추가
+      let successCount = 0
+      let skipCount = 0
+
+      for (const date of dates) {
+        // 기존 차단 체크
+        const sameDateBlocks = currentBlockedDates.filter(b => b.date === date)
+
+        // 하루 전체 차단이 이미 있으면 건너뛰기
+        if (sameDateBlocks.some(b => !b.start_time || !b.end_time)) {
+          skipCount++
+          continue
+        }
+
+        // 시간대 겹침 체크
+        if (bulkBlockData.startTime && bulkBlockData.endTime) {
+          let hasOverlap = false
+          for (const existing of sameDateBlocks) {
+            if (existing.start_time && existing.end_time) {
+              if (isTimeOverlapping(
+                bulkBlockData.startTime,
+                bulkBlockData.endTime,
+                existing.start_time.substring(0, 5),
+                existing.end_time.substring(0, 5)
+              )) {
+                hasOverlap = true
+                break
+              }
+            }
+          }
+          if (hasOverlap) {
+            skipCount++
+            continue
+          }
+        }
+
+        const reason = bulkBlockData.startTime && bulkBlockData.endTime
+          ? `${bulkBlockData.startTime}~${bulkBlockData.endTime} 예약 불가`
+          : '예약 불가'
+
+        const { error } = await settingsAPI.addBlockedDate(
+          date,
+          reason,
+          regionCode,
+          bulkBlockData.startTime || null,
+          bulkBlockData.endTime || null
+        )
+
+        if (!error) {
+          successCount++
+        }
+      }
+
+      if (successCount > 0) {
+        showMessage('success', `${successCount}개 날짜에 차단이 추가되었습니다.${skipCount > 0 ? ` (${skipCount}개 건너뜀)` : ''}`)
+        setBulkBlockData({
+          startDate: '',
+          endDate: '',
+          startTime: '',
+          endTime: '',
+          includeWeekends: true
+        })
+        loadBlockedDates()
+      } else {
+        showMessage('error', '추가된 차단이 없습니다. 이미 차단된 날짜일 수 있습니다.')
+      }
+    } catch (error) {
+      showMessage('error', '일괄 차단 추가 중 오류가 발생했습니다.')
     } finally {
       setSaving(false)
     }
@@ -420,6 +561,19 @@ export default function SettingsPage() {
     const [year, month, day] = dateString.split('-')
     return `${year}-${month}-${day}`
   }
+
+  // 시간 옵션 (09:00 ~ 17:00, 10분 단위) - 17:00이 마지막
+  const timeOptions = [
+    '09:00', '09:10', '09:20', '09:30', '09:40', '09:50',
+    '10:00', '10:10', '10:20', '10:30', '10:40', '10:50',
+    '11:00', '11:10', '11:20', '11:30', '11:40', '11:50',
+    '12:00', '12:10', '12:20', '12:30', '12:40', '12:50',
+    '13:00', '13:10', '13:20', '13:30', '13:40', '13:50',
+    '14:00', '14:10', '14:20', '14:30', '14:40', '14:50',
+    '15:00', '15:10', '15:20', '15:30', '15:40', '15:50',
+    '16:00', '16:10', '16:20', '16:30', '16:40', '16:50',
+    '17:00'
+  ]
 
   const changeMonth = (delta: number) => {
     const newMonth = currentMonth + delta
@@ -864,79 +1018,184 @@ export default function SettingsPage() {
               예약 불가 날짜 관리
             </h2>
           </div>
-          
+
           {/* 새 차단 날짜 추가 */}
           <div className="p-6 border-b border-gray-200">
-            <h3 className="text-md font-medium text-gray-900 mb-4">새 예약 불가 날짜/시간 추가</h3>
-            <div className="space-y-4">
-              <div className="flex gap-4 items-end flex-wrap">
-                <div className="flex-1 min-w-[200px]">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    날짜 *
-                  </label>
-                  <input
-                    type="date"
-                    value={newBlockedDate.date}
-                    onChange={(e) => setNewBlockedDate(prev => ({ ...prev, date: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="w-[140px]">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    시작 시간
-                  </label>
-                  <select
-                    value={newBlockedDate.startTime}
-                    onChange={(e) => setNewBlockedDate(prev => ({ ...prev, startTime: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">선택 안함</option>
-                    {Array.from({ length: 10 }, (_, h) =>
-                      Array.from({ length: 6 }, (_, m) => {
-                        const hour = (h + 9).toString().padStart(2, '0')
-                        const minute = (m * 10).toString().padStart(2, '0')
-                        return `${hour}:${minute}`
-                      })
-                    ).flat().map(time => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="w-[140px]">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    종료 시간
-                  </label>
-                  <select
-                    value={newBlockedDate.endTime}
-                    onChange={(e) => setNewBlockedDate(prev => ({ ...prev, endTime: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">선택 안함</option>
-                    {Array.from({ length: 10 }, (_, h) =>
-                      Array.from({ length: 6 }, (_, m) => {
-                        const hour = (h + 9).toString().padStart(2, '0')
-                        const minute = (m * 10).toString().padStart(2, '0')
-                        return `${hour}:${minute}`
-                      })
-                    ).flat().map(time => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
-                </div>
+            {/* 단일/일괄 모드 토글 */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-md font-medium text-gray-900">새 예약 불가 날짜/시간 추가</h3>
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
                 <button
-                  onClick={addBlockedDate}
-                  disabled={saving}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center whitespace-nowrap"
+                  onClick={() => setBulkBlockMode(false)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    !bulkBlockMode
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  <Plus className="w-4 h-4 mr-1" />
-                  추가
+                  단일 설정
+                </button>
+                <button
+                  onClick={() => setBulkBlockMode(true)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    bulkBlockMode
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  일괄 설정
                 </button>
               </div>
-              <p className="text-sm text-gray-500">
-                <Info className="w-4 h-4 inline mr-1" />
-                시간을 선택하지 않으면 해당 날짜 <strong>전체</strong>가 차단됩니다. 특정 시간대만 차단하려면 시작/종료 시간을 모두 선택하세요.
-              </p>
             </div>
+
+            {/* 단일 설정 모드 */}
+            {!bulkBlockMode && (
+              <div className="space-y-4">
+                <div className="flex gap-4 items-end flex-wrap">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      날짜 *
+                    </label>
+                    <input
+                      type="date"
+                      value={newBlockedDate.date}
+                      onChange={(e) => setNewBlockedDate(prev => ({ ...prev, date: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div className="w-[140px]">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      시작 시간
+                    </label>
+                    <select
+                      value={newBlockedDate.startTime}
+                      onChange={(e) => setNewBlockedDate(prev => ({ ...prev, startTime: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">선택 안함</option>
+                      {timeOptions.map(time => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-[140px]">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      종료 시간
+                    </label>
+                    <select
+                      value={newBlockedDate.endTime}
+                      onChange={(e) => setNewBlockedDate(prev => ({ ...prev, endTime: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">선택 안함</option>
+                      {timeOptions.map(time => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    onClick={addBlockedDate}
+                    disabled={saving}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center whitespace-nowrap"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    추가
+                  </button>
+                </div>
+                <p className="text-sm text-gray-500">
+                  <Info className="w-4 h-4 inline mr-1" />
+                  시간을 선택하지 않으면 해당 날짜 <strong>전체</strong>가 차단됩니다.
+                </p>
+              </div>
+            )}
+
+            {/* 일괄 설정 모드 */}
+            {bulkBlockMode && (
+              <div className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-amber-800">
+                    <Info className="w-4 h-4 inline mr-1" />
+                    여러 날짜에 동일한 시간대를 한 번에 차단합니다. 예: 2/1~2/20 매일 11:40~13:20 차단
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      시작일 *
+                    </label>
+                    <input
+                      type="date"
+                      value={bulkBlockData.startDate}
+                      onChange={(e) => setBulkBlockData(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      종료일 *
+                    </label>
+                    <input
+                      type="date"
+                      value={bulkBlockData.endDate}
+                      onChange={(e) => setBulkBlockData(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      시작 시간
+                    </label>
+                    <select
+                      value={bulkBlockData.startTime}
+                      onChange={(e) => setBulkBlockData(prev => ({ ...prev, startTime: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">선택 안함</option>
+                      {timeOptions.map(time => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      종료 시간
+                    </label>
+                    <select
+                      value={bulkBlockData.endTime}
+                      onChange={(e) => setBulkBlockData(prev => ({ ...prev, endTime: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">선택 안함</option>
+                      {timeOptions.map(time => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    onClick={addBulkBlockedDates}
+                    disabled={saving}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center whitespace-nowrap h-[42px]"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    일괄 추가
+                  </button>
+                </div>
+                <div className="flex items-center gap-4 mt-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={bulkBlockData.includeWeekends}
+                      onChange={(e) => setBulkBlockData(prev => ({ ...prev, includeWeekends: e.target.checked }))}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">주말(토/일) 포함</span>
+                  </label>
+                  <p className="text-sm text-gray-500">
+                    시간을 선택하지 않으면 해당 기간의 모든 날짜가 <strong>전체 차단</strong>됩니다.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 차단된 날짜 목록 */}
