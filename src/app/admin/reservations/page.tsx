@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import {
@@ -67,8 +67,9 @@ type DayStatus = 'available' | 'limited' | 'full' | 'blocked' | 'closed';
 // 모달 타입
 type ModalType = 'reservationList' | 'reservationDetail' | null;
 
-export default function AdminReservationsPage() {
+function AdminReservationsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [adminInfo, setAdminInfo] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -94,17 +95,40 @@ export default function AdminReservationsPage() {
   const [adminRegion, setAdminRegion] = useState<'south' | 'north'>('south');
   const [isMonthClosed, setIsMonthClosed] = useState(true);
 
-  // 필터 상태
-  const [statusFilter, setStatusFilter] = useState<'all' | ReservationStatus>('all');
+  // URL 파라미터에서 초기값 읽기
+  const initialStatus = searchParams.get('status') as ReservationStatus | null;
+  const initialView = searchParams.get('view') as 'calendar' | 'list' | null;
+
+  // 필터 상태 (URL 파라미터가 있으면 해당 값으로 초기화)
+  const [statusFilter, setStatusFilter] = useState<'all' | ReservationStatus>(
+    initialStatus && ['pending', 'approved', 'cancelled', 'admin_cancelled', 'rejected', 'cancel_requested'].includes(initialStatus)
+      ? initialStatus
+      : 'all'
+  );
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 뷰 모드 상태 추가
-  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  // 뷰 모드 상태 (URL 파라미터가 있으면 해당 값으로 초기화)
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>(
+    initialView === 'list' ? 'list' : 'calendar'
+  );
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // URL 파라미터 변경 감지
+  useEffect(() => {
+    const statusParam = searchParams.get('status') as ReservationStatus | null;
+    const viewParam = searchParams.get('view') as 'calendar' | 'list' | null;
+
+    if (statusParam && ['pending', 'approved', 'cancelled', 'admin_cancelled', 'rejected', 'cancel_requested'].includes(statusParam)) {
+      setStatusFilter(statusParam);
+    }
+    if (viewParam === 'list') {
+      setViewMode('list');
+    }
+  }, [searchParams]);
 
   // 데이터 로드 (월 변경이나 지역 변경 시 실행)
   useEffect(() => {
@@ -1292,13 +1316,20 @@ export default function AdminReservationsPage() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">관리 통계</h3>
               <div className="space-y-4">
-                <div className="bg-yellow-50 p-4 rounded-lg">
+                <div
+                  className="bg-yellow-50 p-4 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
+                  onClick={() => {
+                    setStatusFilter('pending');
+                    setViewMode('list');
+                  }}
+                  title="승인대기 목록 보기"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <Clock className="w-8 h-8 text-yellow-600 mr-3" />
                       <div>
                         <div className="font-semibold text-gray-900">승인대기</div>
-                        <div className="text-sm text-gray-600">처리 필요</div>
+                        <div className="text-sm text-gray-600">클릭하여 목록 보기</div>
                       </div>
                     </div>
                     <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
@@ -1318,13 +1349,20 @@ export default function AdminReservationsPage() {
                   </div>
                 </div>
 
-                <div className="bg-orange-50 p-4 rounded-lg">
+                <div
+                  className="bg-orange-50 p-4 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors"
+                  onClick={() => {
+                    setStatusFilter('cancel_requested');
+                    setViewMode('list');
+                  }}
+                  title="취소요청 목록 보기"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <AlertTriangle className="w-8 h-8 text-orange-600 mr-3" />
                       <div>
                         <div className="font-semibold text-gray-900">취소요청</div>
-                        <div className="text-sm text-gray-600">확인 필요</div>
+                        <div className="text-sm text-gray-600">클릭하여 목록 보기</div>
                       </div>
                     </div>
                     <div className="text-2xl font-bold text-orange-600">{stats.cancelRequested}</div>
@@ -1936,5 +1974,21 @@ export default function AdminReservationsPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+// Suspense wrapper for useSearchParams
+export default function AdminReservationsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <AdminReservationsContent />
+    </Suspense>
   );
 }

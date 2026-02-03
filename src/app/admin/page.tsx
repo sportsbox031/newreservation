@@ -22,6 +22,7 @@ interface DashboardStats {
   approvedMembers: number
   pendingReservations: number
   approvedReservations: number
+  cancelRequestedReservations: number
   totalAnnouncements: number
   activeAnnouncements: number
 }
@@ -43,6 +44,7 @@ export default function AdminDashboard() {
     approvedMembers: 0,
     pendingReservations: 0,
     approvedReservations: 0,
+    cancelRequestedReservations: 0,
     totalAnnouncements: 0,
     activeAnnouncements: 0
   })
@@ -67,10 +69,11 @@ export default function AdminDashboard() {
   const loadDashboardData = async (adminData: any) => {
     try {
       // 통계 데이터 로드
-      const [membersResult, reservationsResult, announcementsResult] = await Promise.all([
+      const [membersResult, reservationsResult, announcementsResult, cancelRequestsResult] = await Promise.all([
         memberAPI.getPendingMembers(),
         reservationAPI.getPendingReservations(),
-        announcementAPI.getPublicAnnouncements()
+        announcementAPI.getPublicAnnouncements(),
+        reservationAPI.getCancellationRequests()
       ])
 
       // 승인된 회원 수 조회
@@ -82,6 +85,7 @@ export default function AdminDashboard() {
         approvedMembers: approvedMembersResult.data?.length || 0,
         pendingReservations: reservationsResult.data?.length || 0,
         approvedReservations: approvedReservationsResult.data?.length || 0,
+        cancelRequestedReservations: cancelRequestsResult.data?.length || 0,
         totalAnnouncements: announcementsResult.data?.length || 0,
         activeAnnouncements: announcementsResult.data?.filter((a: any) => a.is_published).length || 0
       })
@@ -195,20 +199,41 @@ export default function AdminDashboard() {
             </div>
           </Link>
 
-          <Link href="/admin/reservations" className="block">
-            <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border-l-4 border-green-500">
+          <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border-l-4 border-green-500">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">대기 중인 예약</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.pendingReservations}</p>
-                  <p className="text-xs text-gray-500 mt-1">승인된 예약: {stats.approvedReservations}건</p>
+                  <p className="text-sm font-medium text-gray-600">예약 관리</p>
+                  <div className="flex items-center gap-4 mt-1">
+                    <Link
+                      href="/admin/reservations?status=pending&view=list"
+                      className="group"
+                      title="승인대기 예약 보기"
+                    >
+                      <span className="text-2xl font-bold text-yellow-600 group-hover:text-yellow-700 group-hover:underline cursor-pointer">
+                        {stats.pendingReservations}
+                      </span>
+                      <span className="text-xs text-gray-500 ml-1">승인대기</span>
+                    </Link>
+                    <Link
+                      href="/admin/reservations?status=cancel_requested&view=list"
+                      className="group"
+                      title="취소요청 예약 보기"
+                    >
+                      <span className="text-2xl font-bold text-red-600 group-hover:text-red-700 group-hover:underline cursor-pointer">
+                        {stats.cancelRequestedReservations}
+                      </span>
+                      <span className="text-xs text-gray-500 ml-1">취소요청</span>
+                    </Link>
+                  </div>
+                  <Link href="/admin/reservations" className="text-xs text-gray-500 mt-1 hover:text-green-600 hover:underline">
+                    승인된 예약: {stats.approvedReservations}건 →
+                  </Link>
                 </div>
-                <div className="p-3 bg-green-50 rounded-full">
+                <Link href="/admin/reservations" className="p-3 bg-green-50 rounded-full hover:bg-green-100 transition-colors">
                   <Calendar className="w-6 h-6 text-green-600" />
-                </div>
+                </Link>
               </div>
             </div>
-          </Link>
 
           <Link href="/admin/announcements" className="block">
             <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border-l-4 border-purple-500">
