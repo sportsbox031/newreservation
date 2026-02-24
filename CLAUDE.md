@@ -59,15 +59,39 @@ All functions return `{ data, error }` format consistent with Supabase patterns.
 - **Super Admin**: admin / admin123
 - **Regional**: admin_south / admin123, admin_north / admin123
 
+### Client-Side Architecture
+- **No Next.js middleware** (`src/middleware.ts` does not exist) - all route protection is client-side
+- **No global state management** - no Redux, Zustand, or React Context for auth
+- Each page independently checks localStorage and validates sessions
+- All components are `'use client'` - this is a client-heavy application
+
+### Key Files
+- `src/lib/supabase.ts` - All database operations (~2000 lines, the core API layer)
+- `src/lib/auth.ts` - Server-side API route auth (Bearer token validation using service role key)
+- `src/lib/aligo.ts` - KakaoTalk/SMS notification functions
+- `src/lib/fileValidation.ts` - Security-focused file upload validation (whitelist MIME types, 5MB limit)
+- `src/hooks/useSessionCheck.ts` - Primary auth hook for user pages
+- `src/types/database.ts` - Manually maintained Database interface and type aliases
+
+### Dead Code
+- `src/middleware/sessionCheck.ts` is an older unused version of session checking with a broken dynamic `require('react')` pattern. The active version is `src/hooks/useSessionCheck.ts`.
+
 ## Key Patterns
 
 ### Authentication Flow
 1. Login via `memberAPI.login()` with organization_name + password
-2. Password verification: bcrypt (primary) with legacy btoa fallback for migration
-3. Session token (UUID + timestamp) stored in localStorage
-4. Multi-login prevention: only one active session per user
-5. Session tracking includes IP address and user agent
-6. No global auth context - use `useSessionCheck` hook
+2. Single login page at `/auth/login` handles both admin and user login - routes to admin login if `organization_name.startsWith('admin')`
+3. Password verification: bcrypt (primary) with legacy btoa fallback; silently migrates legacy passwords to bcrypt on successful login
+4. Session token (UUID + timestamp) stored in localStorage
+5. Multi-login prevention: user login invalidates ALL existing active sessions before creating new one (admins do not have this restriction)
+6. Session tracking includes IP address and user agent
+7. **No global auth context** - use `useSessionCheck` hook for user pages, check `localStorage.getItem('adminInfo')` for admin pages
+
+### localStorage Keys
+- `currentUser` - User session data (user pages)
+- `adminInfo` - Admin session data (admin pages)
+- `sessionToken` / `session_token` - API bearer token
+- `seenPopups` - Homepage popup 24h suppression tracking
 
 ### Reservation Slot Structure
 Each reservation can have up to 2 time slots:
@@ -81,11 +105,24 @@ Each reservation can have up to 2 time slots:
 }
 ```
 
+### Concurrency Control
+The `reservation_transactions` table and `try_reserve_slot` PostgreSQL function handle race conditions for simultaneous reservations at the database level, not application code.
+
 ### Notification System (`src/lib/aligo.ts`)
 - Architecture: Next.js → Fly.io proxy (`sportsbox-aligo-proxy.fly.dev`) → Aligo API
 - Templates: Member/reservation approval/rejection, program day reminders
 - Automatic SMS failover when KakaoTalk delivery fails
 - Template codes configured via environment variables
+
+### API Routes (`src/app/api/`)
+All admin API routes use `src/lib/auth.ts` `validateApiRequest()` for Bearer token auth:
+- `POST/PUT/DELETE /api/admin/announcements` - Announcement CRUD
+- `POST /api/admin/announcements/attachments` - File upload
+- `POST/PUT/DELETE /api/admin/popups` - Popup management
+- `POST /api/notifications/aligo` - KakaoTalk notification proxy
+- `GET /api/cron/daily-notifications` - Vercel cron job (protected by `CRON_SECRET`)
+- `GET /api/check-ip` - Client IP detection
+- `GET /api/test-cron` - Manual cron trigger for testing
 
 ## Environment Variables
 
@@ -136,10 +173,23 @@ To modify schema:
 - **Cron**: Daily notifications at 00:00 KST via `/api/cron/daily-notifications`
 - **External Services**: Supabase, Fly.io proxy, Aligo API
 
+### Database Functions
+Key PostgreSQL functions (called via `supabase.rpc()`):
+- `try_reserve_slot` - Atomic slot reservation with concurrency safety
+- `cancel_reservation_slot` - Atomic slot cancellation
+- `get_user_monthly_reservation_count` - Monthly limit checking
+- `get_daily_reservation_count` - Daily capacity tracking
+- `cleanup_expired_sessions` - Session garbage collection
+- `count_announcement_attachments` - Attachment limit enforcement
+
+### Tier System
+`welfare` organizations automatically get `Priority` tier, `school` gets `Standard` - set by a database trigger at insert time, not application code.
+
 ## Common Issues
 
-- **Build Errors**: `next.config.ts` has `ignoreBuildErrors: true` - check actual TypeScript errors
-- **Auth Issues**: Custom auth bypasses Supabase Auth - debug via `memberAPI.login()`
+- **Build Errors**: `next.config.ts` has both `ignoreBuildErrors: true` and `ignoreDuringBuilds: true` for ESLint - the app can build despite type/lint errors, so always check actual errors
+- **Auth Issues**: Custom auth bypasses Supabase Auth entirely - debug via `memberAPI.login()` for users, `adminAPI.login()` for admins
 - **Regional Access**: Ensure user region matches admin panel for proper data access
 - **Cron Testing**: Use `/api/test-cron` endpoint before deployment
 - **Type Generation**: Requires pnpm (`pnpm dlx supabase gen types...`)
+- **README Mismatch**: README.md mentions "Supabase Auth" but the app uses a fully custom auth system

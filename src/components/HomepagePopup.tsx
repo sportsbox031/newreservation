@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { popupAPI } from '@/lib/supabase'
 import { sanitizeHtml } from '@/components/RichTextEditor'
@@ -19,213 +19,139 @@ interface HomepagePopup {
   }
 }
 
-export default function HomepagePopupComponent() {
-  const [popups, setPopups] = useState<HomepagePopup[]>([])
-  const [currentPopupIndex, setCurrentPopupIndex] = useState(0)
-  const [showPopup, setShowPopup] = useState(false)
-  const [loading, setLoading] = useState(true)
+// 마크다운을 HTML로 변환하는 간단한 함수
+const markdownToHtml = (markdown: string): string => {
+  let html = markdown
+
+  // 헤딩
+  html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>')
+  html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>')
+  html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>')
+
+  // 볼드
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/__(.*?)__/g, '<strong>$1</strong>')
+
+  // 이탤릭
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
+  html = html.replace(/_(.*?)_/g, '<em>$1</em>')
+
+  // 링크
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+
+  // 코드
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>')
+
+  // 리스트
+  html = html.replace(/^\* (.+)$/gm, '<li>$1</li>')
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
+  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+
+  // 줄바꿈
+  html = html.replace(/\n/g, '<br>')
+
+  return html
+}
+
+const renderContent = (popup: HomepagePopup) => {
+  if (popup.content_type === 'html') {
+    return (
+      <div
+        className="prose max-w-none"
+        dangerouslySetInnerHTML={{
+          __html: sanitizeHtml(popup.content)
+        }}
+      />
+    )
+  } else if (popup.content_type === 'markdown') {
+    return (
+      <div
+        className="prose max-w-none"
+        dangerouslySetInnerHTML={{
+          __html: sanitizeHtml(markdownToHtml(popup.content))
+        }}
+      />
+    )
+  } else {
+    return (
+      <div className="prose max-w-none whitespace-pre-wrap">
+        {popup.content}
+      </div>
+    )
+  }
+}
+
+// 24시간 내 팝업 본 여부 확인
+const checkPopupSeenToday = (popupId: string): boolean => {
+  const seenPopups = JSON.parse(localStorage.getItem('seenPopups') || '{}')
+  const today = new Date().toDateString()
+  return seenPopups[popupId] === today
+}
+
+// 24시간 내 팝업 본 것으로 표시
+const markPopupAsSeen = (popupId: string) => {
+  const seenPopups = JSON.parse(localStorage.getItem('seenPopups') || '{}')
+  const today = new Date().toDateString()
+  seenPopups[popupId] = today
+  localStorage.setItem('seenPopups', JSON.stringify(seenPopups))
+}
+
+// 개별 팝업 모달 컴포넌트
+function PopupModal({
+  popup,
+  zIndex,
+  onClose,
+}: {
+  popup: HomepagePopup
+  zIndex: number
+  onClose: () => void
+}) {
   const [dontShowToday, setDontShowToday] = useState(false)
 
-  useEffect(() => {
-    loadPopups()
-  }, [])
-
-  const loadPopups = async () => {
-    try {
-      const { data, error } = await popupAPI.getActivePopups()
-      
-      if (error) {
-        console.error('팝업 로드 오류:', error)
-        setLoading(false)
-        return
-      }
-
-      const activePopups = data || []
-      
-      if (activePopups.length > 0) {
-        // 24시간 내에 또 보지 않음 옵션을 확인
-        const hasSeenToday = checkPopupSeenToday(activePopups[0].id)
-        
-        if (!hasSeenToday) {
-          setPopups(activePopups)
-          setCurrentPopupIndex(0)
-          setShowPopup(true)
-        }
-      }
-      
-      setLoading(false)
-    } catch (error) {
-      console.error('팝업 로드 예외:', error)
-      setLoading(false)
+  const handleClose = useCallback(() => {
+    if (dontShowToday) {
+      markPopupAsSeen(popup.id)
     }
-  }
-
-  // 24시간 내 팝업 본 여부 확인
-  const checkPopupSeenToday = (popupId: string): boolean => {
-    const seenPopups = JSON.parse(localStorage.getItem('seenPopups') || '{}')
-    const today = new Date().toDateString()
-    
-    return seenPopups[popupId] === today
-  }
-
-  // 24시간 내 팝업 본 것으로 표시
-  const markPopupAsSeen = (popupId: string) => {
-    const seenPopups = JSON.parse(localStorage.getItem('seenPopups') || '{}')
-    const today = new Date().toDateString()
-    seenPopups[popupId] = today
-    localStorage.setItem('seenPopups', JSON.stringify(seenPopups))
-  }
-
-  // 팝업 닫기
-  const closePopup = () => {
-    // 체크박스가 체크된 경우에만 24시간 동안 보지 않음으로 표시
-    if (dontShowToday && popups[currentPopupIndex]) {
-      markPopupAsSeen(popups[currentPopupIndex].id)
-    }
-    setShowPopup(false)
-    setDontShowToday(false) // 상태 초기화
-  }
-
-  // 다음 팝업으로 이동
-  const nextPopup = () => {
-    // 체크박스가 체크된 경우에만 24시간 동안 보지 않음으로 표시
-    if (dontShowToday && popups[currentPopupIndex]) {
-      markPopupAsSeen(popups[currentPopupIndex].id)
-    }
-
-    if (currentPopupIndex < popups.length - 1) {
-      setCurrentPopupIndex(currentPopupIndex + 1)
-      setDontShowToday(false) // 다음 팝업으로 넘어갈 때 체크박스 상태 초기화
-    } else {
-      setShowPopup(false)
-      setDontShowToday(false) // 상태 초기화
-    }
-  }
+    onClose()
+  }, [dontShowToday, popup.id, onClose])
 
   // ESC 키로 닫기
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && showPopup) {
-        closePopup()
+      if (event.key === 'Escape') {
+        handleClose()
       }
     }
 
-    if (showPopup) {
-      document.addEventListener('keydown', handleKeyDown)
-      // 배경 스크롤 방지
-      document.body.style.overflow = 'hidden'
-    }
-
+    document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = 'unset'
     }
-  }, [showPopup])
-
-  // 마크다운을 HTML로 변환하는 간단한 함수
-  const markdownToHtml = (markdown: string): string => {
-    let html = markdown
-    
-    // 헤딩
-    html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>')
-    html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>')
-    html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>')
-    
-    // 볼드
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    html = html.replace(/__(.*?)__/g, '<strong>$1</strong>')
-    
-    // 이탤릭
-    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
-    html = html.replace(/_(.*?)_/g, '<em>$1</em>')
-    
-    // 링크
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    
-    // 코드
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>')
-    
-    // 리스트
-    html = html.replace(/^\* (.+)$/gm, '<li>$1</li>')
-    html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
-    html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-    
-    // 줄바꿈
-    html = html.replace(/\n/g, '<br>')
-    
-    return html
-  }
-
-  const renderContent = (popup: HomepagePopup) => {
-    if (popup.content_type === 'html') {
-      return (
-        <div
-          className="prose max-w-none"
-          dangerouslySetInnerHTML={{
-            __html: sanitizeHtml(popup.content)
-          }}
-        />
-      )
-    } else if (popup.content_type === 'markdown') {
-      return (
-        <div
-          className="prose max-w-none"
-          dangerouslySetInnerHTML={{
-            __html: sanitizeHtml(markdownToHtml(popup.content))
-          }}
-        />
-      )
-    } else {
-      return (
-        <div className="prose max-w-none whitespace-pre-wrap">
-          {popup.content}
-        </div>
-      )
-    }
-  }
-
-  if (loading || !showPopup || popups.length === 0) {
-    return null
-  }
-
-  const currentPopup = popups[currentPopupIndex]
-  
-  if (!currentPopup) {
-    return null
-  }
+  }, [handleClose])
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-[9999]">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+    <div
+      className="fixed inset-0 flex items-center justify-center p-3 sm:p-4"
+      style={{ zIndex }}
+    >
+      {/* 배경 오버레이 */}
+      <div
+        className="absolute inset-0 bg-black bg-opacity-50"
+        onClick={handleClose}
+      />
+
+      {/* 모달 콘텐츠 */}
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
         {/* 헤더 */}
         <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6">
           <div className="flex justify-between items-start gap-3 sm:gap-4">
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 break-words">
-                {currentPopup.title}
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 break-words">
+                {popup.title}
               </h2>
-              {popups.length > 1 && (
-                <div className="flex items-center gap-2">
-                  <div className="text-xs sm:text-sm text-gray-500">
-                    {currentPopupIndex + 1} / {popups.length}
-                  </div>
-                  <div className="flex gap-1">
-                    {popups.map((_, index) => (
-                      <div
-                        key={index}
-                        className={`w-2 h-2 rounded-full ${
-                          index === currentPopupIndex
-                            ? 'bg-blue-600'
-                            : 'bg-gray-300'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
             <button
-              onClick={closePopup}
+              onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 text-2xl font-semibold p-1 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
               title="닫기 (ESC)"
             >
@@ -236,7 +162,7 @@ export default function HomepagePopupComponent() {
 
         {/* 콘텐츠 */}
         <div className="p-4 sm:p-6">
-          {renderContent(currentPopup)}
+          {renderContent(popup)}
         </div>
 
         {/* 하단 버튼 */}
@@ -252,34 +178,82 @@ export default function HomepagePopupComponent() {
               <span className="whitespace-nowrap">24시간 내 다시 보지 않기</span>
             </label>
 
-            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
-              {popups.length > 1 && currentPopupIndex < popups.length - 1 ? (
-                <>
-                  <button
-                    onClick={closePopup}
-                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm sm:text-base text-gray-600 hover:text-gray-800 font-medium"
-                  >
-                    닫기
-                  </button>
-                  <button
-                    onClick={nextPopup}
-                    className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm sm:text-base bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                  >
-                    다음
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={closePopup}
-                  className="w-full sm:w-auto px-4 sm:px-6 py-2 text-sm sm:text-base bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                >
-                  확인
-                </button>
-              )}
-            </div>
+            <button
+              onClick={handleClose}
+              className="w-full sm:w-auto px-4 sm:px-6 py-2 text-sm sm:text-base bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            >
+              확인
+            </button>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function HomepagePopupComponent() {
+  const [visiblePopups, setVisiblePopups] = useState<HomepagePopup[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadPopups()
+  }, [])
+
+  // 팝업이 하나라도 열려있으면 배경 스크롤 방지
+  useEffect(() => {
+    if (visiblePopups.length > 0) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [visiblePopups.length])
+
+  const loadPopups = async () => {
+    try {
+      const { data, error } = await popupAPI.getActivePopups()
+
+      if (error) {
+        console.error('팝업 로드 오류:', error)
+        setLoading(false)
+        return
+      }
+
+      const activePopups = data || []
+
+      // 24시간 내 이미 본 팝업 필터링
+      const unseenPopups = activePopups.filter(
+        (popup: HomepagePopup) => !checkPopupSeenToday(popup.id)
+      )
+
+      setVisiblePopups(unseenPopups)
+      setLoading(false)
+    } catch (error) {
+      console.error('팝업 로드 예외:', error)
+      setLoading(false)
+    }
+  }
+
+  const handleClosePopup = (popupId: string) => {
+    setVisiblePopups((prev) => prev.filter((p) => p.id !== popupId))
+  }
+
+  if (loading || visiblePopups.length === 0) {
+    return null
+  }
+
+  return (
+    <>
+      {visiblePopups.map((popup, index) => (
+        <PopupModal
+          key={popup.id}
+          popup={popup}
+          zIndex={9999 + (visiblePopups.length - index)}
+          onClose={() => handleClosePopup(popup.id)}
+        />
+      ))}
+    </>
   )
 }
