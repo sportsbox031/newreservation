@@ -215,16 +215,6 @@ export default function AdminDashboard() {
                       <span className="text-xs text-gray-500 ml-1">승인대기</span>
                     </Link>
                     <Link
-                      href="/admin/reservations?status=approved&view=list"
-                      className="group"
-                      title="승인완료 예약 보기"
-                    >
-                      <span className="text-2xl font-bold text-green-600 group-hover:text-green-700 group-hover:underline cursor-pointer">
-                        {stats.approvedReservations}
-                      </span>
-                      <span className="text-xs text-gray-500 ml-1">승인완료</span>
-                    </Link>
-                    <Link
                       href="/admin/reservations?status=cancel_requested&view=list"
                       className="group"
                       title="취소요청 예약 보기"
