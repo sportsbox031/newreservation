@@ -914,8 +914,14 @@ function AdminReservationsContent() {
     window.URL.revokeObjectURL(url);
   };
 
-  // 필터링된 예약 목록 (전체 리스트용)
-  const filteredAllReservations = allReservations.filter(reservation => {
+  // 현재 보고 있는 월의 예약만 필터링
+  const currentMonthReservations = allReservations.filter(reservation => {
+    return reservation.date.getFullYear() === currentMonth.getFullYear() &&
+      reservation.date.getMonth() === currentMonth.getMonth();
+  });
+
+  // 필터링된 예약 목록 (전체 리스트용 - 월별)
+  const filteredAllReservations = currentMonthReservations.filter(reservation => {
     const matchesStatus = statusFilter === 'all' || reservation.status === statusFilter;
     const matchesSearch = !searchTerm ||
       reservation.organization_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -934,11 +940,11 @@ function AdminReservationsContent() {
     return matchesStatus && matchesSearch;
   });
 
-  // 통계 계산
+  // 통계 계산 (현재 보고 있는 월 기준)
   const getStats = () => {
-    const pending = allReservations.filter(r => r.status === 'pending').length;
-    const approved = allReservations.filter(r => r.status === 'approved').length;
-    const cancelRequested = allReservations.filter(r => r.status === 'cancel_requested').length;
+    const pending = currentMonthReservations.filter(r => r.status === 'pending').length;
+    const approved = currentMonthReservations.filter(r => r.status === 'approved').length;
+    const cancelRequested = currentMonthReservations.filter(r => r.status === 'cancel_requested').length;
     return { pending, approved, cancelRequested };
   };
 
@@ -1111,6 +1117,25 @@ function AdminReservationsContent() {
               ) : (
                 /* 리스트뷰 */
                 <div className="space-y-4">
+                  {/* 월 선택 */}
+                  <div className="flex items-center justify-center gap-4 mb-2">
+                    <button
+                      onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600"
+                    >
+                      ◀
+                    </button>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {currentMonth.getFullYear()}년 {currentMonth.getMonth() + 1}월
+                    </h3>
+                    <button
+                      onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600"
+                    >
+                      ▶
+                    </button>
+                  </div>
+
                   {/* 검색 및 필터 */}
                   <div className="flex flex-col sm:flex-row gap-4 mb-6">
                     <div className="flex-1 relative">
@@ -1314,7 +1339,7 @@ function AdminReservationsContent() {
           {/* 관리 통계 섹션 */}
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">관리 통계</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">관리 통계 <span className="text-sm font-normal text-gray-500">({currentMonth.getFullYear()}년 {currentMonth.getMonth() + 1}월)</span></h3>
               <div className="space-y-4">
                 <div
                   className="bg-yellow-50 p-4 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
