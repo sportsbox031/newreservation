@@ -2123,7 +2123,7 @@ export const tierAPI = {
       const startDate = tierName === 'Priority' ? '20일' : '21일'
       return {
         canReserve: false,
-        reason: `예약기간이 아닙니다. ${tierName} 회원은 매월 ${startDate} 예약을 시작합니다. ${startDate}이 주말일경우 이전 영업일에 시작합니다.`
+        reason: `신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.`
       }
     }
 
@@ -2133,7 +2133,7 @@ export const tierAPI = {
       const startDate = tierName === 'Priority' ? '20일' : '21일'
       return {
         canReserve: false,
-        reason: `예약기간이 아닙니다. ${tierName} 회원은 매월 ${startDate} 예약을 시작합니다. ${startDate}이 주말일경우 이전 영업일에 시작합니다.`
+        reason: `신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.`
       }
     }
 

@@ -670,7 +670,7 @@ ${otherSessions.map(session =>
         );
 
         if (!canReserve) {
-          alert(reason || '현재 티어의 예약 기간이 아닙니다.');
+          alert(reason || '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.');
           return;
         }
       } catch (error) {
@@ -904,7 +904,7 @@ ${otherSessions.map(session =>
         console.log('🔍 티어 검증 결과:', { canReserve, reason });
 
         if (!canReserve) {
-          alert(reason || '현재 티어의 예약 기간이 아닙니다.');
+          alert(reason || '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.');
           setIsSubmitting(false);
           return;
         }
@@ -1251,9 +1251,9 @@ ${otherSessions.map(session =>
                       <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-500 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
                         <CalendarIcon className="w-8 h-8 text-white" />
                       </div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-2">현재는 예약기간이 아닙니다</h3>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">신청기간이 아닙니다</h3>
                       <p className="text-gray-600 text-sm">
-                        예약을 받지 않고 있습니다.<br/>
+                        공지사항의 신청기간을 확인해주세요.<br/>
                         다른 달로 이동하여 예약 상태를 확인할 수 있습니다.
                       </p>
                     </div>
