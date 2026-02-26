@@ -1092,6 +1092,7 @@ function AdminReservationsContent() {
                   <Calendar
                     onChange={handleDateClick}
                     value={selectedDate}
+                    activeStartDate={currentMonth}
                     tileClassName={getTileClassName}
                     tileContent={getTileContent}
                     onActiveStartDateChange={({ activeStartDate }) => {
