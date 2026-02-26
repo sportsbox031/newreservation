@@ -1336,13 +1336,20 @@ function AdminReservationsContent() {
                   </div>
                 </div>
 
-                <div className="bg-green-50 p-4 rounded-lg">
+                <div
+                  className="bg-green-50 p-4 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
+                  onClick={() => {
+                    setStatusFilter('approved');
+                    setViewMode('list');
+                  }}
+                  title="승인완료 목록 보기"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <CheckCircle className="w-8 h-8 text-green-600 mr-3" />
                       <div>
                         <div className="font-semibold text-gray-900">승인완료</div>
-                        <div className="text-sm text-gray-600">이번 달</div>
+                        <div className="text-sm text-gray-600">클릭하여 목록 보기</div>
                       </div>
                     </div>
                     <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
