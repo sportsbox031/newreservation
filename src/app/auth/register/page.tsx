@@ -65,7 +65,7 @@ const registerSchema = z.object({
   }
   return true;
 }, {
-  message: "학교는 학급 수를 입력해야 합니다",
+  message: "학교는 전체 학급 수를 입력해야 합니다",
   path: ["class_count"],
 });
 
@@ -215,7 +215,6 @@ export default function RegisterPage() {
           </div>
         </div>
       </header>
-
       <div className="flex items-center justify-center py-12 px-4">
         <div className="max-w-lg w-full bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
@@ -406,7 +405,7 @@ export default function RegisterPage() {
             {/* 학생 수 - 항상 표시 */}
             <div>
               <label htmlFor="student_count" className="block text-sm font-medium text-gray-700 mb-2">
-                전교학생수 <span className="text-red-500">*</span>
+                학생 수 <span className="text-red-500">*</span>
               </label>
               <input
                 {...register('student_count')}
@@ -418,14 +417,13 @@ export default function RegisterPage() {
               {errors.student_count && (
                 <p className="mt-1 text-sm text-red-600">{errors.student_count.message}</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">학교알리미 기준으로 작성해주세요.</p>
             </div>
 
             {/* 학급 수 - 학교만 표시 */}
             {organizationType === 'school' && (
               <div>
                 <label htmlFor="class_count" className="block text-sm font-medium text-gray-700 mb-2">
-                  전교학급수 <span className="text-red-500">*</span>
+                  학급 수 <span className="text-red-500">*</span>
                 </label>
                 <input
                   {...register('class_count')}
@@ -437,7 +435,6 @@ export default function RegisterPage() {
                 {errors.class_count && (
                   <p className="mt-1 text-sm text-red-600">{errors.class_count.message}</p>
                 )}
-                <p className="text-xs text-gray-500 mt-1">학교알리미 기준으로 작성해주세요.</p>
               </div>
             )}
             {/* 개인정보 수집 동의 */}

@@ -49,7 +49,9 @@
       "Bash(git config:*)",
       "Bash(start https://vercel.com/oauth/device?user_code=TQHS-PFXF)",
       "Bash(start:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(git:*)",
+      "Bash(true:*)"
     ]
   }
 }

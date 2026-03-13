@@ -46,6 +46,34 @@
             opacity: 0.9;
         }
 
+        nav {
+            background: #f8f9fa;
+            padding: 20px 40px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        nav a {
+            color: #667eea;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        nav a:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
         .content {
             padding: 40px;
         }
@@ -72,6 +100,30 @@
             color: #555;
             font-size: 1.2em;
             margin: 20px 0 10px 0;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 5px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .success-box {
+            background: #d4edda;
+            border-left: 5px solid #28a745;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
         }
 
         .step {
@@ -101,20 +153,68 @@
             margin-right: 10px;
         }
 
-        .info-box {
-            background: #f8f9fa;
-            border-left: 5px solid #667eea;
-            padding: 20px;
+        table {
+            width: 100%;
+            border-collapse: collapse;
             margin: 20px 0;
+            background: white;
             border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
-        .warning-box {
-            background: #fff3cd;
-            border-left: 5px solid #ffc107;
-            padding: 20px;
-            margin: 20px 0;
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        code {
+            background: #f8f9fa;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #e83e8c;
+        }
+
+        .button-example {
+            display: inline-block;
+            padding: 10px 20px;
             border-radius: 8px;
+            margin: 5px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
         }
 
         ul, ol {
@@ -125,14 +225,6 @@
 
         li {
             margin: 8px 0;
-        }
-
-        code {
-            background: #f8f9fa;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            color: #e83e8c;
         }
 
         footer {
@@ -146,13 +238,24 @@
             margin: 5px 0;
         }
 
+        .contact-info {
+            margin-top: 20px;
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+
         @media print {
             body {
                 background: white;
                 padding: 0;
             }
+
             .container {
                 box-shadow: none;
+            }
+
+            nav {
+                display: none;
             }
         }
 
@@ -160,9 +263,15 @@
             .content {
                 padding: 20px;
             }
+
+            nav ul {
+                flex-direction: column;
+            }
+
             header h1 {
                 font-size: 1.8em;
             }
+
             h2 {
                 font-size: 1.5em;
             }
@@ -172,183 +281,700 @@
 <body>
     <div class="container">
         <header>
-            <h1>관리자 매뉴얼</h1>
+            <h1>📋 관리자 매뉴얼</h1>
             <p>경기도체육회 스포츠박스 예약시스템</p>
         </header>
 
+        <nav>
+            <ul>
+                <li><a href="#intro">시스템 소개</a></li>
+                <li><a href="#login">로그인</a></li>
+                <li><a href="#dashboard">대시보드</a></li>
+                <li><a href="#members">회원관리</a></li>
+                <li><a href="#reservations">예약관리</a></li>
+                <li><a href="#announcements">공지사항</a></li>
+                <li><a href="#popups">팝업관리</a></li>
+                <li><a href="#settings">설정관리</a></li>
+                <li><a href="#faq">FAQ</a></li>
+            </ul>
+        </nav>
+
         <div class="content">
-            <!-- 설정 탭 -->
-            <section id="settings">
-                <h2>1. 설정 탭 (중요)</h2>
+            <!-- 시스템 소개 -->
+            <section id="intro">
+                <h2>1. 시스템 소개</h2>
 
-                <h3>1.1 시스템 기본설정</h3>
-                <div class="step">
-                    <p><span class="step-number">1</span><strong>하루 최대 예약수 설정</strong></p>
-                    <p>시스템 기본설정에서 하루 최대 예약수를 설정합니다.</p>
+                <div class="info-box">
+                    <h3>🎯 시스템 목적</h3>
+                    <p>경기도 남부 및 북부 지역의 스포츠박스 시설 예약을 효율적으로 관리하기 위한 통합 관리 시스템입니다.</p>
                 </div>
 
-                <h3>1.2 특정일 예약관리</h3>
+                <h3>관리자 권한 구조</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>권한 등급</th>
+                            <th>역할</th>
+                            <th>접근 범위</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>최고 관리자 (super)</strong></td>
+                            <td>전체 시스템 관리</td>
+                            <td>경기남부 + 경기북부 전체 지역</td>
+                        </tr>
+                        <tr>
+                            <td><strong>남부 관리자 (south)</strong></td>
+                            <td>경기남부 지역 관리</td>
+                            <td>경기남부 지역 소속 회원 및 예약만</td>
+                        </tr>
+                        <tr>
+                            <td><strong>북부 관리자 (north)</strong></td>
+                            <td>경기북부 지역 관리</td>
+                            <td>경기북부 지역 소속 회원 및 예약만</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>주요 기능</h3>
+                <ul>
+                    <li>회원 가입 승인/거부 관리</li>
+                    <li>예약 신청 승인/취소 관리</li>
+                    <li>공지사항 작성 및 관리</li>
+                    <li>홈페이지 팝업 관리</li>
+                    <li>예약 불가 날짜 설정</li>
+                    <li>통계 및 리포트 확인</li>
+                </ul>
+            </section>
+
+            <!-- 로그인 -->
+            <section id="login">
+                <h2>2. 로그인</h2>
+
                 <div class="step">
-                    <p><span class="step-number">2</span><strong>특정일 예약 갯수 조정</strong></p>
+                    <h3><span class="step-number">1</span>로그인 페이지 접속</h3>
+                    <p>웹사이트 메인 페이지에서 우측 상단의 <code>관리자 로그인</code> 버튼을 클릭합니다.</p>
+                    <p>또는 직접 URL: <code>https://ggsportsbox.or.kr/auth/login</code> 접속</p>
+                </div>
+
+                <div class="step">
+                    <h3><span class="step-number">2</span>로그인 정보 입력</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>계정 유형</th>
+                                <th>단체명</th>
+                                <th>비밀번호</th>
+                                <th>관리 지역</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>최고 관리자</td>
+                                <td><code>admin</code></td>
+                                <td><code>admin123</code></td>
+                                <td>전체</td>
+                            </tr>
+                            <tr>
+                                <td>남부 관리자</td>
+                                <td><code>admin_south</code></td>
+                                <td><code>admin123</code></td>
+                                <td>경기남부</td>
+                            </tr>
+                            <tr>
+                                <td>북부 관리자</td>
+                                <td><code>admin_north</code></td>
+                                <td><code>admin123</code></td>
+                                <td>경기북부</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="warning-box">
+                    <h4>⚠️ 보안 주의사항</h4>
+                    <ul>
+                        <li>초기 비밀번호는 반드시 변경하세요</li>
+                        <li>비밀번호는 주기적으로 변경하세요</li>
+                        <li>타인과 계정을 공유하지 마세요</li>
+                        <li>공용 PC에서는 로그아웃을 잊지 마세요</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 대시보드 -->
+            <section id="dashboard">
+                <h2>3. 관리자 대시보드</h2>
+
+                <p>로그인 후 자동으로 관리자 대시보드로 이동됩니다.</p>
+
+                <h3>대시보드 주요 정보</h3>
+
+                <div class="step">
+                    <h4>📊 통계 카드</h4>
+                    <ul>
+                        <li><strong>오늘 예약:</strong> 오늘 날짜로 예약된 건수</li>
+                        <li><strong>승인 대기:</strong> 승인이 필요한 예약 건수</li>
+                        <li><strong>총 회원 수:</strong> 전체 회원 수</li>
+                        <li><strong>이번 달 예약:</strong> 당월 총 예약 건수</li>
+                    </ul>
+                </div>
+
+                <div class="step">
+                    <h4>📅 월별 예약 현황</h4>
+                    <p>캘린더 형태로 예약 현황을 시각적으로 확인할 수 있습니다.</p>
+                    <ul>
+                        <li>날짜별 예약 건수 표시</li>
+                        <li>날짜 클릭 시 해당 날짜의 예약 상세 정보 확인</li>
+                    </ul>
+                </div>
+
+                <h3>네비게이션 메뉴</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>메뉴</th>
+                            <th>기능</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>회원 관리</td>
+                            <td>회원 가입 승인, 회원 정보 조회</td>
+                        </tr>
+                        <tr>
+                            <td>예약 관리</td>
+                            <td>예약 신청 승인/거부, 예약 현황 조회</td>
+                        </tr>
+                        <tr>
+                            <td>공지사항</td>
+                            <td>공지사항 작성, 수정, 삭제</td>
+                        </tr>
+                        <tr>
+                            <td>팝업 관리</td>
+                            <td>홈페이지 팝업 설정 및 관리</td>
+                        </tr>
+                        <tr>
+                            <td>설정</td>
+                            <td>예약 불가 날짜 설정</td>
+                        </tr>
+                        <tr>
+                            <td>리포트</td>
+                            <td>통계 및 분석 데이터 확인</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- 회원관리 -->
+            <section id="members">
+                <h2>4. 회원 관리</h2>
+
+                <h3>4.1 신규 회원 승인</h3>
+
+                <div class="step">
+                    <h4><span class="step-number">1</span>회원 관리 메뉴 접속</h4>
+                    <p>좌측 네비게이션에서 <code>회원 관리</code> 클릭</p>
+                </div>
+
+                <div class="step">
+                    <h4><span class="step-number">2</span>승인 대기 회원 확인</h4>
+                    <p>상단 탭에서 <code>승인 대기</code> 탭을 선택하면 가입 승인을 기다리는 회원 목록이 표시됩니다.</p>
+
+                    <h4>회원 정보 항목</h4>
+                    <ul>
+                        <li><strong>단체명:</strong> 신청한 단체의 이름</li>
+                        <li><strong>담당자명:</strong> 담당자 실명</li>
+                        <li><strong>연락처:</strong> 휴대폰 번호</li>
+                        <li><strong>이메일:</strong> 이메일 주소</li>
+                        <li><strong>지역:</strong> 소속 시/도</li>
+                        <li><strong>가입일:</strong> 신청 날짜 및 시간</li>
+                    </ul>
+                </div>
+
+                <div class="step">
+                    <h4><span class="step-number">3</span>승인 처리</h4>
+
+                    <h4>✅ 승인</h4>
                     <ol>
-                        <li>특정일 예약관리 섹션 선택</li>
-                        <li>날짜 선택</li>
-                        <li>최대 예약수 조정</li>
+                        <li>회원 정보를 검토합니다</li>
+                        <li><span class="button-example btn-success">승인</span> 버튼 클릭</li>
+                        <li>확인 메시지가 표시되면 <code>확인</code> 클릭</li>
+                        <li>승인 완료 시 회원에게 승인 알림톡이 자동 발송됩니다</li>
+                    </ol>
+
+                    <h4>❌ 거부</h4>
+                    <ol>
+                        <li><span class="button-example btn-danger">거부</span> 버튼 클릭</li>
+                        <li>거부 사유를 입력합니다 (필수)</li>
+                        <li><code>확인</code> 클릭</li>
+                        <li>거부 사유가 회원에게 알림톡으로 전달됩니다</li>
                     </ol>
                 </div>
 
-                <h3>1.3 예약불가 날짜관리</h3>
+                <div class="info-box">
+                    <h4>💡 승인 거부 사유 예시</h4>
+                    <ul>
+                        <li>경기도 외 지역 단체 (서비스 대상 지역이 아님)</li>
+                        <li>정보 불일치 (실제 단체명과 다름)</li>
+                        <li>연락처 오류 (연락이 되지 않음)</li>
+                        <li>중복 가입 (이미 가입된 단체)</li>
+                        <li>기타 부적격 사유</li>
+                    </ul>
+                </div>
+
+                <h3>4.2 승인된 회원 조회</h3>
+
                 <div class="step">
-                    <p><span class="step-number">3</span><strong>휴가/휴무일 설정</strong></p>
+                    <p><code>승인 완료</code> 탭에서 승인된 전체 회원 목록을 확인할 수 있습니다.</p>
+
+                    <h4>기능</h4>
+                    <ul>
+                        <li><strong>검색:</strong> 단체명, 담당자명으로 검색</li>
+                        <li><strong>필터링:</strong> 지역별로 필터링</li>
+                        <li><strong>정렬:</strong> 가입일 순, 이름 순 정렬</li>
+                        <li><strong>상세 조회:</strong> 회원 행 클릭 시 상세 정보 및 예약 이력 확인</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <h4>⚠️ 지역 관리자 권한 제한</h4>
+                    <p>남부/북부 관리자는 본인의 관리 지역에 속한 회원만 조회 및 관리할 수 있습니다.</p>
+                    <ul>
+                        <li>남부 관리자: 경기남부 소속 회원만</li>
+                        <li>북부 관리자: 경기북부 소속 회원만</li>
+                        <li>최고 관리자: 모든 지역 회원 조회 가능</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 예약관리 -->
+            <section id="reservations">
+                <h2>5. 예약 관리</h2>
+
+                <h3>5.1 예약 신청 승인</h3>
+
+                <div class="step">
+                    <h4><span class="step-number">1</span>예약 관리 메뉴 접속</h4>
+                    <p>좌측 네비게이션에서 <code>예약 관리</code> 클릭</p>
+                </div>
+
+                <div class="step">
+                    <h4><span class="step-number">2</span>승인 대기 예약 확인</h4>
+                    <p>상단 탭에서 <code>승인 대기</code> 선택</p>
+
+                    <h4>예약 정보 항목</h4>
+                    <ul>
+                        <li><strong>단체명:</strong> 예약한 단체명</li>
+                        <li><strong>예약일:</strong> 이용 날짜</li>
+                        <li><strong>시간대:</strong> 예약된 시간대 (예: 09:00-09:40)</li>
+                        <li><strong>학년:</strong> 참여 학생 학년</li>
+                        <li><strong>장소:</strong> 위치</li>
+                        <li><strong>인원:</strong> 참가 인원 수</li>
+                        <li><strong>신청일:</strong> 예약 신청 날짜</li>
+                    </ul>
+                </div>
+
+                <div class="step">
+                    <h4><span class="step-number">3</span>승인 처리</h4>
+
+                    <h4>✅ 승인</h4>
                     <ol>
-                        <li>예약불가 날짜관리 섹션 선택</li>
-                        <li>날짜 선택</li>
-                        <li>추가 버튼 클릭</li>
+                        <li>예약 정보를 검토합니다</li>
+                        <li>시간대 중복 여부를 확인합니다</li>
+                        <li><span class="button-example btn-success">승인</span> 버튼 클릭</li>
+                        <li>확인 메시지 확인 후 <code>확인</code> 클릭</li>
+                        <li>승인 완료 시 예약자에게 승인 알림톡 자동 발송</li>
+                    </ol>
+
+                    <h4>❌ 거부</h4>
+                    <ol>
+                        <li><span class="button-example btn-danger">거부</span> 버튼 클릭</li>
+                        <li>거부 사유를 입력합니다</li>
+                        <li><code>확인</code> 클릭</li>
+                        <li>거부 사유가 예약자에게 알림톡으로 전달됩니다</li>
+                        <li>회원의 월간 예약 가능 횟수가 복구됩니다</li>
                     </ol>
                 </div>
 
-                <h3>1.4 예약 시작/종료 관리</h3>
+                <div class="info-box">
+                    <h4>💡 승인 거부 사유 예시</h4>
+                    <ul>
+                        <li>해당 시간대 예약 마감</li>
+                        <li>시설 점검으로 인한 이용 불가</li>
+                        <li>행사 일정과 중복</li>
+                        <li>정보 오류 (인원 수, 학년 등)</li>
+                    </ul>
+                </div>
+
+                <h3>5.2 승인된 예약 조회</h3>
+
                 <div class="step">
-                    <p><span class="step-number">4</span><strong>예약 시작/종료 설정</strong></p>
-                    <p>모든 설정 완료 후:</p>
+                    <p><code>승인 완료</code> 탭에서 승인된 모든 예약을 확인할 수 있습니다.</p>
+
+                    <h4>조회 옵션</h4>
+                    <ul>
+                        <li><strong>날짜 필터:</strong> 특정 날짜의 예약만 조회</li>
+                        <li><strong>단체 검색:</strong> 단체명으로 검색</li>
+                        <li><strong>지역 필터:</strong> 지역별 필터링</li>
+                    </ul>
+                </div>
+
+                <h3>5.3 취소 요청 처리</h3>
+
+                <div class="step">
+                    <h4><span class="step-number">1</span>취소 요청 확인</h4>
+                    <p><code>취소 요청</code> 탭을 선택하면 회원이 취소를 요청한 예약 목록이 표시됩니다.</p>
+                </div>
+
+                <div class="step">
+                    <h4><span class="step-number">2</span>취소 승인 처리</h4>
                     <ol>
-                        <li><strong>Priority 회원 예약 시작:</strong> 예약일에 맞추어 Priority 회원 예약시작 버튼 클릭</li>
-                        <li><strong>전체 예약 시작:</strong> 전체 예약시작일에 전체 예약시작 버튼 클릭</li>
-                        <li><strong>전체 예약 종료:</strong> 예약이 종료되었을 경우 전체 예약종료 버튼 클릭</li>
+                        <li>취소 요청 사유를 확인합니다</li>
+                        <li><span class="button-example btn-warning">취소 승인</span> 버튼 클릭</li>
+                        <li>확인 후 <code>확인</code> 클릭</li>
+                        <li>예약이 취소되고 회원의 월간 예약 가능 횟수가 복구됩니다</li>
+                        <li>취소 완료 알림톡이 자동 발송됩니다</li>
                     </ol>
                 </div>
 
                 <div class="warning-box">
-                    <h4>⚠️ 중요</h4>
-                    <p><strong>모든 설정은 월별로 세팅을 따로 해야합니다.</strong></p>
-                </div>
-            </section>
-
-            <!-- 예약관리 탭 -->
-            <section id="reservations">
-                <h2>2. 예약관리 탭</h2>
-
-                <h3>2.1 뷰 선택</h3>
-                <div class="step">
-                    <p>뷰탭에서 <strong>달력뷰</strong> 또는 <strong>리스트뷰</strong>를 선택하여 예약을 확인할 수 있습니다.</p>
+                    <h4>⚠️ 중요: 예약 횟수 복구 규칙</h4>
+                    <ul>
+                        <li><strong>승인대기 상태에서 사용자가 직접 취소:</strong> 즉시 예약 횟수 복구</li>
+                        <li><strong>승인완료 상태에서 사용자가 취소 요청:</strong> 관리자 승인 후 예약 횟수 복구</li>
+                        <li><strong>관리자가 강제 취소:</strong> 즉시 예약 횟수 복구</li>
+                    </ul>
+                    <p>✅ 회원은 한 달에 최대 4일까지 예약 가능하며, 하루에 최대 2개의 시간대를 예약할 수 있습니다.</p>
                 </div>
 
-                <h3>2.2 달력뷰 사용</h3>
+                <h3>5.4 강제 취소</h3>
+
                 <div class="step">
+                    <p>긴급한 상황에서 관리자가 직접 예약을 취소할 수 있습니다.</p>
+
+                    <h4>절차</h4>
                     <ol>
-                        <li>달력에서 해당 날짜 클릭</li>
-                        <li>상세 예약내역 확인</li>
-                        <li>승인 또는 거절 선택</li>
-                        <li>승인/거절 시 회원 단체에게 자동으로 알림톡 발송</li>
+                        <li>승인 완료 예약 목록에서 취소할 예약 선택</li>
+                        <li><span class="button-example btn-danger">강제 취소</span> 버튼 클릭</li>
+                        <li><code>확인</code> 클릭</li>
+                        <li>예약이 즉시 취소됨.</li>
+                    </ol>
+                </div>
+
+                <div class="info-box">
+                    <h4>💡 강제 취소 사용 예시</h4>
+                    <ul>
+                        <li>날씨로 인한 운영 중단</li>
+                        <li>행사 일정 변경</li>
+                        <li>예약 정보 오류</li>
+                    </ul>
+                </div>
+
+                <h3>5.5 당일 알림톡 자동 발송</h3>
+
+                <div class="success-box">
+                    <h4>✅ 프로그램 당일 리마인더 알림톡</h4>
+                    <p>시스템이 자동으로 다음 작업을 수행합니다:</p>
+                    <ol>
+                        <li>오늘 날짜로 예약된 승인완료 건을 조회</li>
+                        <li>해당 예약자들에게 프로그램 이용 당일 안내 알림톡 발송</li>
                     </ol>
                 </div>
             </section>
 
-            <!-- 공지사항 관리 -->
+            <!-- 공지사항 -->
             <section id="announcements">
-                <h2>3. 공지사항 관리</h2>
+                <h2>6. 공지사항 관리</h2>
 
-                <h3>3.1 권한</h3>
-                <div class="info-box">
+                <h3>6.1 공지사항 작성</h3>
+
+                <div class="step">
+                    <h4><span class="step-number">1</span>공지사항 메뉴 접속</h4>
+                    <p>좌측 네비게이션에서 <code>공지사항</code> 클릭</p>
+                </div>
+
+                <div class="step">
+                    <h4><span class="step-number">2</span>새 공지사항 작성</h4>
+                    <ol>
+                        <li>우측 상단의 <span class="button-example btn-primary">새 공지사항</span> 버튼 클릭</li>
+                        <li>제목 입력 (최대 100자)</li>
+                        <li>내용 입력
+                        </li>
+                        <li>중요 공지사항 설정 (체크박스)
+                            <ul>
+                                <li>체크 시: 상단 고정 및 강조 표시</li>
+                            </ul>
+                        </li>
+                        <li><span class="button-example btn-success">저장</span> 버튼 클릭</li>
+                    </ol>
+                </div>
+
+                <div class="warning-box">
+                    <h4>⚠️ 주의사항</h4>
                     <ul>
-                        <li><strong>admin (전체관리자):</strong> 모든 권한 보유</li>
-                        <li><strong>지역관리자:</strong> 다른 관리자가 작성한 글의 수정/삭제 권한 없음</li>
-                    </ul>
-                </div>
-
-                <h3>3.2 공지사항 작성</h3>
-                <div class="step">
-                    <p><span class="step-number">1</span><strong>새 공지사항 버튼</strong> 클릭하여 작성</p>
-                </div>
-
-                <h3>3.3 텍스트 형식</h3>
-                <div class="step">
-                    <p>기본텍스트, HTML, 마크다운 형식을 지원합니다.</p>
-                </div>
-
-                <h3>3.4 첨부파일</h3>
-                <div class="step">
-                    <ul>
-                        <li>최대 3개까지 가능</li>
-                        <li>파일당 최대 5MB까지 가능</li>
-                    </ul>
-                </div>
-
-                <h3>3.5 공지대상 및 중요공지</h3>
-                <div class="step">
-                    <ul>
-                        <li><strong>공지대상 특정지역 설정:</strong> 홈화면에 지역 색상 뱃지가 표시됩니다.</li>
-                        <li><strong>중요공지 체크:</strong> 공지사항 목록 최상단에 표시됩니다.</li>
+                        <li>삭제된 공지사항은 복구할 수 없습니다</li>
+                        <li>중요 공지사항은 신중하게 삭제하세요</li>
+                        <li>공지사항은 메인 페이지에 즉시 반영됩니다</li>
                     </ul>
                 </div>
             </section>
 
             <!-- 팝업관리 -->
             <section id="popups">
-                <h2>4. 팝업관리</h2>
+                <h2>7. 팝업 관리</h2>
 
-                <h3>4.1 팝업 만들기</h3>
+                <h3>7.1 팝업 생성</h3>
+
                 <div class="step">
-                    <p><span class="step-number">1</span><strong>새 팝업 만들기</strong> 버튼 클릭하여 작성</p>
+                    <h4><span class="step-number">1</span>팝업 관리 메뉴 접속</h4>
+                    <p>좌측 네비게이션에서 <code>팝업 관리</code> 클릭</p>
                 </div>
 
-                <h3>4.2 텍스트 형식</h3>
                 <div class="step">
-                    <p>기본텍스트, HTML, 마크다운 형식을 지원합니다.</p>
-                </div>
-
-                <h3>4.3 날짜 설정</h3>
-                <div class="step">
-                    <ul>
-                        <li><strong>시작날짜:</strong> 팝업 표시 시작일 입력</li>
-                        <li><strong>종료날짜:</strong> 입력하지 않을 경우 계속 노출됩니다.</li>
-                    </ul>
-                </div>
-
-                <h3>4.4 표시 순서</h3>
-                <div class="step">
-                    <p>표시 순서를 정하고 내용을 작성합니다.</p>
-                </div>
-            </section>
-
-            <!-- 회원관리 -->
-            <section id="members">
-                <h2>5. 회원관리 탭</h2>
-
-                <h3>5.1 회원 등급 자동 부여</h3>
-                <div class="info-box">
-                    <h4>등급 자동 부여 규칙</h4>
-                    <ul>
-                        <li><strong>아동돌봄시설:</strong> 자동으로 Standard 등급 부여</li>
-                        <li><strong>학교:</strong>
+                    <h4><span class="step-number">2</span>새 팝업 만들기</h4>
+                    <ol>
+                        <li><span class="button-example btn-primary">새 팝업 만들기</span> 버튼 클릭</li>
+                        <li>팝업 정보 입력
                             <ul>
-                                <li>전교생수 240명 이하 또는 11개 학급 이하 → Priority 등급</li>
-                                <li>그 이외 → Standard 등급</li>
+                                <li><strong>제목:</strong> 팝업 제목 (최대 100자)</li>
+                                <li><strong>내용:</strong> 팝업 본문</li>
+                                <li><strong>활성화:</strong> 팝업 표시 여부</li>
+                                <li><strong>시작일:</strong> 팝업 표시 시작 날짜</li>
+                                <li><strong>종료일:</strong> 팝업 표시 종료 날짜</li>
                             </ul>
                         </li>
-                    </ul>
+                        <li><span class="button-example btn-success">저장</span> 클릭</li>
+                    </ol>
                 </div>
 
-                <h3>5.2 회원 등급 수동 변경</h3>
-                <div class="step">
-                    <p><span class="step-number">1</span><strong>등급 변경 요청 확인</strong></p>
-                    <p>회원단체에서 등급 변경 요구 시 확인 후 관리자가 회원관리 탭에서 수동으로 변경 가능합니다.</p>
+                <h3>7.3 팝업 표시 규칙</h3>
+
+                <div class="info-box">
+                    <h4>📋 팝업 표시 조건</h4>
+                    <p>다음 조건을 모두 만족할 때 사용자에게 팝업이 표시됩니다:</p>
+                    <ol>
+                        <li>팝업 활성화 상태가 ON</li>
+                        <li>현재 날짜가 시작일과 종료일 사이</li>
+                        <li>사용자가 오늘 하루 보지 않기를 선택하지 않음</li>
+                    </ol>
                 </div>
 
                 <div class="warning-box">
-                    <h4>⚠️ 중요 - 전교생수/학급수 변경</h4>
-                    <p>혼동 방지를 위해 회원단체에게 <strong>계정관리</strong>에서 전교생수, 학급수 변경을 요청하세요.</p>
+                    <h4>⚠️ 주의사항</h4>
                     <ul>
-                        <li>회원단체가 전교생수/학급수를 변경해도 <strong>등급은 자동으로 변하지 않습니다.</strong></li>
-                        <li>등급 변경은 <strong>관리자가 수동으로 변경</strong>해야 적용됩니다.</li>
+                        <li>동시에 여러 팝업을 활성화할 수 있습니다</li>
+                        <li>팝업은 메인 페이지 접속 시 자동으로 표시됩니다</li>
+                        <li>종료일이 지나면 자동으로 표시되지 않습니다</li>
                     </ul>
+                </div>
+
+                <h3>7.4 팝업 활용 예시</h3>
+
+                <div class="info-box">
+                    <ul>
+                        <li>시스템 점검 안내</li>
+                        <li>예약 마감 공지</li>
+                        <li>이용 주의사항</li>
+                        <li>특별 프로그램 안내</li>
+                        <li>휴무일 공지</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 설정관리 -->
+            <section id="settings">
+                <h2>8. 설정 관리</h2>
+
+                <h3>8.1 예약 불가 날짜 설정</h3>
+
+                <div class="step">
+                    <h4><span class="step-number">1</span>설정 메뉴 접속</h4>
+                    <p>좌측 네비게이션에서 <code>설정</code> 클릭</p>
+                </div>
+
+                <div class="step">
+                    <h4><span class="step-number">2</span>날짜 차단 추가</h4>
+                    <ol>
+                        <li><span class="button-example btn-primary">날짜 추가</span> 버튼 클릭</li>
+                        <li>차단할 날짜 선택 (캘린더)</li>
+                        <li>사유 입력 (예: 시설 점검, 행사 진행)</li>
+                        <li><span class="button-example btn-success">저장</span> 클릭</li>
+                    </ol>
+                </div>
+
+                <div class="step">
+                    <h4><span class="step-number">3</span>차단 날짜 관리</h4>
+
+                    <h4>조회</h4>
+                    <ul>
+                        <li>설정된 모든 차단 날짜 목록 표시</li>
+                        <li>날짜순 정렬</li>
+                        <li>과거 날짜는 자동으로 비활성 표시</li>
+                    </ul>
+
+                    <h4>삭제</h4>
+                    <ol>
+                        <li>삭제할 날짜 선택</li>
+                        <li><span class="button-example btn-danger">삭제</span> 버튼 클릭</li>
+                        <li>확인 후 삭제</li>
+                    </ol>
+                </div>
+
+                <div class="info-box">
+                    <h4>💡 차단 날짜 설정 시 영향</h4>
+                    <ul>
+                        <li>사용자는 해당 날짜에 예약 신청 불가</li>
+                        <li>캘린더에 차단 표시 (회색 또는 X 표시)</li>
+                        <li>이미 예약된 건은 영향 없음 (별도 취소 필요)</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <h4>⚠️ 주의사항</h4>
+                    <ul>
+                        <li>차단 날짜 설정 전 기존 예약 여부 확인</li>
+                        <li>기존 예약이 있다면 사전에 취소 처리 필요</li>
+                        <li>긴급 차단 시 예약자에게 별도 연락 권장</li>
+                    </ul>
+                </div>
+
+                <h3>8.2 예약 불가 날짜 사용 예시</h3>
+
+                <div class="info-box">
+                    <ul>
+                        <li>공휴일 및 연휴</li>
+                        <li>시설 정기 점검일</li>
+                        <li>대규모 행사 진행일</li>
+                        <li>기상 악화 예상일</li>
+                        <li>시설 수리/보수 기간</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- FAQ -->
+            <section id="faq">
+                <h2>9. 자주 묻는 질문 (FAQ)</h2>
+
+                <div class="step">
+                    <h3>Q1. 승인 대기 중인 예약/회원이 표시되지 않아요</h3>
+                    <p><strong>A:</strong> 관리자 권한을 확인하세요. 남부/북부 관리자는 해당 지역의 데이터만 볼 수 있습니다.</p>
+                </div>
+
+                <div class="step">
+                    <h3>Q2. 알림톡이 발송되지 않아요</h3>
+                    <p><strong>A:</strong> 다음을 확인하세요:</p>
+                    <ul>
+                        <li>회원의 연락처가 올바르게 등록되어 있는지</li>
+                        <li>Aligo 서비스 잔액이 충분한지</li>
+                        <li>환경변수(.env.local)가 올바르게 설정되어 있는지</li>
+                    </ul>
+                </div>
+
+                <div class="step">
+                    <h3>Q3. 예약 횟수가 정확하지 않아요</h3>
+                    <p><strong>A:</strong> 예약 횟수 계산 규칙:</p>
+                    <ul>
+                        <li>승인대기 상태: 횟수 차감</li>
+                        <li>취소요청 상태: 횟수 차감 유지 (관리자 승인 시 복구)</li>
+                        <li>승인완료 상태: 횟수 차감</li>
+                        <li>취소완료/거부: 횟수 복구</li>
+                    </ul>
+                </div>
+
+                <div class="step">
+                    <h3>Q4. 공지사항이 메인 페이지에 표시되지 않아요</h3>
+                    <p><strong>A:</strong> 브라우저 캐시를 새로고침(Ctrl+F5) 하거나, 공지사항이 최근 작성된 것인지 확인하세요.</p>
+                </div>
+
+                <div class="step">
+                    <h3>Q5. 팝업이 사용자에게 보이지 않아요</h3>
+                    <p><strong>A:</strong> 다음을 확인하세요:</p>
+                    <ul>
+                        <li>팝업 활성화 상태가 ON인지</li>
+                        <li>현재 날짜가 시작일~종료일 범위 내인지</li>
+                        <li>사용자가 오늘 하루 보지 않기를 선택했는지</li>
+                    </ul>
+                </div>
+
+                <div class="step">
+                    <h3>Q6. 특정 날짜의 예약을 모두 취소하고 싶어요</h3>
+                    <p><strong>A:</strong> 예약 관리에서 해당 날짜를 필터링한 후 각 예약을 강제 취소하고, 설정에서 해당 날짜를 예약 불가로 설정하세요.</p>
+                </div>
+
+                <div class="step">
+                    <h3>Q7. 관리자 비밀번호를 변경하고 싶어요</h3>
+                    <p><strong>A:</strong> 현재는 데이터베이스를 통해서만 변경 가능합니다. 시스템 관리자에게 문의하세요.</p>
+                </div>
+
+                <div class="step">
+                    <h3>Q8. 당일 알림톡 발송 시간을 변경할 수 있나요</h3>
+                    <p><strong>A:</strong> vercel.json의 cron schedule 설정을 수정해야 합니다. 시스템 관리자에게 문의하세요.</p>
+                    <p>현재 설정: 매일 오전 9시 (UTC 00:00 = 한국 시간 09:00)</p>
+                </div>
+
+                <div class="step">
+                    <h3>Q9. 통계 데이터를 엑셀로 내보낼 수 있나요</h3>
+                    <p><strong>A:</strong> 현재 버전에서는 지원하지 않습니다. 향후 업데이트 예정입니다.</p>
+                </div>
+
+                <div class="step">
+                    <h3>Q10. 모바일에서도 관리자 기능을 사용할 수 있나요</h3>
+                    <p><strong>A:</strong> 네, 반응형 디자인으로 모바일에서도 모든 기능을 사용할 수 있습니다. 다만 큰 화면에서 더 편리하게 사용 가능합니다.</p>
+                </div>
+            </section>
+
+            <!-- 문의 -->
+            <section id="contact">
+                <h2>10. 기술 지원 및 문의</h2>
+
+                <div class="info-box">
+                    <h3>🔧 기술 지원</h3>
+                    <p>시스템 사용 중 문제가 발생하거나 궁금한 사항이 있을 경우 아래로 연락주세요:</p>
+
+                    <table>
+                        <tbody>
+                            <tr>
+                                <td><strong>담당 부서</strong></td>
+                                <td>경기도체육회 정보통신팀</td>
+                            </tr>
+                            <tr>
+                                <td><strong>이메일</strong></td>
+                                <td>support@ggsportsbox.or.kr</td>
+                            </tr>
+                            <tr>
+                                <td><strong>전화</strong></td>
+                                <td>031-XXX-XXXX (평일 09:00-18:00)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>근무 시간</strong></td>
+                                <td>평일 09:00 - 18:00 (점심시간 12:00-13:00)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="warning-box">
+                    <h3>⚠️ 긴급 상황 대응</h3>
+                    <p>시스템 장애 등 긴급 상황 발생 시:</p>
+                    <ol>
+                        <li>상황을 정확히 파악합니다 (오류 메시지, 발생 시간 등)</li>
+                        <li>스크린샷을 캡처합니다</li>
+                        <li>즉시 담당 부서에 전화로 연락합니다</li>
+                        <li>이메일로 상세 내용과 스크린샷을 전달합니다</li>
+                    </ol>
                 </div>
             </section>
         </div>
 
         <footer>
             <p><strong>경기도체육회 스포츠박스 예약시스템</strong></p>
-            <p>관리자 매뉴얼 v2.0 | 최종 업데이트: 2026년 1월</p>
+            <p>관리자 매뉴얼 v1.0 | 최종 업데이트: 2026년 1월</p>
+            <div class="contact-info">
+                <p>경기도 수원시 장안구 경수대로 940 경기도체육회관</p>
+                <p>TEL: 031-XXX-XXXX | Email: info@ggsportsbox.or.kr</p>
+            </div>
         </footer>
     </div>
 </body>
