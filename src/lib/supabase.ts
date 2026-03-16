@@ -1648,11 +1648,11 @@ export const announcementAPI = {
   },
 
   // 파일 다운로드용 Signed URL 생성
-  async getAttachmentDownloadUrl(storagePath: string) {
+  async getAttachmentDownloadUrl(storagePath: string, downloadFileName?: string) {
     const { data, error } = await supabase.storage
       .from('announcement-attachments')
       .createSignedUrl(storagePath, 3600, {
-        download: true  // 브라우저에서 열지 않고 바로 다운로드
+        download: downloadFileName || true  // 원본 파일명으로 다운로드
       })
 
     return { data: data?.signedUrl || null, error }

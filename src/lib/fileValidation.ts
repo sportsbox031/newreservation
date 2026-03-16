@@ -172,13 +172,19 @@ export function sanitizeFileName(filename: string): string {
   const extension = getFileExtension(filename)
   const nameWithoutExt = filename.substring(0, filename.length - extension.length - 1)
 
-  // 안전한 문자만 유지 (한글, 영문, 숫자, 하이픈, 언더스코어, 공백)
+  // Storage object key에는 ASCII 안전 문자만 남긴다.
   const safeName = nameWithoutExt
-    .replace(/[^a-zA-Z0-9가-힣\s\-_]/g, '_')
-    .replace(/\s+/g, '_')  // 연속 공백을 언더스코어로
-    .substring(0, 200)     // 이름 길이 제한
+    .normalize('NFKD')
+    .replace(/[^\x00-\x7F]/g, '_')
+    .replace(/[^a-zA-Z0-9\s\-_]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^[_\-.]+|[_\-.]+$/g, '')
+    .substring(0, 200)
 
-  return `${safeName}.${extension}`
+  const finalName = safeName || 'file'
+
+  return `${finalName}.${extension}`
 }
 
 /**

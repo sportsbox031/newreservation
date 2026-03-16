@@ -78,7 +78,10 @@ export default function AnnouncementsPage() {
 
   // 파일 다운로드 핸들러
   const handleDownload = async (attachment: any) => {
-    const { data: url, error } = await announcementAPI.getAttachmentDownloadUrl(attachment.storage_path)
+    const { data: url, error } = await announcementAPI.getAttachmentDownloadUrl(
+      attachment.storage_path,
+      attachment.file_name
+    )
 
     if (error || !url) {
       alert('파일 다운로드에 실패했습니다.')

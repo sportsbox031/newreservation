@@ -18,6 +18,7 @@ import {
 import RichTextEditor, { sanitizeHtml } from '@/components/RichTextEditor'
 import AdminNavigation from '@/components/AdminNavigation'
 import FileUploadManager, { FileAttachment } from '@/components/FileUploadManager'
+import { getRemovedExistingAttachments, type PersistedAttachment } from '@/lib/announcementAttachments'
 
 interface Announcement {
   id: string
@@ -68,6 +69,7 @@ export default function AdminAnnouncementsPage() {
 
   // File attachment states
   const [attachments, setAttachments] = useState<FileAttachment[]>([])
+  const [originalAttachments, setOriginalAttachments] = useState<PersistedAttachment[]>([])
   const [uploadingFiles, setUploadingFiles] = useState(false)
 
   useEffect(() => {
@@ -124,6 +126,8 @@ export default function AdminAnnouncementsPage() {
       is_important: false,
       is_published: true
     })
+    setOriginalAttachments([])
+    setAttachments([])
     setShowCreateModal(true)
   }
 
@@ -140,15 +144,21 @@ export default function AdminAnnouncementsPage() {
 
     // 기존 첨부파일 로드
     const { data } = await announcementAPI.getAttachments(announcement.id)
-    if (data && data.length > 0) {
-      setAttachments(data.map(att => ({
-        id: att.id,
-        file_name: att.file_name,
-        file_size: att.file_size,
-        file_type: att.file_type,
-        storage_path: att.storage_path
-      })))
-    }
+    const existingAttachments = (data || []).map(att => ({
+      id: att.id,
+      file_name: att.file_name,
+      file_size: att.file_size,
+      file_type: att.file_type,
+      storage_path: att.storage_path
+    }))
+
+    setOriginalAttachments(
+      existingAttachments.map(att => ({
+        id: att.id!,
+        storage_path: att.storage_path!
+      }))
+    )
+    setAttachments(existingAttachments)
 
     setShowCreateModal(true)
   }
@@ -179,6 +189,20 @@ export default function AdminAnnouncementsPage() {
           return
         }
         announcementId = editingAnnouncement.id
+
+        const removedAttachments = getRemovedExistingAttachments(originalAttachments, attachments)
+        for (const attachment of removedAttachments) {
+          const { error: deleteError } = await announcementAPI.deleteAttachment(
+            attachment.id,
+            attachment.storage_path
+          )
+
+          if (deleteError) {
+            console.error('첨부파일 삭제 실패:', deleteError)
+            alert('기존 첨부파일 삭제 중 오류가 발생했습니다.')
+            return
+          }
+        }
       } else {
         // 생성
         const { data, error } = await announcementAPI.createAnnouncement(submitData)
@@ -218,6 +242,7 @@ export default function AdminAnnouncementsPage() {
 
       setShowCreateModal(false)
       setEditingAnnouncement(null)
+      setOriginalAttachments([])
       setAttachments([])
       loadData()
     } catch (error) {
@@ -448,6 +473,8 @@ export default function AdminAnnouncementsPage() {
                     onClick={() => {
                       setShowCreateModal(false)
                       setEditingAnnouncement(null)
+                      setOriginalAttachments([])
+                      setAttachments([])
                     }}
                     className="text-gray-400 hover:text-gray-600 text-xl font-semibold"
                   >
@@ -579,6 +606,8 @@ export default function AdminAnnouncementsPage() {
                     onClick={() => {
                       setShowCreateModal(false)
                       setEditingAnnouncement(null)
+                      setOriginalAttachments([])
+                      setAttachments([])
                     }}
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
                   >
