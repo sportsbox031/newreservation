@@ -14,6 +14,14 @@ const ALLOWED_MIME_TYPES = {
   'application/pdf': ['pdf'],
   'application/msword': ['doc'],
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+  'application/x-hwp': ['hwp'],
+  'application/haansofthwp': ['hwp', 'hwpx'],
+  'application/vnd.hancom.hwp': ['hwp'],
+  'application/hwp': ['hwp'],
+  'application/vnd.hancom.hwpx': ['hwpx'],
+  'application/x-hwpx': ['hwpx'],
+  'application/zip': ['zip', 'hwpx'],
+  'application/octet-stream': ['hwp', 'hwpx'],
   'application/vnd.ms-excel': ['xls'],
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
   'application/vnd.ms-powerpoint': ['ppt'],
@@ -27,7 +35,6 @@ const ALLOWED_MIME_TYPES = {
   'image/webp': ['webp'],
 
   // 압축 파일 (필요한 경우만)
-  'application/zip': ['zip'],
   'application/x-zip-compressed': ['zip'],
 } as const
 
@@ -66,7 +73,7 @@ export function validateFileType(file: File): FileValidationResult {
   if (!(mimeType in ALLOWED_MIME_TYPES)) {
     return {
       valid: false,
-      error: `허용되지 않는 파일 형식입니다. 허용 형식: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, JPG, PNG, GIF, WEBP, ZIP`
+      error: `허용되지 않는 파일 형식입니다. 허용 형식: HWP, HWPX, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, JPG, PNG, GIF, WEBP, ZIP`
     }
   }
 
