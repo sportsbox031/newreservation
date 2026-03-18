@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 import { v4 as uuidv4 } from 'uuid'
-import bcrypt from 'bcryptjs'
+import { hashPassword, isBcryptHash, legacyHashPassword, verifyPassword } from './passwordHash'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -20,28 +20,6 @@ function getAuthHeaders(): HeadersInit {
   return {
     'Content-Type': 'application/json',
     ...(sessionToken && { 'Authorization': `Bearer ${sessionToken}` })
-  }
-}
-
-// bcrypt를 사용한 안전한 비밀번호 해싱
-const hashPassword = async (password: string): Promise<string> => {
-  const saltRounds = 10
-  return await bcrypt.hash(password, saltRounds)
-}
-
-// 비밀번호 검증 (bcrypt)
-const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
-  return await bcrypt.compare(password, hash)
-}
-
-// 레거시: 기존 btoa 해싱 (마이그레이션용)
-const legacyHashPassword = (password: string): string => {
-  try {
-    return btoa(unescape(encodeURIComponent(password + 'sportsbox_salt')))
-  } catch (error) {
-    console.error('Password encoding error:', error)
-    const safePassword = (password + 'sportsbox_salt').replace(/[^\x00-\x7F]/g, '_')
-    return btoa(safePassword)
   }
 }
 
@@ -153,9 +131,21 @@ export const memberAPI = {
     let needsMigration = false
 
     try {
-      isPasswordValid = await verifyPassword(password, data.password_hash)
+      if (isBcryptHash(data.password_hash)) {
+        isPasswordValid = await verifyPassword(password, data.password_hash)
+      } else {
+        console.error('Invalid user password hash format during login', {
+          userId: data.id,
+          organizationName: data.organization_name,
+          hashPreview: String(data.password_hash).slice(0, 20),
+        })
+      }
     } catch (error) {
-      // bcrypt 검증 실패 - 레거시 방식 시도
+      console.error('User bcrypt verification failed', {
+        userId: data.id,
+        organizationName: data.organization_name,
+        error,
+      })
     }
 
     // bcrypt 검증 실패 시 → 레거시 btoa 해싱 시도
@@ -311,7 +301,15 @@ export const memberAPI = {
 
   // 비밀번호 초기화 (관리자용)
   async resetPassword(userId: string, newPassword: string) {
-    const password_hash = hashPassword(newPassword)
+    const password_hash = await hashPassword(newPassword)
+
+    if (!isBcryptHash(password_hash)) {
+      console.error('Generated invalid password hash during user reset', {
+        userId,
+        hashPreview: String(password_hash).slice(0, 20),
+      })
+      return { data: null, error: { message: '비밀번호 초기화 중 해시 생성에 실패했습니다.' } }
+    }
 
     const { data, error } = await supabase
       .from('users')
