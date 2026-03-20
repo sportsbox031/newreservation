@@ -3,6 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 import { validateApiRequest } from '@/lib/auth'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
+import {
+  applyTierReservationOpenState,
+  calculateRemainingReservationDays,
+  pruneExpiredDashboardCacheEntries,
+  type DashboardSharedData,
+  type TimestampedCacheEntry,
+} from '@/lib/dashboardBootstrap'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,34 +22,9 @@ const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
 
 const DASHBOARD_BOOTSTRAP_TIMEOUT_MS = 12000
 const DASHBOARD_SHARED_CACHE_TTL_MS = 15 * 1000
+const DASHBOARD_SHARED_CACHE_MAX_ENTRIES = 120
 
-type SharedDashboardCacheEntry = {
-  cachedAt: number
-  data: {
-    user: {
-      tier: string
-      region_code: string
-      region_name: string
-    }
-    remainingDays: number
-    reservationStatus: Record<string, {
-      current_reservations: number
-      max_reservations_per_day: number
-      is_full: boolean
-      available_slots: number
-      is_open: boolean
-    }>
-    blockedDates: Array<{
-      date: string
-      start_time: string | null
-      end_time: string | null
-      reason: string | null
-      id: string
-    }>
-  }
-}
-
-const dashboardSharedCache = new Map<string, SharedDashboardCacheEntry>()
+const dashboardSharedCache = new Map<string, TimestampedCacheEntry<DashboardSharedData>>()
 
 export async function GET(request: NextRequest) {
   try {
@@ -107,9 +89,17 @@ export async function GET(request: NextRequest) {
 
     const regionId = region.id
 
+    const now = Date.now()
+    pruneExpiredDashboardCacheEntries(
+      dashboardSharedCache,
+      now,
+      DASHBOARD_SHARED_CACHE_TTL_MS,
+      DASHBOARD_SHARED_CACHE_MAX_ENTRIES
+    )
+
     const cacheKey = `${regionId}:${year}:${month}`
     const cachedSharedData = dashboardSharedCache.get(cacheKey)
-    const isSharedCacheFresh = cachedSharedData && (Date.now() - cachedSharedData.cachedAt) < DASHBOARD_SHARED_CACHE_TTL_MS
+    const isSharedCacheFresh = cachedSharedData && (now - cachedSharedData.cachedAt) < DASHBOARD_SHARED_CACHE_TTL_MS
 
     const [sharedDataResult, reservationSummaryResponse] = await withTimeout(
       Promise.all([
@@ -161,17 +151,23 @@ export async function GET(request: NextRequest) {
       '대시보드 데이터를 불러오는 중 시간이 초과되었습니다.'
     )
 
-    let sharedData: SharedDashboardCacheEntry['data']
+    let sharedData: DashboardSharedData
 
     if (isSharedCacheFresh && cachedSharedData) {
       sharedData = cachedSharedData.data
     } else {
+      const queryData = sharedDataResult.data as {
+        reservationsResponse: typeof sharedDataResult.data extends infer T ? any : never
+        settingsResponse: typeof sharedDataResult.data extends infer T ? any : never
+        dailyLimitsResponse: typeof sharedDataResult.data extends infer T ? any : never
+        blockedDatesResponse: typeof sharedDataResult.data extends infer T ? any : never
+      }
       const {
         reservationsResponse,
         settingsResponse,
         dailyLimitsResponse,
         blockedDatesResponse
-      } = sharedDataResult.data
+      } = queryData
 
       if (reservationsResponse.error) {
         return NextResponse.json({ error: reservationsResponse.error.message }, { status: 400 })
@@ -190,15 +186,14 @@ export async function GET(request: NextRequest) {
       }
 
       const reservationCounts: Record<string, number> = {}
-      reservationsResponse.data?.forEach(reservation => {
+      reservationsResponse.data?.forEach((reservation: { date: string }) => {
         reservationCounts[reservation.date] = (reservationCounts[reservation.date] || 0) + 1
       })
 
       const defaultMaxReservations = settingsResponse.data?.max_reservations_per_day || 2
-      const defaultIsOpen = settingsResponse.data?.is_open ?? false
       const dailyLimitMap: Record<string, number> = {}
 
-      dailyLimitsResponse.data?.forEach(limit => {
+      dailyLimitsResponse.data?.forEach((limit: { date: string; max_reservations: number }) => {
         dailyLimitMap[limit.date] = limit.max_reservations
       })
 
@@ -215,7 +210,7 @@ export async function GET(request: NextRequest) {
         const currentReservations = reservationCounts[dateString] || 0
         const hasDailyLimit = Object.prototype.hasOwnProperty.call(dailyLimitMap, dateString)
         const maxReservations = hasDailyLimit ? dailyLimitMap[dateString] : defaultMaxReservations
-        const isOpen = hasDailyLimit ? maxReservations > 0 : defaultIsOpen
+        const isOpen = maxReservations > 0
 
         monthStatus[dateString] = {
           current_reservations: currentReservations,
@@ -232,13 +227,12 @@ export async function GET(request: NextRequest) {
           region_code: region.code,
           region_name: region.name
         },
-        remainingDays: 4,
         reservationStatus: monthStatus,
         blockedDates: blockedDatesResponse.data || []
       }
 
       dashboardSharedCache.set(cacheKey, {
-        cachedAt: Date.now(),
+        cachedAt: now,
         data: sharedData
       })
     }
@@ -247,8 +241,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: reservationSummaryResponse.error.message }, { status: 400 })
     }
 
-    const usedReservationDays = new Set((reservationSummaryResponse.data || []).map(item => item.date)).size
-    const remainingDays = Math.max(0, 4 - usedReservationDays)
+    const userTierId = userResponse.data.tier === 'Priority' ? 1 : 2
+    const yearMonth = `${year}-${String(month).padStart(2, '0')}`
+    const tierSettingResponse = await withTimeout(
+      supabaseAdmin
+        .from('tier_reservation_settings')
+        .select('is_open')
+        .eq('region_code', region.code)
+        .eq('year_month', yearMonth)
+        .eq('tier_id', userTierId)
+        .maybeSingle(),
+      DASHBOARD_BOOTSTRAP_TIMEOUT_MS,
+      '티어별 예약 상태를 불러오는 중 시간이 초과되었습니다.'
+    )
+
+    if (tierSettingResponse.error) {
+      return NextResponse.json({ error: tierSettingResponse.error.message }, { status: 400 })
+    }
+
+    const tierIsOpen = tierSettingResponse.data?.is_open ?? false
+    const remainingDays = calculateRemainingReservationDays(reservationSummaryResponse.data || [], 4)
 
     return NextResponse.json({
       data: {
@@ -259,7 +271,7 @@ export async function GET(request: NextRequest) {
           region_name: sharedData.user.region_name
         },
         remainingDays,
-        reservationStatus: sharedData.reservationStatus,
+        reservationStatus: applyTierReservationOpenState(sharedData.reservationStatus, tierIsOpen),
         blockedDates: sharedData.blockedDates
       }
     })

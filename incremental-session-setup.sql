@@ -198,30 +198,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 8. RLS (Row Level Security) 정책 - 안전하게 적용
-DO $$ 
-BEGIN
-    -- user_sessions 테이블에 RLS 활성화 (이미 활성화되어 있으면 무시)
-    BEGIN
-        ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
-    EXCEPTION WHEN OTHERS THEN
-        -- 이미 활성화되어 있으면 무시
-    END;
-    
-    -- daily_reservations_limit 테이블에 RLS 활성화
-    BEGIN
-        ALTER TABLE daily_reservations_limit ENABLE ROW LEVEL SECURITY;
-    EXCEPTION WHEN OTHERS THEN
-        -- 이미 활성화되어 있으면 무시
-    END;
-    
-    -- reservation_transactions 테이블에 RLS 활성화
-    BEGIN
-        ALTER TABLE reservation_transactions ENABLE ROW LEVEL SECURITY;
-    EXCEPTION WHEN OTHERS THEN
-        -- 이미 활성화되어 있으면 무시
-    END;
-END $$;
+-- 8. RLS (Row Level Security) 정책 적용
+ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_reservations_limit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reservation_transactions ENABLE ROW LEVEL SECURITY;
 
 -- 9. RLS 정책 생성 (IF NOT EXISTS는 정책에 사용불가하므로 DROP IF EXISTS 후 생성)
 -- 사용자는 자신의 세션만 조회 가능

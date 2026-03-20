@@ -22,43 +22,43 @@ import { settingsAPI, reservationConcurrencyAPI, tierAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
 
 interface BlockedDate {
-  id: string
+  id: number
   date: string
-  reason: string
-  start_time: string | null  // HH:MM 형식, null이면 하루 전체 차단
-  end_time: string | null    // HH:MM 형식, null이면 하루 전체 차단
-  created_at: string
+  reason: string | null
+  start_time: string | null
+  end_time: string | null
+  created_at?: string | null
 }
 
 interface ReservationSettings {
-  is_open: boolean
-  max_reservations_per_day: number
-  max_days_per_month: number
+  is_open: boolean | null
+  max_reservations_per_day: number | null
+  max_days_per_month: number | null
 }
 
 interface DailyLimit {
   date: string
   max_reservations: number
-  updated_at: string
+  updated_at: string | null
 }
 
 interface Tier {
   id: number
   tier_name: string
   tier_level: number
-  description: string
-  advance_reservation_days: number
+  description: string | null
+  advance_reservation_days: number | null
 }
 
 interface TierReservationSetting {
   id: number
-  tier_id: number
-  is_open: boolean
-  reservation_start_date: string
+  tier_id: number | null
+  is_open: boolean | null
+  reservation_start_date: string | null
   member_tiers: {
     tier_name: string
     tier_level: number
-    advance_reservation_days: number
+    advance_reservation_days: number | null
   }
 }
 
@@ -221,7 +221,11 @@ export default function SettingsPage() {
         regionCode,
         currentYear,
         currentMonth,
-        { ...currentSettings, max_reservations_per_day: newLimit }
+        {
+          is_open: currentSettings?.is_open ?? false,
+          max_days_per_month: currentSettings?.max_days_per_month ?? 4,
+          max_reservations_per_day: newLimit
+        }
       )
       
       if (error) {
@@ -398,7 +402,7 @@ export default function SettingsPage() {
     }
   }
 
-  const removeBlockedDate = async (dateId: string) => {
+  const removeBlockedDate = async (dateId: number) => {
     if (!confirm('이 차단 날짜를 삭제하시겠습니까?')) return
 
     setSaving(true)

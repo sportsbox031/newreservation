@@ -78,7 +78,7 @@ export function validateFileType(file: File): FileValidationResult {
   }
 
   // 확장자가 MIME type과 일치하는지 확인
-  const allowedExtensions = ALLOWED_MIME_TYPES[mimeType as keyof typeof ALLOWED_MIME_TYPES]
+  const allowedExtensions = ALLOWED_MIME_TYPES[mimeType as keyof typeof ALLOWED_MIME_TYPES] as readonly string[]
   if (!allowedExtensions.includes(extension)) {
     return {
       valid: false,
@@ -234,7 +234,7 @@ export function validateFileMetadata(
     }
   }
 
-  const allowedExtensions = ALLOWED_MIME_TYPES[mimeType as keyof typeof ALLOWED_MIME_TYPES]
+  const allowedExtensions = ALLOWED_MIME_TYPES[mimeType as keyof typeof ALLOWED_MIME_TYPES] as readonly string[]
   if (!allowedExtensions.includes(extension)) {
     return {
       valid: false,

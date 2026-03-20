@@ -9,6 +9,10 @@ import { z } from 'zod';
 import { Award, Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { memberAPI } from '@/lib/supabase';
 
+function hasErrorCode(error: unknown): error is { code: string; message?: string } {
+  return typeof error === 'object' && error !== null && 'code' in error
+}
+
 const cities = {
   south: [
     '과천시', '광명시', '광주시', '군포시', '김포시', '부천시', '성남시', 
@@ -22,9 +26,7 @@ const cities = {
 };
 
 const registerSchema = z.object({
-  organization_type: z.enum(['school', 'welfare'], {
-    required_error: '단체 유형을 선택해주세요'
-  }),
+  organization_type: z.enum(['school', 'welfare']),
   organization_name: z.string()
     .min(2, '단체명은 최소 2자 이상이어야 합니다')
     .max(50, '단체명은 50자를 초과할 수 없습니다')
@@ -81,7 +83,7 @@ export default function RegisterPage() {
   const router = useRouter();
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<RegisterForm>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchema) as any,
     defaultValues: {
       privacy_consent: false
     }
@@ -133,11 +135,11 @@ export default function RegisterPage() {
         let userMessage = '';
 
         // 중복 단체명 오류
-        if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('already exists')) {
+        if ((hasErrorCode(error) && error.code === '23505') || error.message?.includes('duplicate') || error.message?.includes('already exists')) {
           userMessage = `"${data.organization_name}"는 이미 등록된 단체명입니다.\n\n다른 이름을 사용해주세요.`;
         }
         // 기타 데이터베이스 오류
-        else if (error.code && error.code.startsWith('23')) {
+        else if (hasErrorCode(error) && error.code.startsWith('23')) {
           userMessage = '입력하신 정보에 문제가 있습니다.\n\n내용을 확인해주세요.';
         }
         // 일반 오류

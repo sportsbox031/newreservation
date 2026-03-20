@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import type { FileAttachment } from '@/components/FileUploadManager'
 
 import {
   getRemovedExistingAttachments,
@@ -12,7 +13,7 @@ test('getRemovedExistingAttachments returns persisted attachments removed during
     { id: 'a2', storage_path: 'announcements/1/b.pdf' },
   ]
 
-  const current = [
+  const current: FileAttachment[] = [
     { id: 'a2', storage_path: 'announcements/1/b.pdf' },
     { file_name: 'new.pdf', file_size: 1, file_type: 'application/pdf' },
   ]

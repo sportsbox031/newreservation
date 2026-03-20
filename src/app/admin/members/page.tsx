@@ -23,18 +23,18 @@ interface Member {
   manager_name: string
   phone: string
   email: string
-  region: string
-  city: string
-  status: 'pending' | 'approved' | 'rejected'
-  created_at: string
-  tier: 'Priority' | 'Standard'
+  region?: string
+  city?: string
+  status: 'pending' | 'approved' | 'rejected' | 'suspended' | null
+  created_at: string | null
+  tier: 'Priority' | 'Standard' | null
   student_count: number | null
   class_count: number | null
   cities: {
     name: string
     regions: {
       name: string
-    }
+    } | null
   }
 }
 
@@ -298,7 +298,7 @@ export default function MembersPage() {
     }
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | null) => {
     switch (status) {
       case 'pending':
         return (
@@ -326,7 +326,8 @@ export default function MembersPage() {
     }
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-'
     return new Date(dateString).toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: '2-digit',
@@ -336,14 +337,15 @@ export default function MembersPage() {
     })
   }
 
-  const getTierBadge = (tier: 'Priority' | 'Standard') => {
+  const getTierBadge = (tier: 'Priority' | 'Standard' | null) => {
+    const normalizedTier = tier ?? 'Standard'
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        tier === 'Priority'
+        normalizedTier === 'Priority'
           ? 'bg-yellow-100 text-yellow-800'
           : 'bg-gray-100 text-gray-800'
       }`}>
-        {tier === 'Priority' ? '🟡' : '⚪'} {tier}
+        {normalizedTier === 'Priority' ? '🟡' : '⚪'} {normalizedTier}
       </span>
     )
   }
@@ -679,7 +681,7 @@ export default function MembersPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {member.status === 'approved' ? (
                           <select
-                            value={member.tier}
+                            value={member.tier ?? 'Standard'}
                             onChange={(e) => handleTierChange(member.id, e.target.value as 'Priority' | 'Standard', member.organization_name)}
                             disabled={processing === member.id}
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed ${

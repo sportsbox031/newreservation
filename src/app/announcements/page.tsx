@@ -10,16 +10,16 @@ interface Announcement {
   id: string
   title: string
   content: string
-  target_type: 'all' | 'region'
-  is_important: boolean
-  created_at: string
-  updated_at: string
+  target_type: string
+  is_important: boolean | null
+  created_at: string | null
+  updated_at: string | null
   admins: {
     username: string
   }
   regions?: {
     name: string
-  }
+  } | null
 }
 
 const ANNOUNCEMENTS_CACHE_TTL_MS = 60 * 1000
@@ -136,7 +136,8 @@ export default function AnnouncementsPage() {
     window.open(url, '_blank')
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-'
     const date = new Date(dateString)
     return date.toLocaleDateString('ko-KR', {
       year: 'numeric',

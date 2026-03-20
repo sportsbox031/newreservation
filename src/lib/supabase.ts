@@ -3,6 +3,7 @@ import { Database } from '@/types/database'
 import { v4 as uuidv4 } from 'uuid'
 import { hashPassword, isBcryptHash, legacyHashPassword, verifyPassword } from './passwordHash'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
+import { getDashboardMonthCacheKey, getDashboardTargetDate } from '@/lib/dashboardCalendar'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -583,7 +584,7 @@ export const settingsAPI = {
   },
 
   // 차단된 날짜 제거 (ID로)
-  async removeBlockedDate(dateId: string) {
+  async removeBlockedDate(dateId: number) {
     const { data, error } = await supabase
       .from('blocked_dates')
       .delete()
@@ -1542,6 +1543,36 @@ export const utilityAPI = {
 }
 
 export const dashboardAPI = {
+  async getMonthGate(userId: string, regionCode: 'south' | 'north', year: number, month: number) {
+    try {
+      const cacheKey = getDashboardMonthCacheKey(userId, regionCode, year, month)
+      if (typeof window !== 'undefined') {
+        const cachedValue = sessionStorage.getItem(cacheKey)
+        if (cachedValue) {
+          const cached = JSON.parse(cachedValue)
+          if (Date.now() - cached.cachedAt < 3000) {
+            return { data: cached.data as { is_open: boolean }, error: null }
+          }
+        }
+      }
+
+      const targetDate = getDashboardTargetDate(year, month)
+      const { canReserve, reason } = await tierAPI.canUserReserveByTier(userId, regionCode, targetDate)
+
+      const result = { is_open: canReserve }
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          cachedAt: Date.now(),
+          data: result
+        }))
+      }
+
+      return { data: result, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '월별 예약 상태를 확인하는 중 오류가 발생했습니다.') } }
+    }
+  },
   async getBootstrap(year: number, month: number) {
     try {
       const cacheKey = `dashboardBootstrap:${year}-${String(month).padStart(2, '0')}`

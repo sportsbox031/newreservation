@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 import { validateApiRequest } from '@/lib/auth'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
+import { isReservationTimeoutError } from '@/lib/reservationError'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -219,7 +220,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(fallbackResult.body, { status: fallbackResult.status })
   } catch (error) {
     console.error('예약 API 오류:', error)
-    if (getErrorMessage(error).includes('시간이 초과되었습니다')) {
+    if (isReservationTimeoutError(error)) {
       return NextResponse.json(
         { error: `${RESERVATION_BUSY_MESSAGE} 잠시 후 내 예약에서 접수 여부를 확인해주세요.` },
         { status: 409 }

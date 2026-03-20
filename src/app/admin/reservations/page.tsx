@@ -299,8 +299,8 @@ function AdminReservationsContent() {
       ).map(item => ({
         id: item.id,
         date: new Date(item.date),
-        status: item.status,
-        user_id: item.user_id,
+        status: (item.status ?? 'pending') as ReservationStatus,
+        user_id: item.user_id || '',
         organization_name: item.users?.organization_name || '',
         manager_name: item.users?.manager_name || '',
         phone: item.users?.phone || '',
@@ -313,7 +313,7 @@ function AdminReservationsContent() {
           participantCount: slot.participant_count,
           location: slot.location
         })) || [],
-        created_at: new Date(item.created_at)
+        created_at: new Date(item.created_at || item.date)
       })) || [];
 
       setAllReservations(transformedData);

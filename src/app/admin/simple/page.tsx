@@ -13,11 +13,16 @@ import {
 } from 'lucide-react'
 
 export default function SimpleAdminPage() {
+  type AdminInfo = {
+    username?: string
+    role: 'super' | 'south' | 'north' | null
+  } | null
+
   // 모든 useState 훅을 최상위에 선언
   const [adminAuth, setAdminAuth] = useState({
     isAuthenticated: false,
-    role: null,
-    adminInfo: null,
+    role: null as 'super' | 'south' | 'north' | null,
+    adminInfo: null as AdminInfo,
     loading: true
   })
   

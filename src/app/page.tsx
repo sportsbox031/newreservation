@@ -12,16 +12,16 @@ interface Announcement {
   id: string
   title: string
   content: string
-  target_type: 'all' | 'region'
-  is_important: boolean
-  created_at: string
-  updated_at: string
+  target_type: string
+  is_important: boolean | null
+  created_at: string | null
+  updated_at: string | null
   admins: {
     username: string
   }
   regions?: {
     name: string
-  }
+  } | null
 }
 
 const HOME_ANNOUNCEMENTS_CACHE_KEY = 'homeAnnouncementsCache'
@@ -65,13 +65,13 @@ export default function Home() {
       } else {
         // 중요 공지를 최상단에 표시하고, 그 다음 최신순으로 정렬
         const sortedData = (data || [])
-          .sort((a, b) => {
+          .sort((a: Announcement, b: Announcement) => {
             // 1순위: 중요 공지 우선
             if (a.is_important !== b.is_important) {
               return b.is_important ? 1 : -1
             }
             // 2순위: 최신순
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
           })
           .slice(0, 5)
         setAnnouncements(sortedData)
@@ -121,7 +121,8 @@ export default function Home() {
     window.open(url, '_blank')
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-'
     const date = new Date(dateString)
     return date.toLocaleDateString('ko-KR', {
       year: 'numeric',

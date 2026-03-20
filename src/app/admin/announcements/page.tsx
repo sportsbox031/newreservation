@@ -24,21 +24,21 @@ interface Announcement {
   id: string
   title: string
   content: string
-  target_type: 'all' | 'region'
-  target_region_id?: number
-  is_important: boolean
-  is_published: boolean
-  view_count: number
-  created_at: string
-  updated_at: string
+  target_type: string
+  target_region_id?: number | null
+  is_important: boolean | null
+  is_published: boolean | null
+  view_count: number | null
+  created_at: string | null
+  updated_at: string | null
   author_id: string
   admins: {
-    id: string
+    id?: string
     username: string
   }
   regions?: {
     name: string
-  }
+  } | null
 }
 
 interface Region {
@@ -135,10 +135,10 @@ export default function AdminAnnouncementsPage() {
     setFormData({
       title: announcement.title,
       content: announcement.content,
-      target_type: announcement.target_type,
+      target_type: announcement.target_type === 'region' ? 'region' : 'all',
       target_region_id: announcement.target_region_id?.toString() || '',
-      is_important: announcement.is_important,
-      is_published: announcement.is_published
+      is_important: announcement.is_important ?? false,
+      is_published: announcement.is_published ?? false
     })
     setEditingAnnouncement(announcement)
 
@@ -413,7 +413,7 @@ export default function AdminAnnouncementsPage() {
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        <span>{formatDate(announcement.created_at)}</span>
+                        <span>{formatDate(announcement.created_at || '')}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Eye className="w-3 h-3" />

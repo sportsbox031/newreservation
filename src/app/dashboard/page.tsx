@@ -22,9 +22,10 @@ import {
   MessageCircle,
   HelpCircle
 } from 'lucide-react';
-import { dashboardAPI, settingsAPI, reservationAPI, tierAPI, supabase } from '@/lib/supabase';
+import { dashboardAPI, settingsAPI, reservationAPI, tierAPI } from '@/lib/supabase';
 import AccountManagementModal from '@/components/AccountManagementModal';
 import { useSessionCheck } from '@/hooks/useSessionCheck';
+import { getDefaultDashboardMonth } from '@/lib/dashboardCalendar';
 
 type CalendarValue = Date | null | [Date | null, Date | null];
 
@@ -69,7 +70,7 @@ interface UserTier {
 export default function DashboardPage() {
   const { isAuthenticated, user, isLoading, sessionError, logout } = useSessionCheck();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [currentMonth, setCurrentMonth] = useState<Date>(getDefaultDashboardMonth);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [remainingDays, setRemainingDays] = useState(0); // 이번 달 남은 예약 가능 일수
@@ -314,12 +315,33 @@ export default function DashboardPage() {
   };
 
   const refreshDashboardData = async () => {
-    if (!isAuthenticated || !user) return;
+    if (!isAuthenticated || !user || !userRegion) return;
 
     try {
       setIsLoadingCalendar(true);
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
+      const gateResult = await dashboardAPI.getMonthGate(user.id, userRegion, year, month);
+
+      if (gateResult.error || !gateResult.data) {
+        console.error('대시보드 월 상태 확인 오류:', gateResult.error);
+        setIsMonthClosed(true);
+        setReservationStatus({});
+        setBlockedDates([]);
+        setSelectedDate(null);
+        setRemainingDays(4);
+        return;
+      }
+
+      if (!gateResult.data.is_open) {
+        setIsMonthClosed(true);
+        setReservationStatus({});
+        setBlockedDates([]);
+        setSelectedDate(null);
+        setRemainingDays(4);
+        return;
+      }
+
       const { data, error } = await dashboardAPI.getBootstrap(year, month);
 
       if (error || !data) {
@@ -337,14 +359,14 @@ export default function DashboardPage() {
 
   // 데이터 로드 (월 변경이나 지역 변경 시 실행)
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && userRegion) {
       refreshDashboardData();
     }
-  }, [currentMonth, isAuthenticated, user]);
+  }, [currentMonth, isAuthenticated, user, userRegion]);
 
   // 실시간 설정 변경 감지를 위한 주기적 새로고침 (취소 승인 반영 포함)
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
+    if (!isAuthenticated || !user || !userRegion) return;
 
     const refreshIfVisible = () => {
       if (document.visibilityState === 'visible' && activeModal !== 'reservation' && !isSubmitting) {
@@ -359,7 +381,7 @@ export default function DashboardPage() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', refreshIfVisible);
     };
-  }, [currentMonth, isAuthenticated, user, activeModal, isSubmitting]);
+  }, [currentMonth, isAuthenticated, user, userRegion, activeModal, isSubmitting]);
 
   useEffect(() => {
     if (activeModal === 'myReservations' && !hasLoadedMyReservations) {
@@ -400,6 +422,7 @@ export default function DashboardPage() {
   // 예약 현황 로드 - 성능 최적화된 버전
   const loadReservationStatus = async () => {
     try {
+      if (!userRegion) return;
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
       
@@ -471,6 +494,7 @@ export default function DashboardPage() {
   // 차단된 날짜 로드 (하루 전체 차단 + 시간대별 차단 구분)
   const loadBlockedDates = async () => {
     try {
+      if (!userRegion) return;
       const { data, error } = await settingsAPI.getBlockedDates(userRegion);
       if (error) {
         console.error('차단된 날짜 로드 오류:', error);
@@ -708,6 +732,7 @@ export default function DashboardPage() {
   // 달력 날짜 클릭 핸들러
   const handleDateClick = async (value: CalendarValue) => {
     if (!value || Array.isArray(value)) return;
+    if (isMonthClosed) return;
 
     // 주말 체크 (토요일=6, 일요일=0)
     const dayOfWeek = value.getDay();
@@ -743,6 +768,10 @@ export default function DashboardPage() {
     if (user && userTier) {
       try {
         const targetDate = `${year}-${month}-${day}`;
+        if (!userRegion) {
+          alert('사용자 지역 정보를 확인할 수 없습니다.');
+          return;
+        }
         const { canReserve, reason } = await tierAPI.canUserReserveByTier(
           user.id,
           userRegion,
@@ -969,6 +998,12 @@ export default function DashboardPage() {
           userTier: userTier
         });
 
+        if (!userRegion) {
+          alert('사용자 지역 정보를 확인할 수 없습니다.');
+          setIsSubmitting(false);
+          setSubmitStatusMessage('');
+          return;
+        }
         const { canReserve, reason } = await tierAPI.canUserReserveByTier(
           userId,
           userRegion,
@@ -1273,6 +1308,11 @@ export default function DashboardPage() {
               
               {/* 사용자 친화적인 달력 컨테이너 */}
               <div className="premium-calendar-container relative">
+                <div className="mb-4 flex items-center justify-center">
+                  <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200">
+                    {currentMonth.getFullYear()}년 {currentMonth.getMonth() + 1}월
+                  </div>
+                </div>
                 {isLoadingCalendar && (
                   <div className="absolute inset-0 bg-white bg-opacity-90 backdrop-blur-sm flex items-center justify-center z-20 rounded-2xl">
                     <div className="flex flex-col items-center space-y-4">
@@ -1290,6 +1330,7 @@ export default function DashboardPage() {
                 <Calendar
                   onChange={handleDateClick}
                   value={selectedDate}
+                  activeStartDate={currentMonth}
                   tileClassName={getTileClassName}
                   tileContent={getTileContent}
                   tileDisabled={({ date }) => {
@@ -1310,44 +1351,39 @@ export default function DashboardPage() {
                   }}
                   onActiveStartDateChange={({ activeStartDate }) => {
                     if (activeStartDate) {
-                      setCurrentMonth(activeStartDate);
+                      setCurrentMonth(currentMonth);
                     }
                   }}
                   minDate={new Date()}
                   calendarType="gregory"
                   locale="ko-KR"
+                  showNavigation={false}
                   formatDay={(locale, date) => date.getDate().toString()}
                   formatShortWeekday={(locale, date) => 
                     ['일', '월', '화', '수', '목', '금', '토'][date.getDay()]
                   }
-                  formatMonthYear={(locale, date) => 
-                    `${date.getFullYear()}년 ${date.getMonth() + 1}월`
-                  }
-                  calendarType="gregory"
+                  prevLabel={null}
+                  nextLabel={null}
                   next2Label={null}
                   prev2Label={null}
                   showNeighboringMonth={false}
                 />
                 
-                {/* 월 전체 예약 종료 오버레이 - 네비게이션은 남기고 달력 내용만 가리기 */}
+                {/* 월 전체 예약 종료 오버레이 */}
                 {isMonthClosed && !isLoadingCalendar && (
                   <div className="absolute bg-white bg-opacity-95 backdrop-blur-sm flex items-center justify-center z-10"
                        style={{
-                         top: '80px', // 네비게이션 버튼(이전달/다음달)은 보이도록 하고 요일헤더부터 가리기
+                         top: '0',
                          left: '0',
                          right: '0',
                          bottom: '0',
-                         borderRadius: '0 0 1rem 1rem' // 하단 모서리만 둥글게
+                         borderRadius: '1rem'
                        }}>
                     <div className="text-center">
                       <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-500 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
                         <CalendarIcon className="w-8 h-8 text-white" />
                       </div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-2">신청기간이 아닙니다</h3>
-                      <p className="text-gray-600 text-sm">
-                        공지사항의 신청기간을 확인해주세요.<br/>
-                        다른 달로 이동하여 예약 상태를 확인할 수 있습니다.
-                      </p>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">예약기간이 아닙니다.</h3>
                     </div>
                   </div>
                 )}
@@ -1527,81 +1563,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* 최근 예약 현황 */}
-            <div className="bg-gradient-to-br from-white via-slate-50 to-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 border border-slate-200">
-              <div className="flex items-center mb-3 sm:mb-4">
-                <div className="w-2 h-6 sm:h-8 bg-gradient-to-b from-slate-500 to-gray-600 rounded-full mr-2 sm:mr-3"></div>
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">최근 예약 현황</h3>
-              </div>
-
-              {hasLoadedMyReservations && myReservations.length > 0 ? (
-                <div className="space-y-2 sm:space-y-3">
-                  {myReservations.slice(0, 3).map((reservation, index) => (
-                    <div key={reservation.id} className="flex items-center justify-between p-2.5 sm:p-3 bg-white rounded-lg shadow-sm border border-gray-100">
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="text-xs sm:text-sm font-semibold text-gray-900 break-keep">
-                            {reservation.date.toLocaleDateString('ko-KR')}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {reservation.slots.length}개 타임
-                          </div>
-                        </div>
-                      </div>
-                      <StatusBadge status={reservation.status} />
-                    </div>
-                  ))}
-
-                  {myReservations.length > 3 && (
-                    <div className="text-center text-xs sm:text-sm text-gray-500 pt-2">
-                      +{myReservations.length - 3}개 더
-                    </div>
-                  )}
-                </div>
-              ) : hasLoadedMyReservations ? (
-                <div className="text-center py-6 sm:py-8">
-                  <div className="relative mb-3 sm:mb-4">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl sm:rounded-2xl mx-auto flex items-center justify-center shadow-lg">
-                      <CalendarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-gray-500" />
-                    </div>
-                    <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-br from-blue-400 to-blue-500 rounded-full flex items-center justify-center shadow-md">
-                      <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
-                    </div>
-                  </div>
-                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 break-keep">
-                    예약 내역이 없습니다
-                  </h4>
-                  <p className="text-xs sm:text-sm text-gray-500 mb-4 break-keep">
-                    달력에서 날짜를 선택해<br/>스포츠박스 프로그램을 예약해보세요
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center py-6 sm:py-8">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl sm:rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-3 sm:mb-4">
-                    <List className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-                  </div>
-                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 break-keep">
-                    예약 내역은 필요할 때만 불러옵니다
-                  </h4>
-                  <p className="text-xs sm:text-sm text-gray-500 mb-4 break-keep">
-                    전체 예약 내역 보기 버튼을 누르면<br/>내 예약 정보를 불러옵니다
-                  </p>
-                </div>
-              )}
-
-              <button
-                onClick={handleOpenMyReservations}
-                className="w-full mt-3 sm:mt-4 py-2.5 sm:py-3 px-3 sm:px-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
-              >
-                <div className="flex items-center justify-center space-x-1.5 sm:space-x-2">
-                  <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="text-sm sm:text-base break-keep">전체 예약 내역 보기</span>
-                </div>
-              </button>
-            </div>
           </div>
         </div>
       </div>

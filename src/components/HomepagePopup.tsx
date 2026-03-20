@@ -48,7 +48,7 @@ const markdownToHtml = (markdown: string): string => {
   // 리스트
   html = html.replace(/^\* (.+)$/gm, '<li>$1</li>')
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
-  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+  html = html.replace(/(<li>[\s\S]*<\/li>)/, '<ul>$1</ul>')
 
   // 줄바꿈
   html = html.replace(/\n/g, '<br>')

@@ -10,15 +10,15 @@ interface Announcement {
   id: string
   title: string
   content: string
-  target_type: 'all' | 'region'
-  is_important: boolean
-  created_at: string
+  target_type: string
+  is_important: boolean | null
+  created_at: string | null
   admins: {
     username: string
   }
   regions?: {
     name: string
-  }
+  } | null
 }
 
 interface AnnouncementSectionProps {

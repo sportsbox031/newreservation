@@ -9,6 +9,10 @@ import { z } from 'zod';
 import { Award, Eye, EyeOff, ArrowLeft, AlertCircle, CheckCircle, Calendar } from 'lucide-react';
 import { memberAPI, adminAPI } from '@/lib/supabase';
 
+function hasErrorCode(error: unknown): error is { code: string; message?: string } {
+  return typeof error === 'object' && error !== null && 'code' in error
+}
+
 const loginSchema = z.object({
   organization_name: z.string().min(1, '단체명을 입력해주세요'),
   password: z.string().min(1, '비밀번호를 입력해주세요')
@@ -68,7 +72,7 @@ function LoginFormComponent() {
 
       if (error) {
         console.error('로그인 오류:', error);
-        if (error.code === 'PGRST116') {
+        if (hasErrorCode(error) && error.code === 'PGRST116') {
           // 데이터가 없음 - 등록되지 않은 단체명
           setLoginError('등록되지 않은 단체명입니다.');
         } else {
