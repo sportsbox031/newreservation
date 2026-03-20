@@ -68,6 +68,7 @@ type DayStatus = 'available' | 'limited' | 'full' | 'blocked' | 'closed';
 type ModalType = 'reservationList' | 'reservationDetail' | null;
 
 function AdminReservationsContent() {
+  const ADMIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -113,6 +114,14 @@ function AdminReservationsContent() {
   );
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  const refreshReservationData = async () => {
+    await Promise.all([
+      loadReservationStatus(),
+      loadBlockedDates(),
+      loadAllReservations()
+    ]);
+  };
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -133,9 +142,7 @@ function AdminReservationsContent() {
   // 데이터 로드 (월 변경이나 지역 변경 시 실행)
   useEffect(() => {
     if (adminRegion) {
-      loadReservationStatus();
-      loadBlockedDates();
-      loadAllReservations();
+      refreshReservationData();
     }
   }, [currentMonth, adminRegion]);
 
@@ -143,13 +150,19 @@ function AdminReservationsContent() {
   useEffect(() => {
     if (!adminRegion) return;
 
-    const interval = setInterval(() => {
-      loadReservationStatus();
-      loadBlockedDates();
-      loadAllReservations();
-    }, 30000); // 30초마다 새로고침
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') {
+        refreshReservationData();
+      }
+    };
 
-    return () => clearInterval(interval);
+    const interval = setInterval(refreshIfVisible, ADMIN_REFRESH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
   }, [currentMonth, adminRegion]);
 
   const checkAuth = () => {
@@ -189,7 +202,7 @@ function AdminReservationsContent() {
         console.error('예약 현황 로드 오류:', error);
         // 오류 발생 시 기본값으로 폴백 (예약 종료 상태가 기본값)
         const endOfMonth = new Date(year, month, 0);
-        const fallbackStatus = {};
+        const fallbackStatus: Record<string, { current: number; max: number; isFull: boolean; isOpen: boolean }> = {};
         for (let day = 1; day <= endOfMonth.getDate(); day++) {
           const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
           fallbackStatus[dateString] = {
@@ -207,7 +220,7 @@ function AdminReservationsContent() {
 
       if (monthStatus) {
         // 데이터 형식 변환 (API 응답 → 컴포넌트 상태 형식)
-        const formattedStatus = {};
+        const formattedStatus: Record<string, { current: number; max: number; isFull: boolean; isOpen: boolean }> = {};
         let hasAnyOpenDay = false;
         let totalDays = 0;
         let closedDays = 0;

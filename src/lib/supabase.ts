@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 import { v4 as uuidv4 } from 'uuid'
 import { hashPassword, isBcryptHash, legacyHashPassword, verifyPassword } from './passwordHash'
+import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -11,6 +12,19 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: false
   }
 })
+
+const QUERY_TIMEOUT_MS = 8000
+const LONG_QUERY_TIMEOUT_MS = 12000
+const MUTATION_TIMEOUT_MS = 15000
+const regionIdCache = new Map<string, number>()
+
+function timeoutError(message: string) {
+  return { message }
+}
+
+async function runQueryWithTimeout<T>(promise: PromiseLike<T>, message: string, timeoutMs = QUERY_TIMEOUT_MS): Promise<T> {
+  return withTimeout(promise, timeoutMs, message)
+}
 
 // 인증 헤더 생성 헬퍼 함수
 function getAuthHeaders(): HeadersInit {
@@ -38,11 +52,14 @@ const getClientInfo = (request?: Request) => {
 
 // Helper function to get city_id from city name
 const getCityId = async (cityName: string): Promise<number | null> => {
-  const { data, error } = await supabase
-    .from('cities')
-    .select('id')
-    .eq('name', cityName)
-    .single()
+  const { data, error } = await runQueryWithTimeout(
+    supabase
+      .from('cities')
+      .select('id')
+      .eq('name', cityName)
+      .single(),
+    '시/군 정보를 불러오는 중 시간이 초과되었습니다.'
+  )
   
   if (error) {
     console.error('City lookup error:', error)
@@ -228,8 +245,16 @@ export const memberAPI = {
       query = query.eq('cities.regions.code', regionCode)
     }
 
-    const { data, error } = await query
-    return { data, error }
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        query,
+        '승인 대기 회원을 불러오는 중 시간이 초과되었습니다.',
+        LONG_QUERY_TIMEOUT_MS
+      )
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '승인 대기 회원을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 승인된 회원 목록 조회
@@ -246,8 +271,16 @@ export const memberAPI = {
       query = query.eq('cities.regions.code', regionCode)
     }
 
-    const { data, error } = await query
-    return { data, error }
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        query,
+        '승인된 회원을 불러오는 중 시간이 초과되었습니다.',
+        LONG_QUERY_TIMEOUT_MS
+      )
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '승인된 회원을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 모든 회원 조회 (관리자용)
@@ -458,13 +491,22 @@ export const memberAPI = {
 export const settingsAPI = {
   // 지역 ID 조회 헬퍼
   async getRegionId(regionCode: string): Promise<number | null> {
-    const { data, error } = await supabase
-      .from('regions')
-      .select('id')
-      .eq('code', regionCode)
-      .single()
+    const cachedRegionId = regionIdCache.get(regionCode)
+    if (cachedRegionId) {
+      return cachedRegionId
+    }
+
+    const { data, error } = await runQueryWithTimeout(
+      supabase
+        .from('regions')
+        .select('id')
+        .eq('code', regionCode)
+        .single(),
+      '지역 정보를 불러오는 중 시간이 초과되었습니다.'
+    )
     
     if (error) return null
+    regionIdCache.set(regionCode, data.id)
     return data.id
   },
 
@@ -475,15 +517,19 @@ export const settingsAPI = {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
     }
 
-    const { data, error } = await supabase
-      .from('blocked_dates')
-      .select(`
-        *,
-        regions!inner(name, code)
-      `)
-      .eq('region_id', regionId)
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        supabase
+          .from('blocked_dates')
+          .select('date, start_time, end_time, reason, id')
+          .eq('region_id', regionId),
+        '차단 일정을 불러오는 중 시간이 초과되었습니다.'
+      )
 
-    return { data, error }
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '차단 일정을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 모든 차단된 날짜 조회 (Super Admin용)
@@ -553,13 +599,32 @@ export const settingsAPI = {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
     }
 
-    const { data, error } = await supabase
-      .from('reservation_settings')
-      .select('*')
-      .eq('region_id', regionId)
-      .eq('year', year)
-      .eq('month', month)
-      .single()
+    let data
+    let error
+    try {
+      const response = await runQueryWithTimeout(
+        supabase
+          .from('reservation_settings')
+          .select('*')
+          .eq('region_id', regionId)
+          .eq('year', year)
+          .eq('month', month)
+          .single(),
+        '예약 설정을 불러오는 중 시간이 초과되었습니다.'
+      )
+      data = response.data
+      error = response.error
+    } catch (requestError) {
+      console.error('예약 설정 조회 타임아웃:', requestError)
+      return {
+        data: {
+          is_open: false,
+          max_reservations_per_day: 2,
+          max_days_per_month: 4
+        },
+        error: timeoutError(getErrorMessage(requestError, '예약 설정을 불러오는 중 오류가 발생했습니다.'))
+      }
+    }
 
     // 데이터가 없으면 기본값 생성
     if (error && error.code === 'PGRST116') {
@@ -655,13 +720,23 @@ export const settingsAPI = {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
     }
 
-    // 해당 날짜의 현재 예약 수 조회
-    const { data: reservations, error: reservationError } = await supabase
-      .from('reservations')
-      .select('id')
-      .eq('region_id', regionId)
-      .eq('date', date)
-      .in('status', ['pending', 'approved', 'cancel_requested'])
+    let reservations
+    let reservationError
+    try {
+      const response = await runQueryWithTimeout(
+        supabase
+          .from('reservations')
+          .select('id')
+          .eq('region_id', regionId)
+          .eq('date', date)
+          .in('status', ['pending', 'approved', 'cancel_requested']),
+        '해당 날짜의 예약 현황을 불러오는 중 시간이 초과되었습니다.'
+      )
+      reservations = response.data
+      reservationError = response.error
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '해당 날짜의 예약 현황을 불러오는 중 오류가 발생했습니다.')) }
+    }
 
     if (reservationError) {
       return { data: null, error: reservationError }
@@ -714,84 +789,85 @@ export const settingsAPI = {
     const lastDay = new Date(year, month, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-    const { data: reservations, error: reservationError } = await supabase
-      .from('reservations')
-      .select('date')
-      .eq('region_id', regionId)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .in('status', ['pending', 'approved', 'cancel_requested'])
+    try {
+      const [{ data: reservations, error: reservationError }, { data: settings, error: settingsError }, { data: dailyLimits, error: dailyLimitsError }] = await Promise.all([
+        runQueryWithTimeout(
+          supabase
+            .from('reservations')
+            .select('date')
+            .eq('region_id', regionId)
+            .gte('date', startDate)
+            .lte('date', endDate)
+            .in('status', ['pending', 'approved', 'cancel_requested']),
+          '월별 예약 현황을 불러오는 중 시간이 초과되었습니다.',
+          LONG_QUERY_TIMEOUT_MS
+        ),
+        this.getReservationSettings(regionCode, year, month),
+        runQueryWithTimeout(
+          supabase
+            .from('daily_reservation_limits')
+            .select('date, max_reservations')
+            .eq('region_id', regionId)
+            .gte('date', startDate)
+            .lte('date', endDate),
+          '일별 예약 제한을 불러오는 중 시간이 초과되었습니다.'
+        )
+      ])
 
-    if (reservationError) {
-      return { data: null, error: reservationError }
-    }
-
-    // 날짜별 예약 수 집계
-    const reservationCounts = {}
-    reservations?.forEach(reservation => {
-      const date = reservation.date
-      reservationCounts[date] = (reservationCounts[date] || 0) + 1
-    })
-
-    // 월별 기본 설정 조회
-    const { data: settings } = await this.getReservationSettings(regionCode, year, month)
-    const defaultMaxReservations = settings?.max_reservations_per_day || 2
-    
-    // 월별 개별 설정 적용 - 각 월마다 관리자가 별도로 예약 시작/종료 제어
-    const defaultIsOpen = settings?.is_open || false  // DB 설정값 사용, 없으면 false
-    
-    // 디버깅을 위한 로그
-    console.log(`getMonthReservationStatus ${regionCode} ${year}년 ${month}월:`, {
-      settings,
-      defaultIsOpen, // DB에서 가져온 실제 설정값 사용
-      defaultMaxReservations
-    })
-
-    // 특정 날짜별 제한 설정 조회 (한 번의 쿼리로)
-    const { data: dailyLimits } = await supabase
-      .from('daily_reservation_limits')
-      .select('date, max_reservations')
-      .eq('region_id', regionId)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .gt('max_reservations', 0)
-
-    // 특정 날짜별 제한을 맵으로 변환
-    const dailyLimitMap = {}
-    dailyLimits?.forEach(limit => {
-      dailyLimitMap[limit.date] = limit.max_reservations
-    })
-
-    // 결과 생성
-    const result = {}
-    for (let day = 1; day <= lastDay; day++) {
-      const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      const currentReservations = reservationCounts[dateString] || 0
-      const maxReservations = dailyLimitMap[dateString] || defaultMaxReservations
-      
-      // 예약 상태 결정 로직
-      let isOpen = false
-      
-      // 기존 전체 예약 시스템 제거 - 티어별 제어로 대체됨
-      // 달력 표시용으로만 사용 (실제 예약 가능 여부는 티어별로 체크)
-      isOpen = true // 기본적으로 달력은 열려있음 (티어별 체크에서 실제 제어)
-        
-      // 개별 날짜 설정만 적용 (예약불가 날짜)
-      if (dailyLimitMap[dateString] && maxReservations === 0) {
-        isOpen = false // 관리자가 특정 날짜를 막은 경우만 닫힘
+      if (reservationError) {
+        return { data: null, error: reservationError }
       }
-      // 달력 상태 설정 완료
 
-      result[dateString] = {
-        current_reservations: currentReservations,
-        max_reservations_per_day: maxReservations,
-        is_full: currentReservations >= maxReservations,
-        available_slots: Math.max(0, maxReservations - currentReservations),
-        is_open: isOpen
+      if (settingsError) {
+        return { data: null, error: settingsError }
       }
-    }
 
-    return { data: result, error: null }
+      if (dailyLimitsError) {
+        return { data: null, error: dailyLimitsError }
+      }
+
+      const reservationCounts: Record<string, number> = {}
+      reservations?.forEach(reservation => {
+        const reservationDate = reservation.date
+        reservationCounts[reservationDate] = (reservationCounts[reservationDate] || 0) + 1
+      })
+
+      const defaultMaxReservations = settings?.max_reservations_per_day || 2
+      const defaultIsOpen = settings?.is_open ?? false
+
+      const dailyLimitMap: Record<string, number> = {}
+      dailyLimits?.forEach(limit => {
+        dailyLimitMap[limit.date] = limit.max_reservations
+      })
+
+      const result: Record<string, {
+        current_reservations: number
+        max_reservations_per_day: number
+        is_full: boolean
+        available_slots: number
+        is_open: boolean
+      }> = {}
+
+      for (let day = 1; day <= lastDay; day++) {
+        const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+        const currentReservations = reservationCounts[dateString] || 0
+        const hasDailyLimit = Object.prototype.hasOwnProperty.call(dailyLimitMap, dateString)
+        const maxReservations = hasDailyLimit ? dailyLimitMap[dateString] : defaultMaxReservations
+        const isOpen = hasDailyLimit ? maxReservations > 0 : defaultIsOpen
+
+        result[dateString] = {
+          current_reservations: currentReservations,
+          max_reservations_per_day: maxReservations,
+          is_full: currentReservations >= maxReservations,
+          available_slots: Math.max(0, maxReservations - currentReservations),
+          is_open: isOpen
+        }
+      }
+
+      return { data: result, error: null }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '월별 예약 현황을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 일별 예약 제한 수 동적 설정
@@ -834,11 +910,22 @@ export const settingsAPI = {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
     }
 
-    const { data, error } = await supabase
-      .from('daily_reservation_limits')
-      .select('*')
-      .eq('region_id', regionId)
-      .eq('date', date)
+    let data
+    let error
+    try {
+      const response = await runQueryWithTimeout(
+        supabase
+          .from('daily_reservation_limits')
+          .select('*')
+          .eq('region_id', regionId)
+          .eq('date', date),
+        '일별 예약 제한을 불러오는 중 시간이 초과되었습니다.'
+      )
+      data = response.data
+      error = response.error
+    } catch (requestError) {
+      return { data: null, error: timeoutError(getErrorMessage(requestError, '일별 예약 제한을 불러오는 중 오류가 발생했습니다.')) }
+    }
 
     // 데이터가 없는 것은 정상 (특정날짜 설정이 없음을 의미)
     if (!data || data.length === 0) {
@@ -884,6 +971,41 @@ export const settingsAPI = {
 
 // 예약 관련 함수들
 export const reservationAPI = {
+  async submitReservation(regionId: number, date: string, slots: Array<{
+    start_time: string
+    end_time: string
+    grade: string
+    participant_count: number
+    location: string
+    slot_order: number
+  }>) {
+    try {
+      const response = await withTimeout(
+        fetch('/api/reservations', {
+          method: 'POST',
+          headers: getUserAuthHeaders(),
+          body: JSON.stringify({
+            regionId,
+            date,
+            slots
+          })
+        }),
+        MUTATION_TIMEOUT_MS,
+        '예약 요청 처리 시간이 초과되었습니다.'
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        return { data: null, error: { message: result.error || '예약 신청에 실패했습니다.' } }
+      }
+
+      return { data: result.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '예약 신청 중 오류가 발생했습니다.') } }
+    }
+  },
+
   // 승인 대기 예약 목록 조회
   async getPendingReservations(regionCode?: string) {
     let query = supabase
@@ -906,8 +1028,16 @@ export const reservationAPI = {
       query = query.eq('users.cities.regions.code', regionCode)
     }
 
-    const { data, error } = await query
-    return { data, error }
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        query,
+        '승인 대기 예약을 불러오는 중 시간이 초과되었습니다.',
+        LONG_QUERY_TIMEOUT_MS
+      )
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '승인 대기 예약을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 승인된 예약 목록 조회
@@ -932,8 +1062,16 @@ export const reservationAPI = {
       query = query.eq('users.cities.regions.code', regionCode)
     }
 
-    const { data, error } = await query
-    return { data, error }
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        query,
+        '승인된 예약을 불러오는 중 시간이 초과되었습니다.',
+        LONG_QUERY_TIMEOUT_MS
+      )
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '승인된 예약을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 모든 예약 조회 (관리자용)
@@ -1092,16 +1230,24 @@ export const reservationAPI = {
 
   // 사용자 예약 목록 조회
   async getUserReservations(userId: string) {
-    const { data, error } = await supabase
-      .from('reservations')
-      .select(`
-        *,
-        reservation_slots(*)
-      `)
-      .eq('user_id', userId)
-      .order('date', { ascending: false })
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        supabase
+          .from('reservations')
+          .select(`
+            *,
+            reservation_slots(*)
+          `)
+          .eq('user_id', userId)
+          .order('date', { ascending: false }),
+        '내 예약 목록을 불러오는 중 시간이 초과되었습니다.',
+        LONG_QUERY_TIMEOUT_MS
+      )
 
-    return { data, error }
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '내 예약 목록을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 예약 취소 요청 (승인된 예약의 경우)
@@ -1139,8 +1285,16 @@ export const reservationAPI = {
       query = query.eq('users.cities.regions.code', regionCode)
     }
 
-    const { data, error } = await query
-    return { data, error }
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        query,
+        '취소 요청 예약을 불러오는 중 시간이 초과되었습니다.',
+        LONG_QUERY_TIMEOUT_MS
+      )
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '취소 요청 예약을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 예약 생성 시 제한 확인
@@ -1158,34 +1312,73 @@ export const reservationAPI = {
     }>
   ) {
     const regionCode = regionId === 1 ? 'south' : 'north'
+
+    const startTimes = slots.map(slot => slot.start_time)
+    const uniqueStartTimes = new Set(startTimes)
+
+    if (startTimes.length !== uniqueStartTimes.size) {
+      return {
+        data: null,
+        error: { message: '시작 시간이 중복됩니다. 각 타임의 시작 시간은 서로 달라야 합니다.' }
+      }
+    }
     
     // 1. 관리자 설정값 조회
     const selectedDateObj = new Date(date)
     const year = selectedDateObj.getFullYear()
     const month = selectedDateObj.getMonth() + 1
-    
-    const { data: settings, error: settingsError } = await settingsAPI.getReservationSettings(regionCode, year, month)
-    if (settingsError) {
-      return { data: null, error: { message: '예약 설정을 확인할 수 없습니다.' } }
-    }
 
-    // 기존 전체 예약 시스템 체크 제거 - 티어별 제어로 대체됨
-
-    // 2. 사용자 월별 예약 제한 체크 (4일/월)
-    const maxDaysPerMonth = settings.max_days_per_month || 4
-    
-    // 해당 월의 마지막 날짜 계산 (정확한 날짜)
     const lastDayOfMonth = new Date(year, month, 0).getDate()
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`
-    
-    const { data: reservations } = await supabase
-      .from('reservations')
-      .select('date')
-      .eq('user_id', userId)
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .in('status', ['pending', 'approved', 'cancel_requested'])
+
+    let settings
+    let reservations
+    let blockedDates
+
+    try {
+      const [settingsResult, reservationsResult, blockedDatesResult] = await Promise.all([
+        settingsAPI.getReservationSettings(regionCode, year, month),
+        runQueryWithTimeout(
+          supabase
+            .from('reservations')
+            .select('date')
+            .eq('user_id', userId)
+            .gte('date', startDate)
+            .lte('date', endDate)
+            .in('status', ['pending', 'approved', 'cancel_requested']),
+          '월 예약 한도를 확인하는 중 시간이 초과되었습니다.'
+        ),
+        runQueryWithTimeout(
+          supabase
+            .from('blocked_dates')
+            .select('*')
+            .eq('region_id', regionId)
+            .eq('date', date),
+          '차단 시간을 확인하는 중 시간이 초과되었습니다.'
+        )
+      ])
+
+      if (settingsResult.error || !settingsResult.data) {
+        return { data: null, error: { message: settingsResult.error?.message || '예약 설정을 확인할 수 없습니다.' } }
+      }
+
+      if (reservationsResult.error) {
+        return { data: null, error: reservationsResult.error }
+      }
+
+      if (blockedDatesResult.error) {
+        return { data: null, error: blockedDatesResult.error }
+      }
+
+      settings = settingsResult.data
+      reservations = reservationsResult.data
+      blockedDates = blockedDatesResult.data
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '예약 가능 여부를 확인하는 중 오류가 발생했습니다.') } }
+    }
+
+    const maxDaysPerMonth = settings.max_days_per_month || 4
 
     // 같은 날짜 중복 예약 검증
     const existingReservationOnDate = reservations?.find(r => r.date === date)
@@ -1203,13 +1396,6 @@ export const reservationAPI = {
         error: { message: `월 예약 한도를 초과했습니다. (${uniqueDatesThisMonth.size}/${maxDaysPerMonth}일)` }
       }
     }
-
-    // 2.5. 시간대별 차단 검증 (새 예약만 검증, 기존 예약에는 영향 없음)
-    const { data: blockedDates } = await supabase
-      .from('blocked_dates')
-      .select('*')
-      .eq('region_id', regionId)
-      .eq('date', date)
 
     if (blockedDates && blockedDates.length > 0) {
       for (const blocked of blockedDates) {
@@ -1245,16 +1431,20 @@ export const reservationAPI = {
     // Trigger: check_capacity_before_insert가 정원 초과 시 자동으로 에러 발생
     try {
       // 예약 생성
-      const { data: reservation, error: reservationError } = await supabase
-        .from('reservations')
-        .insert([{
-          user_id: userId,
-          region_id: regionId,
-          date,
-          status: 'pending'
-        }])
-        .select()
-        .single()
+      const { data: reservation, error: reservationError } = await runQueryWithTimeout(
+        supabase
+          .from('reservations')
+          .insert([{
+            user_id: userId,
+            region_id: regionId,
+            date,
+            status: 'pending'
+          }])
+          .select()
+          .single(),
+        '예약 신청이 지연되고 있습니다. 잠시 후 다시 시도해주세요.',
+        MUTATION_TIMEOUT_MS
+      )
 
       if (reservationError) {
         // Trigger에서 발생한 정원 초과 에러 처리
@@ -1271,33 +1461,20 @@ export const reservationAPI = {
         return { data: null, error: reservationError }
       }
 
-      // 시작 시간 중복 검증
-      const startTimes = slots.map(slot => slot.start_time)
-      const uniqueStartTimes = new Set(startTimes)
-
-      if (startTimes.length !== uniqueStartTimes.size) {
-        // 예약 롤백
-        await supabase
-          .from('reservations')
-          .delete()
-          .eq('id', reservation.id)
-
-        return {
-          data: null,
-          error: { message: '시작 시간이 중복됩니다. 각 타임의 시작 시간은 서로 달라야 합니다.' }
-        }
-      }
-
       // 슬롯 생성
       const slotsWithReservationId = slots.map(slot => ({
         ...slot,
         reservation_id: reservation.id
       }))
 
-      const { data: createdSlots, error: slotsError } = await supabase
-        .from('reservation_slots')
-        .insert(slotsWithReservationId)
-        .select()
+      const { data: createdSlots, error: slotsError } = await runQueryWithTimeout(
+        supabase
+          .from('reservation_slots')
+          .insert(slotsWithReservationId)
+          .select(),
+        '예약 시간 저장이 지연되고 있습니다. 잠시 후 다시 시도해주세요.',
+        MUTATION_TIMEOUT_MS
+      )
 
       if (slotsError) {
         // 예약 롤백
@@ -1364,17 +1541,67 @@ export const utilityAPI = {
   }
 }
 
+export const dashboardAPI = {
+  async getBootstrap(year: number, month: number) {
+    try {
+      const cacheKey = `dashboardBootstrap:${year}-${String(month).padStart(2, '0')}`
+      if (typeof window !== 'undefined') {
+        const cachedValue = sessionStorage.getItem(cacheKey)
+        if (cachedValue) {
+          const cached = JSON.parse(cachedValue)
+          if (Date.now() - cached.cachedAt < 15000) {
+            return { data: cached.data, error: null }
+          }
+        }
+      }
+
+      const response = await withTimeout(
+        fetch(`/api/dashboard/bootstrap?year=${year}&month=${month}`, {
+          method: 'GET',
+          headers: getUserAuthHeaders()
+        }),
+        LONG_QUERY_TIMEOUT_MS,
+        '대시보드 초기 정보를 불러오는 중 시간이 초과되었습니다.'
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        return { data: null, error: { message: result.error || '대시보드 정보를 불러오지 못했습니다.' } }
+      }
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          cachedAt: Date.now(),
+          data: result.data
+        }))
+      }
+
+      return { data: result.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '대시보드 정보를 불러오는 중 오류가 발생했습니다.') } }
+    }
+  }
+}
+
 // 공지사항 관련 함수들
 export const announcementAPI = {
   // 사용자용: 공지사항 목록 조회 (지역별 필터링 적용)
   async getAnnouncementsForUser(userId: string) {
     try {
       // 먼저 사용자의 지역 정보를 조회
-      const { data: userData } = await supabase
-        .from('users')
-        .select('cities!inner(region_id)')
-        .eq('id', userId)
-        .single()
+      const { data: userData, error: userError } = await runQueryWithTimeout(
+        supabase
+          .from('users')
+          .select('cities!inner(region_id)')
+          .eq('id', userId)
+          .single(),
+        '사용자 공지사항 설정을 불러오는 중 시간이 초과되었습니다.'
+      )
+
+      if (userError) {
+        return { data: null, error: userError }
+      }
 
       const userRegionId = userData?.cities?.region_id
 
@@ -1394,33 +1621,73 @@ export const announcementAPI = {
         query = query.eq('target_type', 'all')
       }
 
-      const { data, error } = await query
-        .order('is_important', { ascending: false })
-        .order('created_at', { ascending: false })
+      const { data, error } = await runQueryWithTimeout(
+        query
+          .order('is_important', { ascending: false })
+          .order('created_at', { ascending: false }),
+        '공지사항 목록을 불러오는 중 시간이 초과되었습니다.'
+      )
 
       return { data, error }
     } catch (error) {
       console.error('getAnnouncementsForUser 오류:', error)
-      return { data: null, error }
+      return { data: null, error: timeoutError(getErrorMessage(error, '공지사항 목록을 불러오는 중 오류가 발생했습니다.')) }
     }
   },
 
   // 공개 공지사항만 조회 (로그인하지 않은 사용자용)
   async getPublicAnnouncements() {
-    // 홈페이지에서는 전체 공지와 지역 공지 모두 표시 (배지 색상으로 구분)
-    const { data, error } = await supabase
-      .from('announcements')
-      .select(`
-        *,
-        admins(username),
-        regions(name)
-      `)
-      .eq('is_published', true)
-      // target_type 필터 제거 - 모든 공지사항 표시
-      .order('is_important', { ascending: false })
-      .order('created_at', { ascending: false })
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await withTimeout(
+          fetch('/api/public/announcements', {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }),
+          QUERY_TIMEOUT_MS,
+          '공지사항을 불러오는 중 시간이 초과되었습니다.'
+        )
 
-    return { data, error }
+        const result = await response.json().catch(() => null)
+
+        if (!response.ok) {
+          return {
+            data: null,
+            error: {
+              message: result?.error || '공지사항을 불러오는 중 오류가 발생했습니다.'
+            }
+          }
+        }
+
+        return { data: result?.data || [], error: null }
+      } catch (error) {
+        return {
+          data: null,
+          error: timeoutError(getErrorMessage(error, '공지사항을 불러오는 중 오류가 발생했습니다.'))
+        }
+      }
+    }
+
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        supabase
+          .from('announcements')
+          .select(`
+            *,
+            admins(username),
+            regions(name)
+          `)
+          .eq('is_published', true)
+          .order('is_important', { ascending: false })
+          .order('created_at', { ascending: false }),
+        '공지사항을 불러오는 중 시간이 초과되었습니다.'
+      )
+
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '공지사항을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 관리자용: 공지사항 목록 조회
@@ -1435,11 +1702,18 @@ export const announcementAPI = {
 
     // 모든 관리자가 모든 공지사항을 볼 수 있음 (수정/삭제 권한만 제한)
 
-    const { data, error } = await query
-      .order('is_important', { ascending: false })
-      .order('created_at', { ascending: false })
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        query
+          .order('is_important', { ascending: false })
+          .order('created_at', { ascending: false }),
+        '관리자 공지사항 목록을 불러오는 중 시간이 초과되었습니다.'
+      )
 
-    return { data, error }
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '관리자 공지사항 목록을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 공지사항 상세 조회
@@ -1615,13 +1889,20 @@ export const announcementAPI = {
 
   // 공지사항의 첨부파일 목록 조회
   async getAttachments(announcementId: string) {
-    const { data, error } = await supabase
-      .from('announcement_attachments')
-      .select('*')
-      .eq('announcement_id', announcementId)
-      .order('uploaded_at', { ascending: true })
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        supabase
+          .from('announcement_attachments')
+          .select('*')
+          .eq('announcement_id', announcementId)
+          .order('uploaded_at', { ascending: true }),
+        '첨부파일 목록을 불러오는 중 시간이 초과되었습니다.'
+      )
 
-    return { data, error }
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '첨부파일 목록을 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 첨부파일 삭제
@@ -1661,21 +1942,60 @@ export const announcementAPI = {
 export const popupAPI = {
   // 활성화된 팝업 조회 (홈페이지용)
   async getActivePopups() {
-    const currentTime = new Date().toISOString()
-    
-    const { data, error } = await supabase
-      .from('homepage_popups')
-      .select(`
-        *,
-        admins(username)
-      `)
-      .eq('is_active', true)
-      .lte('start_date', currentTime)
-      .or(`end_date.is.null,end_date.gte.${currentTime}`)
-      .order('display_order', { ascending: true })
-      .order('created_at', { ascending: false })
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await withTimeout(
+          fetch('/api/public/popups', {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }),
+          QUERY_TIMEOUT_MS,
+          '팝업 정보를 불러오는 중 시간이 초과되었습니다.'
+        )
 
-    return { data, error }
+        const result = await response.json().catch(() => null)
+
+        if (!response.ok) {
+          return {
+            data: null,
+            error: {
+              message: result?.error || '팝업 정보를 불러오는 중 오류가 발생했습니다.'
+            }
+          }
+        }
+
+        return { data: result?.data || [], error: null }
+      } catch (error) {
+        return {
+          data: null,
+          error: timeoutError(getErrorMessage(error, '팝업 정보를 불러오는 중 오류가 발생했습니다.'))
+        }
+      }
+    }
+
+    const currentTime = new Date().toISOString()
+
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        supabase
+          .from('homepage_popups')
+          .select(`
+            *,
+            admins(username)
+          `)
+          .eq('is_active', true)
+          .lte('start_date', currentTime)
+          .or(`end_date.is.null,end_date.gte.${currentTime}`)
+          .order('display_order', { ascending: true })
+          .order('created_at', { ascending: false }),
+        '팝업 정보를 불러오는 중 시간이 초과되었습니다.'
+      )
+
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '팝업 정보를 불러오는 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 모든 팝업 조회 (관리자용)
@@ -1796,35 +2116,49 @@ export const popupAPI = {
 export const sessionAPI = {
   // 세션 유효성 검사
   async validateSession(sessionToken: string) {
-    const { data, error } = await supabase
-      .from('user_sessions')
-      .select(`
-        *,
-        users!inner(
-          *,
-          cities!inner(name, regions!inner(name, code))
-        )
-      `)
-      .eq('session_token', sessionToken)
-      .eq('is_active', true)
-      .gte('expires_at', new Date().toISOString())
-      .single()
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        supabase
+          .from('user_sessions')
+          .select(`
+            *,
+            users!inner(
+              *,
+              cities!inner(name, regions!inner(name, code))
+            )
+          `)
+          .eq('session_token', sessionToken)
+          .eq('is_active', true)
+          .gte('expires_at', new Date().toISOString())
+          .single(),
+        '세션 확인 응답이 지연되고 있습니다.'
+      )
 
-    return { data, error }
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '세션 확인 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 세션 갱신 (활동 시간 업데이트)
   async refreshSession(sessionToken: string) {
-    const { data, error } = await supabase
-      .from('user_sessions')
-      .update({ 
-        last_activity: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24시간 연장
-      })
-      .eq('session_token', sessionToken)
-      .eq('is_active', true)
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        supabase
+          .from('user_sessions')
+          .update({ 
+            last_activity: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          })
+          .eq('session_token', sessionToken)
+          .eq('is_active', true),
+        '세션 갱신 응답이 지연되고 있습니다.'
+      )
 
-    return { data, error }
+      return { data, error }
+    } catch (error) {
+      return { data: null, error: timeoutError(getErrorMessage(error, '세션 갱신 중 오류가 발생했습니다.')) }
+    }
   },
 
   // 로그아웃 (세션 비활성화)
@@ -1850,18 +2184,39 @@ export const sessionAPI = {
 
   // 다중 로그인 감지
   async detectMultipleLogins(userId: string) {
-    const { data, error } = await supabase
-      .from('user_sessions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .gte('expires_at', new Date().toISOString())
+    try {
+      const { data, error } = await runQueryWithTimeout(
+        supabase
+          .from('user_sessions')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .gte('expires_at', new Date().toISOString()),
+        '다중 로그인 확인 응답이 지연되고 있습니다.'
+      )
 
-    return { 
-      data: data || [], 
-      error,
-      hasMultipleSessions: (data?.length || 0) > 1
+      return { 
+        data: data || [], 
+        error,
+        hasMultipleSessions: (data?.length || 0) > 1
+      }
+    } catch (error) {
+      return {
+        data: [],
+        error: timeoutError(getErrorMessage(error, '다중 로그인 확인 중 오류가 발생했습니다.')),
+        hasMultipleSessions: false
+      }
     }
+  }
+}
+
+function getUserAuthHeaders(): HeadersInit {
+  if (typeof window === 'undefined') return { 'Content-Type': 'application/json' }
+
+  const sessionToken = localStorage.getItem('session_token')
+  return {
+    'Content-Type': 'application/json',
+    ...(sessionToken && { 'Authorization': `Bearer ${sessionToken}` })
   }
 }
 
@@ -1980,11 +2335,22 @@ export const tierAPI = {
 
   // Get user's tier information with details
   async getUserTier(userId: string) {
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('tier')
-      .eq('id', userId)
-      .single()
+    let user
+    let error
+    try {
+      const response = await runQueryWithTimeout(
+        supabase
+          .from('users')
+          .select('tier')
+          .eq('id', userId)
+          .single(),
+        '사용자 등급을 불러오는 중 시간이 초과되었습니다.'
+      )
+      user = response.data
+      error = response.error
+    } catch (requestError) {
+      return { data: null, error: timeoutError(getErrorMessage(requestError, '사용자 등급을 불러오는 중 오류가 발생했습니다.')) }
+    }
 
     if (error || !user) {
       return { data: null, error }
@@ -2107,13 +2473,27 @@ export const tierAPI = {
     const yearMonth = targetDate.substring(0, 7) // Extract YYYY-MM from YYYY-MM-DD
 
     // Get tier reservation settings for the region and month
-    const { data: settings, error } = await supabase
-      .from('tier_reservation_settings')
-      .select('*')
-      .eq('region_code', regionCode)
-      .eq('year_month', yearMonth)
-      .eq('tier_id', userTier.data.tier_id)
-      .single()
+    let settings
+    let error
+    try {
+      const response = await runQueryWithTimeout(
+        supabase
+          .from('tier_reservation_settings')
+          .select('*')
+          .eq('region_code', regionCode)
+          .eq('year_month', yearMonth)
+          .eq('tier_id', userTier.data.tier_id)
+          .single(),
+        '예약 신청 가능 여부를 확인하는 중 시간이 초과되었습니다.'
+      )
+      settings = response.data
+      error = response.error
+    } catch (requestError) {
+      return {
+        canReserve: false,
+        reason: getErrorMessage(requestError, '예약 신청 가능 여부를 확인하는 중 오류가 발생했습니다.')
+      }
+    }
 
     // 설정이 없으면 기본적으로 예약 종료 상태
     if (error || !settings) {

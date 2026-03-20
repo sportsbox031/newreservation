@@ -61,12 +61,6 @@ export async function validateApiRequest(request: NextRequest): Promise<AuthResu
         return { authenticated: false, error: 'Session expired' }
       }
 
-      // 세션 활동 시간 업데이트
-      await supabaseAdmin
-        .from('admin_sessions')
-        .update({ last_activity: new Date().toISOString() })
-        .eq('id', adminSession.id)
-
       const admin = Array.isArray(adminSession.admins) ? adminSession.admins[0] : adminSession.admins
 
       return {
@@ -115,12 +109,6 @@ export async function validateApiRequest(request: NextRequest): Promise<AuthResu
     if (user.status !== 'approved') {
       return { authenticated: false, error: 'User not approved' }
     }
-
-    // 세션 활동 시간 업데이트
-    await supabaseAdmin
-      .from('user_sessions')
-      .update({ last_activity: new Date().toISOString() })
-      .eq('id', userSession.id)
 
     // city_id로 region_id 조회
     const { data: cityData } = await supabaseAdmin

@@ -22,9 +22,9 @@ import {
   MessageCircle,
   HelpCircle
 } from 'lucide-react';
-import { settingsAPI, reservationAPI, tierAPI, supabase } from '@/lib/supabase';
+import { dashboardAPI, settingsAPI, reservationAPI, tierAPI, supabase } from '@/lib/supabase';
 import AccountManagementModal from '@/components/AccountManagementModal';
-import { useSessionCheck, detectMultipleLogins } from '@/hooks/useSessionCheck';
+import { useSessionCheck } from '@/hooks/useSessionCheck';
 
 type CalendarValue = Date | null | [Date | null, Date | null];
 
@@ -72,7 +72,7 @@ export default function DashboardPage() {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
-  const [remainingDays, setRemainingDays] = useState(0); // 이번 달 남은 예약 가능 일수 - 실제 데이터로 계산
+  const [remainingDays, setRemainingDays] = useState(0); // 이번 달 남은 예약 가능 일수
   const [reservationSlots, setReservationSlots] = useState([
     {
       startTime: '',
@@ -83,10 +83,13 @@ export default function DashboardPage() {
     }
   ]);
   const [myReservations, setMyReservations] = useState<Reservation[]>([]);
+  const [hasLoadedMyReservations, setHasLoadedMyReservations] = useState(false);
+  const [isLoadingMyReservations, setIsLoadingMyReservations] = useState(false);
   const [selectedReservationMonth, setSelectedReservationMonth] = useState<string>(
     `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatusMessage, setSubmitStatusMessage] = useState('');
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(true);
   
   // 예약 현황 상태
@@ -100,7 +103,7 @@ export default function DashboardPage() {
     end_time: string | null;
     reason: string | null;
   }[]>([]);
-  const [userRegion, setUserRegion] = useState<'south' | 'north'>('south');
+  const [userRegion, setUserRegion] = useState<'south' | 'north' | null>(null);
   const [isMonthClosed, setIsMonthClosed] = useState(true); // 예약 종료가 기본값 (각 월마다 관리자가 수동으로 열어야 함)
   const [userTier, setUserTier] = useState<UserTier | null>(null);
   const [currentUserInfo, setCurrentUserInfo] = useState<{
@@ -112,6 +115,7 @@ export default function DashboardPage() {
   });
   
   const router = useRouter();
+  const DASHBOARD_REFRESH_INTERVAL_MS = 60 * 1000;
 
   // 학년 옵션
   const gradeOptions = ['1학년', '2학년', '3학년', '4학년', '5학년', '6학년', '기타'];
@@ -137,6 +141,10 @@ export default function DashboardPage() {
 
     try {
       setIsSubmitting(true);
+      const targetReservation = myReservations.find(reservation => reservation.id === reservationId);
+      const targetDateString = targetReservation
+        ? `${targetReservation.date.getFullYear()}-${String(targetReservation.date.getMonth() + 1).padStart(2, '0')}-${String(targetReservation.date.getDate()).padStart(2, '0')}`
+        : null;
 
       if (status === 'pending') {
         // 승인대기 상태 - DB에서 즉시 완전 삭제
@@ -149,11 +157,12 @@ export default function DashboardPage() {
 
         alert('예약이 취소되었습니다.');
 
-        // 승인 전 취소는 즉시 데이터 새로고침 (달력 반영)
-        await Promise.all([
-          loadMyReservations(),
-          loadReservationStatus()
-        ]);
+        if (targetDateString) {
+          updateReservationStatusForDate(targetDateString, -1);
+        }
+        const updatedReservations = myReservations.filter(reservation => reservation.id !== reservationId);
+        setMyReservations(updatedReservations);
+        calculateRemainingReservations(updatedReservations);
 
       } else if (status === 'approved') {
         // 승인 후 - 취소 요청만 전송
@@ -165,9 +174,9 @@ export default function DashboardPage() {
         }
         
         alert('취소 요청이 관리자에게 전송되었습니다. 관리자 승인 후 취소됩니다.');
-        
-        // 승인 후는 예약 목록만 업데이트 (달력은 변경 안됨)
-        await loadMyReservations();
+        if (hasLoadedMyReservations) {
+          await loadMyReservations();
+        }
       }
 
     } catch (error) {
@@ -212,55 +221,10 @@ export default function DashboardPage() {
     }
   }, [user, isAuthenticated]);
 
-  // 다중 로그인 감지 및 처리
-  useEffect(() => {
-    const checkMultipleLogins = async () => {
-      if (user && isAuthenticated) {
-        try {
-          const { hasMultiple, sessions } = await detectMultipleLogins(user.id);
-          
-          if (hasMultiple) {
-            const otherSessions = sessions.filter(session => 
-              session.session_token !== localStorage.getItem('session_token')
-            );
-            
-            if (otherSessions.length > 0) {
-              const message = `
-다른 기기에서 동시 접속이 감지되었습니다.
-보안을 위해 다른 세션을 종료하시겠습니까?
-
-감지된 세션 정보:
-${otherSessions.map(session =>
-  `• ${session.user_agent} (${new Date(session.last_activity).toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })})`
-).join('\n')}
-              `;
-              
-              if (confirm(message)) {
-                console.log('사용자가 다른 세션 종료를 선택했습니다.');
-              }
-            }
-          }
-        } catch (error) {
-          console.error('다중 로그인 감지 오류:', error);
-        }
-      }
-    };
-
-    // 컴포넌트 마운트 후 5초 뒤에 다중 로그인 체크
-    const timeoutId = setTimeout(checkMultipleLogins, 5000);
-    
-    return () => clearTimeout(timeoutId);
-  }, [user, isAuthenticated]);
-
   // 실시간 하루 최대예약개수 체크 함수
   const checkReservationCapacity = async (date: Date) => {
     if (!date) return null;
+    if (!userRegion) return null;
     
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -282,27 +246,126 @@ ${otherSessions.map(session =>
     }
   };
 
+  const applyDashboardBootstrapData = (bootstrapData: any) => {
+    if (bootstrapData?.user?.region_code) {
+      setUserRegion(bootstrapData.user.region_code as 'south' | 'north');
+    }
+
+    if (bootstrapData?.user?.region_name || bootstrapData?.user?.organization_name) {
+      setCurrentUserInfo({
+        organization_name: bootstrapData.user.organization_name || '사용자',
+        region_name: bootstrapData.user.region_name || '경기남부'
+      });
+    }
+
+    if (bootstrapData?.user?.tier) {
+      const tierName = bootstrapData.user.tier;
+      setUserTier({
+        tier_id: tierName === 'Priority' ? 1 : 2,
+        member_tiers: {
+          id: tierName === 'Priority' ? 1 : 2,
+          tier_name: tierName,
+          tier_level: tierName === 'Priority' ? 1 : 2,
+          description: tierName === 'Priority'
+            ? 'Priority 회원 (학생수 ≤240 OR 학급수 ≤11)'
+            : 'Standard 회원',
+          advance_reservation_days: tierName === 'Priority' ? 1 : 0,
+          monthly_reservation_limit: 4,
+          daily_slot_limit: 2
+        }
+      });
+    }
+
+    if (typeof bootstrapData?.remainingDays === 'number') {
+      setRemainingDays(bootstrapData.remainingDays);
+    }
+
+    if (bootstrapData?.reservationStatus) {
+      const formattedStatus: Record<string, { current: number; max: number; isFull: boolean; isOpen: boolean }> = {};
+      let hasAnyOpenDay = false;
+
+      Object.keys(bootstrapData.reservationStatus).forEach((dateString) => {
+        const status = bootstrapData.reservationStatus[dateString];
+        formattedStatus[dateString] = {
+          current: status.current_reservations,
+          max: status.max_reservations_per_day,
+          isFull: status.is_full,
+          isOpen: status.is_open
+        };
+
+        if (status.is_open) {
+          hasAnyOpenDay = true;
+        }
+      });
+
+      setReservationStatus(formattedStatus);
+      setIsMonthClosed(!hasAnyOpenDay);
+    }
+
+    if (Array.isArray(bootstrapData?.blockedDates)) {
+      setBlockedDates(bootstrapData.blockedDates.map((item: any) => ({
+        date: item.date,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        reason: item.reason
+      })));
+    }
+
+  };
+
+  const refreshDashboardData = async () => {
+    if (!isAuthenticated || !user) return;
+
+    try {
+      setIsLoadingCalendar(true);
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth() + 1;
+      const { data, error } = await dashboardAPI.getBootstrap(year, month);
+
+      if (error || !data) {
+        console.error('대시보드 bootstrap 오류:', error);
+        return;
+      }
+
+      applyDashboardBootstrapData(data);
+    } catch (error) {
+      console.error('대시보드 bootstrap 예외:', error);
+    } finally {
+      setIsLoadingCalendar(false);
+    }
+  };
+
   // 데이터 로드 (월 변경이나 지역 변경 시 실행)
   useEffect(() => {
-    if (userRegion) { // userRegion이 설정된 후에만 실행
-      loadReservationStatus();
-      loadBlockedDates();
-      loadMyReservations(); // 내 예약 목록도 로드
+    if (isAuthenticated && user) {
+      refreshDashboardData();
     }
-  }, [currentMonth, userRegion]);
+  }, [currentMonth, isAuthenticated, user]);
 
   // 실시간 설정 변경 감지를 위한 주기적 새로고침 (취소 승인 반영 포함)
   useEffect(() => {
-    if (!userRegion) return; // userRegion이 설정되지 않았으면 실행하지 않음
-    
-    const interval = setInterval(() => {
-      loadReservationStatus();
-      loadBlockedDates();
-      loadMyReservations(); // 취소 승인 상황 실시간 반영
-    }, 15000); // 15초마다 새로고침으로 변경 (취소 승인 더 빠르게 반영)
+    if (!isAuthenticated || !user) return;
 
-    return () => clearInterval(interval);
-  }, [currentMonth, userRegion]);
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible' && activeModal !== 'reservation' && !isSubmitting) {
+        refreshDashboardData();
+      }
+    };
+
+    const interval = setInterval(refreshIfVisible, DASHBOARD_REFRESH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [currentMonth, isAuthenticated, user, activeModal, isSubmitting]);
+
+  useEffect(() => {
+    if (activeModal === 'myReservations' && !hasLoadedMyReservations) {
+      loadMyReservations();
+    }
+  }, [activeModal, hasLoadedMyReservations]);
 
   // 사용자 티어 정보 로드
   const loadUserTier = async () => {
@@ -347,7 +410,7 @@ ${otherSessions.map(session =>
         console.error('예약 현황 로드 오류:', error);
         // 오류 발생 시 기본값으로 폴백 (예약 종료 상태가 기본값)
         const endOfMonth = new Date(year, month, 0);
-        const fallbackStatus = {};
+        const fallbackStatus: Record<string, { current: number; max: number; isFull: boolean; isOpen: boolean }> = {};
         for (let day = 1; day <= endOfMonth.getDate(); day++) {
           const dateString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
           fallbackStatus[dateString] = {
@@ -365,7 +428,7 @@ ${otherSessions.map(session =>
       
       if (monthStatus) {
         // 데이터 형식 변환 (API 응답 → 컴포넌트 상태 형식)
-        const formattedStatus = {};
+        const formattedStatus: Record<string, { current: number; max: number; isFull: boolean; isOpen: boolean }> = {};
         let hasAnyOpenDay = false;
         let totalDays = 0;
         let closedDays = 0;
@@ -432,13 +495,9 @@ ${otherSessions.map(session =>
   // 내 예약 목록 로드
   const loadMyReservations = async () => {
     try {
-      const currentUser = localStorage.getItem('currentUser');
-      if (!currentUser) return;
-
-      const userData = JSON.parse(currentUser);
-      const userId = userData.id;
-      
+      const userId = user?.id;
       if (!userId) return;
+      setIsLoadingMyReservations(true);
 
       // API에서 사용자의 예약 목록을 가져오기
       const result = await reservationAPI.getUserReservations(userId);
@@ -459,15 +518,19 @@ ${otherSessions.map(session =>
         }));
         
         setMyReservations(reservations);
+        setHasLoadedMyReservations(true);
         
         // 이번 달 예약 횟수 계산
         calculateRemainingReservations(reservations);
       } else {
         setMyReservations([]);
+        setHasLoadedMyReservations(true);
         setRemainingDays(4); // 예약이 없으면 전체 4일
       }
     } catch (error) {
       console.error('내 예약 목록 로드 오류:', error);
+    } finally {
+      setIsLoadingMyReservations(false);
     }
   };
 
@@ -489,6 +552,23 @@ ${otherSessions.map(session =>
     const remaining = Math.max(0, 4 - usedDays); // 최대 4일에서 사용한 일수 빼기
 
     setRemainingDays(remaining);
+  };
+
+  const updateReservationStatusForDate = (dateString: string, delta: number) => {
+    setReservationStatus(prev => {
+      const current = prev[dateString];
+      if (!current) return prev;
+
+      const nextCurrent = Math.max(0, current.current + delta);
+      return {
+        ...prev,
+        [dateString]: {
+          ...current,
+          current: nextCurrent,
+          isFull: current.max > 0 ? nextCurrent >= current.max : true
+        }
+      };
+    });
   };
 
   // 종료시간 자동 계산 (시작시간 + 40분)
@@ -798,6 +878,8 @@ ${otherSessions.map(session =>
   const handleReservationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSubmitStatusMessage('예약 가능 여부를 확인하고 있습니다...');
+    let delayedStatusTimer: number | null = null;
     
     try {
       const filteredSlots = reservationSlots.filter(slot => 
@@ -813,6 +895,7 @@ ${otherSessions.map(session =>
       if (!selectedDate) {
         alert('날짜를 선택해주세요.');
         setIsSubmitting(false);
+        setSubmitStatusMessage('');
         return;
       }
 
@@ -822,19 +905,6 @@ ${otherSessions.map(session =>
       const dateDay = String(selectedDate.getDate()).padStart(2, '0');
       const dateString = `${dateYear}-${dateMonth}-${dateDay}`;
 
-      // 같은 날짜 중복 예약 검증
-      const existingReservationOnDate = myReservations.find(reservation => {
-        const reservationDateString = `${reservation.date.getFullYear()}-${String(reservation.date.getMonth() + 1).padStart(2, '0')}-${String(reservation.date.getDate()).padStart(2, '0')}`;
-        return reservationDateString === dateString &&
-               (reservation.status === 'pending' || reservation.status === 'approved');
-      });
-
-      if (existingReservationOnDate) {
-        alert('이미 해당 날짜에 예약이 존재합니다. 같은 날짜에 중복 예약은 불가능합니다.');
-        setIsSubmitting(false);
-        return;
-      }
-
       // 시작 시간 중복 검증 (첫 번째 타임과 두 번째 타임이 같으면 안 됨)
       const startTimes = filteredSlots.map(slot => slot.startTime);
       const uniqueStartTimes = new Set(startTimes);
@@ -842,6 +912,7 @@ ${otherSessions.map(session =>
       if (startTimes.length !== uniqueStartTimes.size) {
         alert('시작 시간이 중복됩니다. 각 타임의 시작 시간은 서로 달라야 합니다.');
         setIsSubmitting(false);
+        setSubmitStatusMessage('');
         return;
       }
 
@@ -853,6 +924,7 @@ ${otherSessions.map(session =>
           if (slot.startTime < blocked.end_time! && slot.endTime > blocked.start_time!) {
             alert(`${blocked.start_time?.substring(0, 5)}~${blocked.end_time?.substring(0, 5)} 시간대는 예약이 차단되어 있습니다.\n사유: ${blocked.reason || '관리자 설정'}`);
             setIsSubmitting(false);
+            setSubmitStatusMessage('');
             return;
           }
         }
@@ -875,6 +947,7 @@ ${otherSessions.map(session =>
       if (!user || !isAuthenticated) {
         alert('예약을 위해 로그인이 필요합니다.');
         setIsSubmitting(false);
+        setSubmitStatusMessage('');
         return;
       }
 
@@ -882,6 +955,7 @@ ${otherSessions.map(session =>
       if (!userId) {
         alert('사용자 정보가 올바르지 않습니다. 다시 로그인해주세요.');
         setIsSubmitting(false);
+        setSubmitStatusMessage('');
         return;
       }
 
@@ -906,6 +980,7 @@ ${otherSessions.map(session =>
         if (!canReserve) {
           alert(reason || '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.');
           setIsSubmitting(false);
+          setSubmitStatusMessage('');
           return;
         }
       } else {
@@ -917,13 +992,18 @@ ${otherSessions.map(session =>
       if (!sessionToken) {
         alert('세션이 만료되었습니다. 다시 로그인해주세요.');
         setIsSubmitting(false);
+        setSubmitStatusMessage('');
         return;
       }
 
-      // 통합된 예약 생성 API 호출 (모든 검증 및 동시성 제어 포함)
-      console.log('통합 예약 API 호출:', { userId, regionId, dateString });
-      const result = await reservationAPI.createReservationWithValidation(
-        userId,
+      setSubmitStatusMessage('예약 요청을 접수하고 있습니다...');
+
+      delayedStatusTimer = window.setTimeout(() => {
+        setSubmitStatusMessage(prev => prev ? '신청이 몰려 처리 중입니다. 잠시만 기다려주세요...' : prev);
+      }, 4000);
+
+      console.log('예약 API 호출:', { userId, regionId, dateString });
+      const result = await reservationAPI.submitReservation(
         regionId,
         dateString,
         slotsData
@@ -931,6 +1011,7 @@ ${otherSessions.map(session =>
 
       if (result.error) {
         alert(`예약 신청 실패: ${result.error.message}`);
+        setSubmitStatusMessage('');
         return;
       }
 
@@ -950,17 +1031,17 @@ ${otherSessions.map(session =>
           created_at: new Date()
         };
 
-        // 현재 예약 목록에 새 예약 추가
-        const updatedReservations = [...myReservations, newReservation];
-        setMyReservations(updatedReservations);
+        if (hasLoadedMyReservations) {
+          const updatedReservations = [...myReservations, newReservation];
+          setMyReservations(updatedReservations);
+          calculateRemainingReservations(updatedReservations);
+        } else {
+          setRemainingDays(prev => Math.max(0, prev - 1));
+        }
 
-        // 남은 예약 수 즉시 계산
-        calculateRemainingReservations(updatedReservations);
+        updateReservationStatusForDate(dateString, 1);
       }
 
-      // 예약 현황도 새로고침 (달력 표시용)
-      await loadReservationStatus();
-      
       // 모달 닫기
       setActiveModal(null);
       setSelectedDate(null);
@@ -978,7 +1059,11 @@ ${otherSessions.map(session =>
       console.error('예약 신청 오류:', error);
       alert('예약 신청 중 오류가 발생했습니다.');
     } finally {
+      if (typeof delayedStatusTimer === 'number') {
+        window.clearTimeout(delayedStatusTimer);
+      }
       setIsSubmitting(false);
+      setSubmitStatusMessage('');
     }
   };
 
@@ -998,6 +1083,13 @@ ${otherSessions.map(session =>
   // 계정 관리
   const handleAccountManagement = () => {
     setShowAccountModal(true);
+  };
+
+  const handleOpenMyReservations = async () => {
+    setActiveModal('myReservations');
+    if (!hasLoadedMyReservations) {
+      await loadMyReservations();
+    }
   };
 
   const StatusBadge = ({ status }: { status: ReservationStatus }) => {
@@ -1101,7 +1193,7 @@ ${otherSessions.map(session =>
               </div>
 
               <button
-                onClick={() => setActiveModal('myReservations')}
+                onClick={handleOpenMyReservations}
                 className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 p-1 sm:p-0"
               >
                 <List className="w-4 h-4" />
@@ -1442,7 +1534,7 @@ ${otherSessions.map(session =>
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900">최근 예약 현황</h3>
               </div>
 
-              {myReservations.length > 0 ? (
+              {hasLoadedMyReservations && myReservations.length > 0 ? (
                 <div className="space-y-2 sm:space-y-3">
                   {myReservations.slice(0, 3).map((reservation, index) => (
                     <div key={reservation.id} className="flex items-center justify-between p-2.5 sm:p-3 bg-white rounded-lg shadow-sm border border-gray-100">
@@ -1469,7 +1561,7 @@ ${otherSessions.map(session =>
                     </div>
                   )}
                 </div>
-              ) : (
+              ) : hasLoadedMyReservations ? (
                 <div className="text-center py-6 sm:py-8">
                   <div className="relative mb-3 sm:mb-4">
                     <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl sm:rounded-2xl mx-auto flex items-center justify-center shadow-lg">
@@ -1486,10 +1578,22 @@ ${otherSessions.map(session =>
                     달력에서 날짜를 선택해<br/>스포츠박스 프로그램을 예약해보세요
                   </p>
                 </div>
+              ) : (
+                <div className="text-center py-6 sm:py-8">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl sm:rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-3 sm:mb-4">
+                    <List className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+                  </div>
+                  <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 break-keep">
+                    예약 내역은 필요할 때만 불러옵니다
+                  </h4>
+                  <p className="text-xs sm:text-sm text-gray-500 mb-4 break-keep">
+                    전체 예약 내역 보기 버튼을 누르면<br/>내 예약 정보를 불러옵니다
+                  </p>
+                </div>
               )}
 
               <button
-                onClick={() => setActiveModal('myReservations')}
+                onClick={handleOpenMyReservations}
                 className="w-full mt-3 sm:mt-4 py-2.5 sm:py-3 px-3 sm:px-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
               >
                 <div className="flex items-center justify-center space-x-1.5 sm:space-x-2">
@@ -1693,7 +1797,7 @@ ${otherSessions.map(session =>
                     {isSubmitting ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white mr-2"></div>
-                        <span className="break-keep">신청 중...</span>
+                        <span className="break-keep">{submitStatusMessage || '신청 중...'}</span>
                       </>
                     ) : (
                       <>
@@ -1729,6 +1833,7 @@ ${otherSessions.map(session =>
                 <select
                   value={selectedReservationMonth}
                   onChange={(e) => setSelectedReservationMonth(e.target.value)}
+                  disabled={isLoadingMyReservations || !hasLoadedMyReservations}
                   className="px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {(() => {
@@ -1761,7 +1866,12 @@ ${otherSessions.map(session =>
 
               {/* 예약 목록 */}
               <div className="space-y-4">
-                {(() => {
+                {isLoadingMyReservations ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p>예약 내역을 불러오는 중...</p>
+                  </div>
+                ) : (() => {
                   // 선택된 월에 해당하는 예약만 필터링
                   const [year, month] = selectedReservationMonth.split('-');
                   const filteredReservations = myReservations.filter(res => {

@@ -24,6 +24,9 @@ interface Announcement {
   }
 }
 
+const HOME_ANNOUNCEMENTS_CACHE_KEY = 'homeAnnouncementsCache'
+const HOME_ANNOUNCEMENTS_CACHE_TTL_MS = 60 * 1000
+
 export default function Home() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
@@ -36,11 +39,29 @@ export default function Home() {
   }, [])
 
   const loadAnnouncements = async () => {
+    let staleAnnouncements: Announcement[] = []
+
     try {
+      const cachedValue = sessionStorage.getItem(HOME_ANNOUNCEMENTS_CACHE_KEY)
+      if (cachedValue) {
+        const cached = JSON.parse(cachedValue)
+        staleAnnouncements = cached.data || []
+        if (Date.now() - cached.cachedAt < HOME_ANNOUNCEMENTS_CACHE_TTL_MS) {
+          setAnnouncements(staleAnnouncements)
+          setLoading(false)
+          return
+        }
+      }
+
       const { data, error } = await announcementAPI.getPublicAnnouncements()
 
       if (error) {
-        console.error('공지사항 로드 오류:', error)
+        if (staleAnnouncements.length > 0) {
+          setAnnouncements(staleAnnouncements)
+          console.warn('공지사항 최신 데이터를 불러오지 못해 이전 캐시를 표시합니다:', error)
+        } else {
+          console.error('공지사항 로드 오류:', error)
+        }
       } else {
         // 중요 공지를 최상단에 표시하고, 그 다음 최신순으로 정렬
         const sortedData = (data || [])
@@ -54,9 +75,20 @@ export default function Home() {
           })
           .slice(0, 5)
         setAnnouncements(sortedData)
+        sessionStorage.setItem(HOME_ANNOUNCEMENTS_CACHE_KEY, JSON.stringify({
+          cachedAt: Date.now(),
+          data: sortedData
+        }))
       }
     } catch (error) {
-      console.error('공지사항 로드 예외:', error)
+      const cachedValue = sessionStorage.getItem(HOME_ANNOUNCEMENTS_CACHE_KEY)
+      if (cachedValue) {
+        const cached = JSON.parse(cachedValue)
+        setAnnouncements(cached.data || [])
+        console.warn('공지사항 로드 예외로 이전 캐시를 표시합니다:', error)
+      } else {
+        console.error('공지사항 로드 예외:', error)
+      }
     } finally {
       setLoading(false)
     }

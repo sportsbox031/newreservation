@@ -19,6 +19,9 @@ interface HomepagePopup {
   }
 }
 
+const HOMEPAGE_POPUP_CACHE_KEY = 'homepagePopupCache'
+const HOMEPAGE_POPUP_CACHE_TTL_MS = 60 * 1000
+
 // 마크다운을 HTML로 변환하는 간단한 함수
 const markdownToHtml = (markdown: string): string => {
   let html = markdown
@@ -212,16 +215,44 @@ export default function HomepagePopupComponent() {
   }, [visiblePopups.length])
 
   const loadPopups = async () => {
+    let stalePopups: HomepagePopup[] = []
+
     try {
+      const cachedValue = sessionStorage.getItem(HOMEPAGE_POPUP_CACHE_KEY)
+      if (cachedValue) {
+        const cached = JSON.parse(cachedValue)
+        stalePopups = cached.data || []
+        if (Date.now() - cached.cachedAt < HOMEPAGE_POPUP_CACHE_TTL_MS) {
+          const unseenCachedPopups = stalePopups.filter(
+            (popup: HomepagePopup) => !checkPopupSeenToday(popup.id)
+          )
+          setVisiblePopups(unseenCachedPopups)
+          setLoading(false)
+          return
+        }
+      }
+
       const { data, error } = await popupAPI.getActivePopups()
 
       if (error) {
-        console.error('팝업 로드 오류:', error)
+        if (stalePopups.length > 0) {
+          const unseenCachedPopups = stalePopups.filter(
+            (popup: HomepagePopup) => !checkPopupSeenToday(popup.id)
+          )
+          setVisiblePopups(unseenCachedPopups)
+          console.warn('팝업 최신 데이터를 불러오지 못해 이전 캐시를 표시합니다:', error)
+        } else {
+          console.error('팝업 로드 오류:', error)
+        }
         setLoading(false)
         return
       }
 
       const activePopups = data || []
+      sessionStorage.setItem(HOMEPAGE_POPUP_CACHE_KEY, JSON.stringify({
+        cachedAt: Date.now(),
+        data: activePopups
+      }))
 
       // 24시간 내 이미 본 팝업 필터링
       const unseenPopups = activePopups.filter(
@@ -231,7 +262,17 @@ export default function HomepagePopupComponent() {
       setVisiblePopups(unseenPopups)
       setLoading(false)
     } catch (error) {
-      console.error('팝업 로드 예외:', error)
+      const cachedValue = sessionStorage.getItem(HOMEPAGE_POPUP_CACHE_KEY)
+      if (cachedValue) {
+        const cached = JSON.parse(cachedValue)
+        const unseenCachedPopups = (cached.data || []).filter(
+          (popup: HomepagePopup) => !checkPopupSeenToday(popup.id)
+        )
+        setVisiblePopups(unseenCachedPopups)
+        console.warn('팝업 로드 예외로 이전 캐시를 표시합니다:', error)
+      } else {
+        console.error('팝업 로드 예외:', error)
+      }
       setLoading(false)
     }
   }

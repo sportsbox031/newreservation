@@ -22,6 +22,8 @@ interface Announcement {
   }
 }
 
+const ANNOUNCEMENTS_CACHE_TTL_MS = 60 * 1000
+
 export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
@@ -34,32 +36,74 @@ export default function AnnouncementsPage() {
   }, [])
 
   const loadAnnouncements = async () => {
+    let staleAnnouncements: Announcement[] = []
+
     try {
-      // 현재 로그인한 사용자 정보 가져오기
-      const userInfo = localStorage.getItem('userInfo')
+      const currentUser = localStorage.getItem('currentUser')
+      const cacheScope = currentUser ? `user:${JSON.parse(currentUser).id}` : 'public'
+      const cacheKey = `announcementsCache:${cacheScope}`
+      const cachedValue = sessionStorage.getItem(cacheKey)
+
+      if (cachedValue) {
+        const cached = JSON.parse(cachedValue)
+        staleAnnouncements = cached.data || []
+        if (Date.now() - cached.cachedAt < ANNOUNCEMENTS_CACHE_TTL_MS) {
+          setAnnouncements(staleAnnouncements)
+          return
+        }
+      }
       
-      if (!userInfo) {
+      if (!currentUser) {
         // 사용자 정보가 없으면 전체 공지만 가져오기
         const { data, error } = await announcementAPI.getPublicAnnouncements()
         
         if (error) {
-          console.error('공지사항 로드 오류:', error)
+          if (staleAnnouncements.length > 0) {
+            setAnnouncements(staleAnnouncements)
+            console.warn('공지사항 최신 데이터를 불러오지 못해 이전 캐시를 표시합니다:', error)
+          } else {
+            console.error('공지사항 로드 오류:', error)
+          }
         } else {
           setAnnouncements(data || [])
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            cachedAt: Date.now(),
+            data: data || []
+          }))
         }
         return
       }
       
-      const userData = JSON.parse(userInfo)
+      const userData = JSON.parse(currentUser)
       const { data, error } = await announcementAPI.getAnnouncementsForUser(userData.id)
       
       if (error) {
-        console.error('공지사항 로드 오류:', error)
+        if (staleAnnouncements.length > 0) {
+          setAnnouncements(staleAnnouncements)
+          console.warn('공지사항 최신 데이터를 불러오지 못해 이전 캐시를 표시합니다:', error)
+        } else {
+          console.error('공지사항 로드 오류:', error)
+        }
       } else {
         setAnnouncements(data || [])
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          cachedAt: Date.now(),
+          data: data || []
+        }))
       }
     } catch (error) {
-      console.error('공지사항 로드 예외:', error)
+      const currentUser = localStorage.getItem('currentUser')
+      const cacheScope = currentUser ? `user:${JSON.parse(currentUser).id}` : 'public'
+      const cacheKey = `announcementsCache:${cacheScope}`
+      const cachedValue = sessionStorage.getItem(cacheKey)
+
+      if (cachedValue) {
+        const cached = JSON.parse(cachedValue)
+        setAnnouncements(cached.data || [])
+        console.warn('공지사항 로드 예외로 이전 캐시를 표시합니다:', error)
+      } else {
+        console.error('공지사항 로드 예외:', error)
+      }
     } finally {
       setLoading(false)
     }

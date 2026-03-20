@@ -7,7 +7,9 @@
     "build": "next build --turbopack",
     "start": "next start",
     "gen:types": "pnpm dlx supabase gen types typescript --project-id 'edwsgsgewuqxgghhuvnj' --schema public > database.types.ts",
-    "lint": "eslint"
+    "lint": "eslint",
+    "loadtest:reservations": "node scripts/load-test-reservations.mjs",
+    "loadtest:seed-users": "node scripts/seed-loadtest-users.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
@@ -40,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "postcss": "^8.4.49",
+    "puppeteer": "^24.35.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
   }

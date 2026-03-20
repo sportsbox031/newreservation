@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { sessionAPI } from '@/lib/supabase';
+import { isTimeoutError } from '@/lib/requestUtils';
 
 // 로그아웃 진행 중 플래그 (수동 로그아웃과 강제 로그아웃 구분용)
 let isManualLogout = false;
@@ -13,10 +14,30 @@ export interface SessionCheckResult {
   shouldLogout?: boolean;
 }
 
+const SESSION_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const SESSION_VISIBILITY_THROTTLE_MS = 60 * 1000;
+const SESSION_WRITE_INTERVAL_MS = 15 * 60 * 1000;
+const SESSION_CACHE_TTL_MS = 30 * 1000;
+const SESSION_VALIDATED_AT_KEY = 'sessionValidatedAt';
+
+const getCachedCurrentUser = () => {
+  try {
+    const cachedUser = localStorage.getItem('currentUser');
+    return cachedUser ? JSON.parse(cachedUser) : null;
+  } catch (error) {
+    console.error('캐시된 사용자 정보 파싱 오류:', error);
+    return null;
+  }
+};
+
 // 클라이언트 사이드 세션 검증
-export async function checkClientSession(): Promise<SessionCheckResult> {
+export async function checkClientSession(
+  refreshActivity: boolean = false,
+  forceServerCheck: boolean = false
+): Promise<SessionCheckResult> {
   try {
     const sessionToken = localStorage.getItem('session_token');
+    const cachedUser = getCachedCurrentUser();
     
     if (!sessionToken) {
       return {
@@ -26,10 +47,31 @@ export async function checkClientSession(): Promise<SessionCheckResult> {
       };
     }
 
+    if (!forceServerCheck && cachedUser) {
+      const lastValidatedAt = Number(localStorage.getItem(SESSION_VALIDATED_AT_KEY) || '0');
+      if (Date.now() - lastValidatedAt < SESSION_CACHE_TTL_MS) {
+        return {
+          isValid: true,
+          user: cachedUser
+        };
+      }
+    }
+
     // 세션 유효성 검증
     const { data: sessionData, error } = await sessionAPI.validateSession(sessionToken);
 
     if (error || !sessionData) {
+      if (error && isTimeoutError(error)) {
+        if (cachedUser) {
+          return {
+            isValid: true,
+            user: cachedUser,
+            error: '세션 확인이 지연되고 있습니다.',
+            shouldLogout: false
+          };
+        }
+      }
+
       console.log('세션 검증 실패:', error);
       return {
         isValid: false,
@@ -38,8 +80,12 @@ export async function checkClientSession(): Promise<SessionCheckResult> {
       };
     }
 
-    // 세션 갱신 (활동 시간 업데이트)
-    await sessionAPI.refreshSession(sessionToken);
+    if (refreshActivity) {
+      await sessionAPI.refreshSession(sessionToken);
+      localStorage.setItem(SESSION_VALIDATED_AT_KEY, String(Date.now()));
+    } else {
+      localStorage.setItem(SESSION_VALIDATED_AT_KEY, String(Date.now()));
+    }
 
     return {
       isValid: true,
@@ -73,6 +119,7 @@ export async function performLogout(sessionToken?: string): Promise<void> {
     localStorage.removeItem('session_token');
     localStorage.removeItem('currentUser');
     localStorage.removeItem('adminInfo');
+    localStorage.removeItem(SESSION_VALIDATED_AT_KEY);
 
     // 페이지 리디렉션
     window.location.href = '/auth/login';
@@ -115,13 +162,14 @@ export function useSessionCheck() {
 
   useEffect(() => {
     let isCheckingSession = false; // 중복 체크 방지
-    let lastCheckTime = 0; // 마지막 체크 시간
+    let lastWriteTime = 0;
+    let lastVisibilityCheckTime = 0;
 
-    const checkSession = async () => {
+    const checkSession = async (refreshActivity: boolean = false, forceServerCheck: boolean = false) => {
       if (isCheckingSession) return; // 이미 체크 중이면 스킵
 
       isCheckingSession = true;
-      const result = await checkClientSession();
+      const result = await checkClientSession(refreshActivity, forceServerCheck);
 
       setIsAuthenticated(result.isValid);
       setUser(result.user || null);
@@ -140,32 +188,41 @@ export function useSessionCheck() {
     };
 
     // 초기 세션 체크
-    checkSession();
+    checkSession(false, false);
+    lastWriteTime = Number(localStorage.getItem(SESSION_VALIDATED_AT_KEY) || Date.now());
 
-    // 사용자 활동 감지 시 즉시 세션 체크 (Throttle: 1초에 최대 1회)
-    const handleUserActivity = async () => {
+    const handleVisibilityOrFocus = async () => {
       const now = Date.now();
-      if (now - lastCheckTime < 1000) return; // 1초 이내 중복 체크 방지
+      if (now - lastVisibilityCheckTime < SESSION_VISIBILITY_THROTTLE_MS) return;
 
-      lastCheckTime = now;
-      await checkSession();
+      lastVisibilityCheckTime = now;
+      const shouldRefresh = now - lastWriteTime >= SESSION_WRITE_INTERVAL_MS;
+      await checkSession(shouldRefresh, true);
+
+      if (shouldRefresh) {
+        lastWriteTime = now;
+      }
     };
 
-    // 전역 이벤트 리스너 등록
-    document.addEventListener('click', handleUserActivity);
-    document.addEventListener('keydown', handleUserActivity);
-    document.addEventListener('touchstart', handleUserActivity);
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        await handleVisibilityOrFocus();
+      }
+    };
 
-    // 백업: 30초마다 세션 체크 (사용자 활동이 없을 때를 대비)
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 백업: 15분마다 세션 갱신
     const intervalId = setInterval(async () => {
-      await checkSession();
-    }, 30 * 1000); // 30초
+      lastWriteTime = Date.now();
+      await checkSession(true, true);
+    }, SESSION_WRITE_INTERVAL_MS);
 
     // 클린업
     return () => {
-      document.removeEventListener('click', handleUserActivity);
-      document.removeEventListener('keydown', handleUserActivity);
-      document.removeEventListener('touchstart', handleUserActivity);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(intervalId);
     };
 

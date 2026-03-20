@@ -536,6 +536,34 @@ export interface Database {
         Args: Record<string, never>
         Returns: void
       }
+      create_reservation_atomic: {
+        Args: {
+          p_user_id: string
+          p_region_id: number
+          p_date: string
+          p_slots: unknown
+        }
+        Returns: {
+          success: boolean
+          message?: string
+          reservation?: {
+            id: string
+            user_id: string
+            region_id: number
+            date: string
+            status: string
+            reservation_slots: Array<{
+              id: string
+              start_time: string
+              end_time: string
+              grade: string
+              participant_count: number
+              location: string
+              slot_order: number
+            }>
+          }
+        }
+      }
       try_reserve_slot: {
         Args: {
           p_user_id: string

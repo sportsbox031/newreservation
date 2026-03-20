@@ -15,12 +15,19 @@ DECLARE
   max_count INTEGER;
   daily_limit_count INTEGER;
   lock_key BIGINT;
+  lock_acquired BOOLEAN;
 BEGIN
   -- Advisory Lock을 위한 고유 키 생성 (region_id + date 조합)
   lock_key := (NEW.region_id::BIGINT * 100000000) + (NEW.date - '2000-01-01'::DATE);
   
-  -- Advisory Lock 획득 (트랜잭션 종료 시 자동 해제)
-  PERFORM pg_advisory_xact_lock(lock_key);
+  -- 이미 같은 날짜 예약을 처리 중이면 줄서지 않고 즉시 실패
+  lock_acquired := pg_try_advisory_xact_lock(lock_key);
+
+  IF NOT lock_acquired THEN
+    RAISE EXCEPTION '신청이 몰려 예약을 처리 중입니다. 잠시 후 다시 시도해주세요.'
+      USING HINT = 'Reservation lock busy',
+            ERRCODE = 'P0001';
+  END IF;
   
   -- 현재 예약 수 조회 (락 획득 후이므로 안전)
   SELECT COUNT(*) INTO current_count
