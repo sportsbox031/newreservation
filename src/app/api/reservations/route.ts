@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
-import { validateApiRequest } from '@/lib/auth'
+import { validateUserApiRequest } from '@/lib/auth'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import { isReservationTimeoutError } from '@/lib/reservationError'
+import {
+  getTierIdFromName,
+  getTierReservationWindowKey,
+  shouldFallbackAfterRpcFailure,
+} from './routeHelpers'
+import {
+  classifyReservationOutcome,
+  createReservationLogPayload,
+} from '@/lib/reservationLogging'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -16,6 +25,18 @@ const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
 
 const RESERVATION_ROUTE_TIMEOUT_MS = 10000
 const RESERVATION_BUSY_MESSAGE = '신청이 몰려 예약을 처리 중입니다. 잠시 후 다시 시도해주세요.'
+
+function logReservationInfo(payload: ReturnType<typeof createReservationLogPayload>) {
+  console.info('[reservation]', JSON.stringify(payload))
+}
+
+function logReservationWarn(payload: ReturnType<typeof createReservationLogPayload>) {
+  console.warn('[reservation]', JSON.stringify(payload))
+}
+
+function logReservationError(payload: ReturnType<typeof createReservationLogPayload>) {
+  console.error('[reservation]', JSON.stringify(payload))
+}
 
 interface ReservationSlotPayload {
   start_time: string
@@ -161,14 +182,11 @@ async function fallbackCreateReservation(
 }
 
 export async function POST(request: NextRequest) {
+  const requestStartedAt = Date.now()
   try {
-    const authResult = await validateApiRequest(request)
+    const authResult = await validateUserApiRequest(request)
     if (!authResult.authenticated || !authResult.user) {
       return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
-    }
-
-    if (authResult.user.role !== 'user') {
-      return NextResponse.json({ error: '일반 사용자만 예약할 수 있습니다.' }, { status: 403 })
     }
 
     const body = await request.json() as ReservationRequestBody
@@ -178,9 +196,64 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '예약 요청 정보가 올바르지 않습니다.' }, { status: 400 })
     }
 
+    if (body.regionId !== 1 && body.regionId !== 2) {
+      return NextResponse.json({ error: '잘못된 지역 정보입니다.' }, { status: 400 })
+    }
+
     const startTimes = slots.map(slot => slot.start_time)
     if (new Set(startTimes).size !== startTimes.length) {
       return NextResponse.json({ error: '시작 시간이 중복됩니다. 각 타임의 시작 시간은 서로 달라야 합니다.' }, { status: 400 })
+    }
+
+    const userTierResponse = await withTimeout(
+      supabaseAdmin
+        .from('users')
+        .select('tier')
+        .eq('id', authResult.user.id)
+        .single(),
+      RESERVATION_ROUTE_TIMEOUT_MS,
+      '예약 요청 처리 시간이 초과되었습니다.'
+    )
+
+    if (userTierResponse.error || !userTierResponse.data) {
+      return NextResponse.json(
+        { error: userTierResponse.error?.message || '사용자 티어 정보를 불러오지 못했습니다.' },
+        { status: 400 }
+      )
+    }
+
+    const regionCode = body.regionId === 2 ? 'north' : 'south'
+    const tierSettingResponse = await withTimeout(
+      supabaseAdmin
+        .from('tier_reservation_settings')
+        .select('is_open')
+        .eq('region_code', regionCode)
+        .eq('year_month', getTierReservationWindowKey(body.date))
+        .eq('tier_id', getTierIdFromName(userTierResponse.data.tier))
+        .maybeSingle(),
+      RESERVATION_ROUTE_TIMEOUT_MS,
+      '예약 요청 처리 시간이 초과되었습니다.'
+    )
+
+    if (tierSettingResponse.error) {
+      return NextResponse.json({ error: tierSettingResponse.error.message }, { status: 400 })
+    }
+
+    if (!tierSettingResponse.data?.is_open) {
+      logReservationWarn(createReservationLogPayload({
+        phase: 'request',
+        outcome: 'tier_closed',
+        userId: authResult.user.id,
+        regionId: body.regionId,
+        date: body.date,
+        slotCount: slots.length,
+        durationMs: Date.now() - requestStartedAt,
+        message: '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.',
+      }))
+      return NextResponse.json(
+        { error: '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.' },
+        { status: 409 }
+      )
     }
 
     try {
@@ -196,18 +269,42 @@ export async function POST(request: NextRequest) {
       ) as { data: any; error: any }
 
       if (!rpcResponse.error && rpcResponse.data?.success) {
+        logReservationInfo(createReservationLogPayload({
+          phase: 'rpc',
+          outcome: 'success',
+          userId: authResult.user.id,
+          regionId: body.regionId,
+          date: body.date,
+          slotCount: slots.length,
+          durationMs: Date.now() - requestStartedAt,
+        }))
         return NextResponse.json({ data: rpcResponse.data.reservation })
       }
 
       if (!rpcResponse.error && rpcResponse.data && rpcResponse.data.success === false) {
+        logReservationWarn(createReservationLogPayload({
+          phase: 'rpc',
+          outcome: classifyReservationOutcome(rpcResponse.data.message),
+          userId: authResult.user.id,
+          regionId: body.regionId,
+          date: body.date,
+          slotCount: slots.length,
+          durationMs: Date.now() - requestStartedAt,
+          message: rpcResponse.data.message || '예약에 실패했습니다.',
+        }))
         return NextResponse.json({ error: rpcResponse.data.message || '예약에 실패했습니다.' }, { status: 409 })
       }
 
-      const functionMissing = rpcResponse.error?.code === 'PGRST202' || rpcResponse.error?.message?.includes('create_reservation_atomic')
-      if (!functionMissing && rpcResponse.error) {
+      const shouldFallback = shouldFallbackAfterRpcFailure(rpcResponse.error)
+      if (!shouldFallback && rpcResponse.error) {
         console.error('create_reservation_atomic RPC 오류:', rpcResponse.error)
+        throw rpcResponse.error
       }
     } catch (rpcError) {
+      if (!shouldFallbackAfterRpcFailure(rpcError)) {
+        throw rpcError
+      }
+
       console.error('예약 RPC 호출 예외:', rpcError)
     }
 
@@ -217,15 +314,50 @@ export async function POST(request: NextRequest) {
       '예약 요청 처리 시간이 초과되었습니다.'
     )
 
+    const fallbackOutcome = fallbackResult.status === 200
+      ? 'success'
+      : classifyReservationOutcome(fallbackResult.body.error)
+    const logFn = fallbackResult.status === 200 ? logReservationInfo : logReservationWarn
+    logFn(createReservationLogPayload({
+      phase: 'fallback',
+      outcome: fallbackOutcome,
+      userId: authResult.user.id,
+      regionId: body.regionId,
+      date: body.date,
+      slotCount: slots.length,
+      durationMs: Date.now() - requestStartedAt,
+      message: fallbackResult.body.error,
+    }))
+
     return NextResponse.json(fallbackResult.body, { status: fallbackResult.status })
   } catch (error) {
     console.error('예약 API 오류:', error)
     if (isReservationTimeoutError(error)) {
+      logReservationWarn(createReservationLogPayload({
+        phase: 'request',
+        outcome: 'timeout',
+        userId: 'unknown',
+        regionId: 0,
+        date: 'unknown',
+        slotCount: 0,
+        durationMs: Date.now() - requestStartedAt,
+        message: `${RESERVATION_BUSY_MESSAGE} 잠시 후 내 예약에서 접수 여부를 확인해주세요.`,
+      }))
       return NextResponse.json(
         { error: `${RESERVATION_BUSY_MESSAGE} 잠시 후 내 예약에서 접수 여부를 확인해주세요.` },
         { status: 409 }
       )
     }
+    logReservationError(createReservationLogPayload({
+      phase: 'request',
+      outcome: classifyReservationOutcome(getErrorMessage(error, '예약 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.')),
+      userId: 'unknown',
+      regionId: 0,
+      date: 'unknown',
+      slotCount: 0,
+      durationMs: Date.now() - requestStartedAt,
+      message: getErrorMessage(error, '예약 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.'),
+    }))
     return NextResponse.json(
       { error: getErrorMessage(error, '예약 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.') },
       { status: 500 }

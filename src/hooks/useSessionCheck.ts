@@ -8,6 +8,10 @@ import {
   markManualLogout,
   resetManualLogout,
 } from '@/lib/sessionLogoutState';
+import {
+  getSessionValidatedAtStorageKey,
+  isFreshSessionValidation,
+} from '@/lib/sessionCache';
 
 export interface SessionCheckResult {
   isValid: boolean;
@@ -19,7 +23,6 @@ export interface SessionCheckResult {
 const SESSION_VISIBILITY_THROTTLE_MS = 60 * 1000;
 const SESSION_WRITE_INTERVAL_MS = 15 * 60 * 1000;
 const SESSION_CACHE_TTL_MS = 30 * 1000;
-const SESSION_VALIDATED_AT_KEY = 'sessionValidatedAt';
 
 const getCachedCurrentUser = () => {
   try {
@@ -49,8 +52,8 @@ export async function checkClientSession(
     }
 
     if (!forceServerCheck && cachedUser) {
-      const lastValidatedAt = Number(localStorage.getItem(SESSION_VALIDATED_AT_KEY) || '0');
-      if (Date.now() - lastValidatedAt < SESSION_CACHE_TTL_MS) {
+      const validatedAtKey = getSessionValidatedAtStorageKey(sessionToken);
+      if (isFreshSessionValidation(localStorage.getItem(validatedAtKey), Date.now(), SESSION_CACHE_TTL_MS)) {
         return {
           isValid: true,
           user: cachedUser
@@ -83,9 +86,9 @@ export async function checkClientSession(
 
     if (refreshActivity) {
       await sessionAPI.refreshSession(sessionToken);
-      localStorage.setItem(SESSION_VALIDATED_AT_KEY, String(Date.now()));
+      localStorage.setItem(getSessionValidatedAtStorageKey(sessionToken), String(Date.now()));
     } else {
-      localStorage.setItem(SESSION_VALIDATED_AT_KEY, String(Date.now()));
+      localStorage.setItem(getSessionValidatedAtStorageKey(sessionToken), String(Date.now()));
     }
 
     return {
@@ -120,7 +123,10 @@ export async function performLogout(sessionToken?: string): Promise<void> {
     localStorage.removeItem('session_token');
     localStorage.removeItem('currentUser');
     localStorage.removeItem('adminInfo');
-    localStorage.removeItem(SESSION_VALIDATED_AT_KEY);
+    if (token) {
+      localStorage.removeItem(getSessionValidatedAtStorageKey(token));
+    }
+    localStorage.removeItem('sessionValidatedAt');
 
     // 페이지 리디렉션
     window.location.href = '/auth/login';
@@ -192,7 +198,10 @@ export function useSessionCheck() {
 
     // 초기 세션 체크
     checkSession(false, false);
-    lastWriteTime = Number(localStorage.getItem(SESSION_VALIDATED_AT_KEY) || Date.now());
+    const initialToken = localStorage.getItem('session_token');
+    lastWriteTime = initialToken
+      ? Number(localStorage.getItem(getSessionValidatedAtStorageKey(initialToken)) || Date.now())
+      : Date.now();
 
     const handleVisibilityOrFocus = async () => {
       const now = Date.now();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Calendar from 'react-calendar';
@@ -22,10 +22,16 @@ import {
   MessageCircle,
   HelpCircle
 } from 'lucide-react';
-import { dashboardAPI, settingsAPI, reservationAPI, tierAPI } from '@/lib/supabase';
+import { dashboardAPI, settingsAPI, reservationAPI } from '@/lib/supabase';
 import AccountManagementModal from '@/components/AccountManagementModal';
 import { useSessionCheck } from '@/hooks/useSessionCheck';
 import { getDefaultDashboardMonth } from '@/lib/dashboardCalendar';
+import { shouldStartDashboardRefresh } from '@/lib/dashboardRefresh';
+import {
+  RESERVATION_DELAYED_PROGRESS_MESSAGE,
+  RESERVATION_PROGRESS_MESSAGE,
+  RESERVATION_SUCCESS_MESSAGE,
+} from '@/lib/reservationMessages';
 
 type CalendarValue = Date | null | [Date | null, Date | null];
 
@@ -117,6 +123,9 @@ export default function DashboardPage() {
   
   const router = useRouter();
   const DASHBOARD_REFRESH_INTERVAL_MS = 60 * 1000;
+  const DASHBOARD_REFRESH_MIN_INTERVAL_MS = 2 * 1000;
+  const dashboardRefreshInFlightRef = useRef(false);
+  const dashboardRefreshLastCompletedAtRef = useRef(0);
 
   // 학년 옵션
   const gradeOptions = ['1학년', '2학년', '3학년', '4학년', '5학년', '6학년', '기타'];
@@ -247,20 +256,20 @@ export default function DashboardPage() {
     }
   };
 
-  const applyDashboardBootstrapData = (bootstrapData: any) => {
-    if (bootstrapData?.user?.region_code) {
-      setUserRegion(bootstrapData.user.region_code as 'south' | 'north');
+  const applyDashboardMeData = (meData: any) => {
+    if (meData?.user?.region_code) {
+      setUserRegion(meData.user.region_code as 'south' | 'north');
     }
 
-    if (bootstrapData?.user?.region_name || bootstrapData?.user?.organization_name) {
+    if (meData?.user?.region_name || meData?.user?.organization_name) {
       setCurrentUserInfo({
-        organization_name: bootstrapData.user.organization_name || '사용자',
-        region_name: bootstrapData.user.region_name || '경기남부'
+        organization_name: meData.user.organization_name || '사용자',
+        region_name: meData.user.region_name || '경기남부'
       });
     }
 
-    if (bootstrapData?.user?.tier) {
-      const tierName = bootstrapData.user.tier;
+    if (meData?.user?.tier) {
+      const tierName = meData.user.tier;
       setUserTier({
         tier_id: tierName === 'Priority' ? 1 : 2,
         member_tiers: {
@@ -277,16 +286,20 @@ export default function DashboardPage() {
       });
     }
 
-    if (typeof bootstrapData?.remainingDays === 'number') {
-      setRemainingDays(bootstrapData.remainingDays);
+    if (typeof meData?.remainingDays === 'number') {
+      setRemainingDays(meData.remainingDays);
     }
+  };
 
-    if (bootstrapData?.reservationStatus) {
+  const applyDashboardCalendarData = (calendarData: any) => {
+    const monthGateIsOpen = calendarData?.monthGate?.is_open === true;
+
+    if (calendarData?.reservationStatus) {
       const formattedStatus: Record<string, { current: number; max: number; isFull: boolean; isOpen: boolean }> = {};
       let hasAnyOpenDay = false;
 
-      Object.keys(bootstrapData.reservationStatus).forEach((dateString) => {
-        const status = bootstrapData.reservationStatus[dateString];
+      Object.keys(calendarData.reservationStatus).forEach((dateString) => {
+        const status = calendarData.reservationStatus[dateString];
         formattedStatus[dateString] = {
           current: status.current_reservations,
           max: status.max_reservations_per_day,
@@ -300,31 +313,51 @@ export default function DashboardPage() {
       });
 
       setReservationStatus(formattedStatus);
-      setIsMonthClosed(!hasAnyOpenDay);
+      setIsMonthClosed(!(monthGateIsOpen && hasAnyOpenDay));
+    } else {
+      setReservationStatus({});
+      setIsMonthClosed(!monthGateIsOpen);
     }
 
-    if (Array.isArray(bootstrapData?.blockedDates)) {
-      setBlockedDates(bootstrapData.blockedDates.map((item: any) => ({
+    if (Array.isArray(calendarData?.blockedDates)) {
+      setBlockedDates(calendarData.blockedDates.map((item: any) => ({
         date: item.date,
         start_time: item.start_time,
         end_time: item.end_time,
         reason: item.reason
       })));
+    } else {
+      setBlockedDates([]);
     }
 
   };
 
-  const refreshDashboardData = async () => {
+  const refreshDashboardData = async (force = false) => {
     if (!isAuthenticated || !user || !userRegion) return;
 
+    const now = Date.now();
+    if (!shouldStartDashboardRefresh({
+      now,
+      inFlight: dashboardRefreshInFlightRef.current,
+      lastCompletedAt: dashboardRefreshLastCompletedAtRef.current,
+      minIntervalMs: DASHBOARD_REFRESH_MIN_INTERVAL_MS,
+      force,
+    })) {
+      return;
+    }
+
     try {
+      dashboardRefreshInFlightRef.current = true;
       setIsLoadingCalendar(true);
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
-      const gateResult = await dashboardAPI.getMonthGate(user.id, userRegion, year, month);
 
-      if (gateResult.error || !gateResult.data) {
-        console.error('대시보드 월 상태 확인 오류:', gateResult.error);
+      const calendarPromise = dashboardAPI.getCalendar(year, month);
+      const mePromise = force ? dashboardAPI.getMe(year, month) : Promise.resolve({ data: null, error: null });
+      const [calendarResult, meResult] = await Promise.all([calendarPromise, mePromise]);
+
+      if (calendarResult.error || !calendarResult.data) {
+        console.error('대시보드 calendar 오류:', calendarResult.error);
         setIsMonthClosed(true);
         setReservationStatus({});
         setBlockedDates([]);
@@ -333,26 +366,25 @@ export default function DashboardPage() {
         return;
       }
 
-      if (!gateResult.data.is_open) {
-        setIsMonthClosed(true);
-        setReservationStatus({});
-        setBlockedDates([]);
+      applyDashboardCalendarData(calendarResult.data);
+      if (calendarResult.data?.monthGate?.is_open !== true) {
         setSelectedDate(null);
+      }
+
+      if (force && (meResult.error || !meResult.data)) {
+        console.error('대시보드 me 오류:', meResult.error);
         setRemainingDays(4);
         return;
       }
 
-      const { data, error } = await dashboardAPI.getBootstrap(year, month);
-
-      if (error || !data) {
-        console.error('대시보드 bootstrap 오류:', error);
-        return;
+      if (meResult.data) {
+        applyDashboardMeData(meResult.data);
       }
-
-      applyDashboardBootstrapData(data);
     } catch (error) {
-      console.error('대시보드 bootstrap 예외:', error);
+      console.error('대시보드 데이터 로드 예외:', error);
     } finally {
+      dashboardRefreshInFlightRef.current = false;
+      dashboardRefreshLastCompletedAtRef.current = Date.now();
       setIsLoadingCalendar(false);
     }
   };
@@ -360,7 +392,7 @@ export default function DashboardPage() {
   // 데이터 로드 (월 변경이나 지역 변경 시 실행)
   useEffect(() => {
     if (isAuthenticated && user && userRegion) {
-      refreshDashboardData();
+      refreshDashboardData(true);
     }
   }, [currentMonth, isAuthenticated, user, userRegion]);
 
@@ -370,7 +402,7 @@ export default function DashboardPage() {
 
     const refreshIfVisible = () => {
       if (document.visibilityState === 'visible' && activeModal !== 'reservation' && !isSubmitting) {
-        refreshDashboardData();
+        refreshDashboardData(false);
       }
     };
 
@@ -755,40 +787,6 @@ export default function DashboardPage() {
       return;
     }
     
-    // 추가로 예약 오픈 상태 확인
-    const year = value.getFullYear();
-    const month = String(value.getMonth() + 1).padStart(2, '0');
-    const day = String(value.getDate()).padStart(2, '0');
-    const dateString = `${year}-${month}-${day}`;
-    const status = reservationStatus[dateString];
-    
-    // 기존 전체 예약 시스템 체크 제거 - 티어별 제어로 대체됨
-
-    // 티어별 예약 가능 여부 검증
-    if (user && userTier) {
-      try {
-        const targetDate = `${year}-${month}-${day}`;
-        if (!userRegion) {
-          alert('사용자 지역 정보를 확인할 수 없습니다.');
-          return;
-        }
-        const { canReserve, reason } = await tierAPI.canUserReserveByTier(
-          user.id,
-          userRegion,
-          targetDate
-        );
-
-        if (!canReserve) {
-          alert(reason || '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.');
-          return;
-        }
-      } catch (error) {
-        console.error('티어 검증 오류:', error);
-        alert('예약 가능 여부를 확인할 수 없습니다. 잠시 후 다시 시도해주세요.');
-        return;
-      }
-    }
-
     setSelectedDate(value);
     setActiveModal('reservation');
     
@@ -907,7 +905,7 @@ export default function DashboardPage() {
   const handleReservationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setSubmitStatusMessage('예약 가능 여부를 확인하고 있습니다...');
+    setSubmitStatusMessage('');
     let delayedStatusTimer: number | null = null;
     
     try {
@@ -980,46 +978,11 @@ export default function DashboardPage() {
         return;
       }
 
-      const userId = user.id;
-      if (!userId) {
+      if (!user.id) {
         alert('사용자 정보가 올바르지 않습니다. 다시 로그인해주세요.');
         setIsSubmitting(false);
         setSubmitStatusMessage('');
         return;
-      }
-
-      // 티어별 예약 가능 여부 검증
-      if (userTier) {
-        const targetDate = `${dateYear}-${dateMonth}-${dateDay}`;
-        console.log('🔍 티어 검증 시작:', {
-          userId,
-          userRegion,
-          targetDate,
-          userTier: userTier
-        });
-
-        if (!userRegion) {
-          alert('사용자 지역 정보를 확인할 수 없습니다.');
-          setIsSubmitting(false);
-          setSubmitStatusMessage('');
-          return;
-        }
-        const { canReserve, reason } = await tierAPI.canUserReserveByTier(
-          userId,
-          userRegion,
-          targetDate
-        );
-
-        console.log('🔍 티어 검증 결과:', { canReserve, reason });
-
-        if (!canReserve) {
-          alert(reason || '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.');
-          setIsSubmitting(false);
-          setSubmitStatusMessage('');
-          return;
-        }
-      } else {
-        console.log('⚠️ userTier가 null입니다!');
       }
 
       // 세션 토큰 확인
@@ -1031,13 +994,13 @@ export default function DashboardPage() {
         return;
       }
 
-      setSubmitStatusMessage('예약 요청을 접수하고 있습니다...');
+      setSubmitStatusMessage(RESERVATION_PROGRESS_MESSAGE);
 
       delayedStatusTimer = window.setTimeout(() => {
-        setSubmitStatusMessage(prev => prev ? '신청이 몰려 처리 중입니다. 잠시만 기다려주세요...' : prev);
+        setSubmitStatusMessage(prev => prev ? RESERVATION_DELAYED_PROGRESS_MESSAGE : prev);
       }, 4000);
 
-      console.log('예약 API 호출:', { userId, regionId, dateString });
+      console.log('예약 API 호출:', { userId: user.id, regionId, dateString });
       const result = await reservationAPI.submitReservation(
         regionId,
         dateString,
@@ -1088,7 +1051,7 @@ export default function DashboardPage() {
         location: ''
       }]);
       
-      alert('예약이 성공적으로 신청되었습니다!');
+      alert(RESERVATION_SUCCESS_MESSAGE);
       
     } catch (error) {
       console.error('예약 신청 오류:', error);

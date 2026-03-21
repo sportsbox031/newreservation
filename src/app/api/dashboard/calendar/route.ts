@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { validateUserApiRequest } from '@/lib/auth'
 import {
-  buildClosedDashboardBootstrapData,
-  buildOpenDashboardBootstrapData,
+  buildDashboardCalendarData,
 } from '@/lib/dashboardBootstrap'
 import {
   getDashboardCalendarDataForMonth,
-  getDashboardMeDataForMonth,
   getDashboardTierOpenState,
   getDashboardUserMetaContext,
 } from '@/lib/dashboardServer'
@@ -39,15 +37,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: tierOpenResult.error }, { status: 400 })
     }
 
-    const meResult = await getDashboardMeDataForMonth(authResult.user.id, userMeta, year, month)
-    if (meResult.error || !meResult.data) {
-      return NextResponse.json({ error: meResult.error || '내 예약 정보를 불러오지 못했습니다.' }, { status: 400 })
-    }
-
     const tierIsOpen = tierOpenResult.data === true
     if (!tierIsOpen) {
       return NextResponse.json({
-        data: buildClosedDashboardBootstrapData(userMeta, meResult.data.remainingDays)
+        data: buildDashboardCalendarData({}, [], false)
       })
     }
 
@@ -56,19 +49,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: calendarResult.error || '달력 정보를 불러오지 못했습니다.' }, { status: 400 })
     }
 
-    return NextResponse.json({
-      data: buildOpenDashboardBootstrapData(
-        meResult.data.user,
-        meResult.data.remainingDays,
-        calendarResult.data.reservationStatus,
-        calendarResult.data.blockedDates,
-        tierIsOpen
-      )
-    })
+    return NextResponse.json({ data: calendarResult.data })
   } catch (error) {
-    console.error('대시보드 bootstrap API 오류:', error)
+    console.error('대시보드 calendar API 오류:', error)
     return NextResponse.json(
-      { error: getErrorMessage(error, '대시보드 정보를 불러오지 못했습니다.') },
+      { error: getErrorMessage(error, '달력 정보를 불러오지 못했습니다.') },
       { status: 500 }
     )
   }

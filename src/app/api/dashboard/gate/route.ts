@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { validateUserApiRequest } from '@/lib/auth'
 import {
-  buildClosedDashboardBootstrapData,
-  buildOpenDashboardBootstrapData,
-} from '@/lib/dashboardBootstrap'
-import {
-  getDashboardCalendarDataForMonth,
-  getDashboardMeDataForMonth,
   getDashboardTierOpenState,
   getDashboardUserMetaContext,
 } from '@/lib/dashboardServer'
@@ -33,42 +27,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: userMetaResult.error || '사용자 정보를 불러오지 못했습니다.' }, { status: 400 })
     }
 
-    const { userMeta, regionId, userTierId, yearMonth } = userMetaResult.data
+    const { userTierId, userMeta, yearMonth } = userMetaResult.data
     const tierOpenResult = await getDashboardTierOpenState(userMeta.region_code, userTierId, yearMonth)
     if (tierOpenResult.error) {
       return NextResponse.json({ error: tierOpenResult.error }, { status: 400 })
     }
 
-    const meResult = await getDashboardMeDataForMonth(authResult.user.id, userMeta, year, month)
-    if (meResult.error || !meResult.data) {
-      return NextResponse.json({ error: meResult.error || '내 예약 정보를 불러오지 못했습니다.' }, { status: 400 })
-    }
-
-    const tierIsOpen = tierOpenResult.data === true
-    if (!tierIsOpen) {
-      return NextResponse.json({
-        data: buildClosedDashboardBootstrapData(userMeta, meResult.data.remainingDays)
-      })
-    }
-
-    const calendarResult = await getDashboardCalendarDataForMonth(regionId, userTierId, year, month, tierIsOpen)
-    if (calendarResult.error || !calendarResult.data) {
-      return NextResponse.json({ error: calendarResult.error || '달력 정보를 불러오지 못했습니다.' }, { status: 400 })
-    }
-
     return NextResponse.json({
-      data: buildOpenDashboardBootstrapData(
-        meResult.data.user,
-        meResult.data.remainingDays,
-        calendarResult.data.reservationStatus,
-        calendarResult.data.blockedDates,
-        tierIsOpen
-      )
+      data: {
+        is_open: tierOpenResult.data === true,
+        tier: userMeta.tier,
+        region_code: userMeta.region_code,
+      }
     })
   } catch (error) {
-    console.error('대시보드 bootstrap API 오류:', error)
+    console.error('대시보드 gate API 오류:', error)
     return NextResponse.json(
-      { error: getErrorMessage(error, '대시보드 정보를 불러오지 못했습니다.') },
+      { error: getErrorMessage(error, '예약 오픈 상태를 불러오지 못했습니다.') },
       { status: 500 }
     )
   }

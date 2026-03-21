@@ -3,7 +3,12 @@ import { Database } from '@/types/database'
 import { v4 as uuidv4 } from 'uuid'
 import { hashPassword, isBcryptHash, legacyHashPassword, verifyPassword } from './passwordHash'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
-import { getDashboardMonthCacheKey, getDashboardTargetDate } from '@/lib/dashboardCalendar'
+import {
+  getDashboardCalendarClientCacheKey,
+  getDashboardBootstrapClientCacheTtl,
+  getDashboardMeClientCacheKey,
+} from '@/lib/dashboardBootstrap'
+import { mapReservationErrorMessage } from '@/lib/reservationMessages'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -998,12 +1003,18 @@ export const reservationAPI = {
       const result = await response.json()
 
       if (!response.ok) {
-        return { data: null, error: { message: result.error || '예약 신청에 실패했습니다.' } }
+        return {
+          data: null,
+          error: { message: mapReservationErrorMessage(result.error || '예약 신청에 실패했습니다.') }
+        }
       }
 
       return { data: result.data, error: null }
     } catch (error) {
-      return { data: null, error: { message: getErrorMessage(error, '예약 신청 중 오류가 발생했습니다.') } }
+      return {
+        data: null,
+        error: { message: getErrorMessage(error, '예약 신청 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.') }
+      }
     }
   },
 
@@ -1543,72 +1554,139 @@ export const utilityAPI = {
 }
 
 export const dashboardAPI = {
-  async getMonthGate(userId: string, regionCode: 'south' | 'north', year: number, month: number) {
+  async getCalendar(year: number, month: number) {
     try {
-      const cacheKey = getDashboardMonthCacheKey(userId, regionCode, year, month)
+      const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
+      const cacheKey = getDashboardCalendarClientCacheKey(year, month, sessionToken)
       if (typeof window !== 'undefined') {
-        const cachedValue = sessionStorage.getItem(cacheKey)
+        const cachedValue = localStorage.getItem(cacheKey) || sessionStorage.getItem(cacheKey)
         if (cachedValue) {
           const cached = JSON.parse(cachedValue)
-          if (Date.now() - cached.cachedAt < 3000) {
-            return { data: cached.data as { is_open: boolean }, error: null }
-          }
-        }
-      }
-
-      const targetDate = getDashboardTargetDate(year, month)
-      const { canReserve, reason } = await tierAPI.canUserReserveByTier(userId, regionCode, targetDate)
-
-      const result = { is_open: canReserve }
-
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(cacheKey, JSON.stringify({
-          cachedAt: Date.now(),
-          data: result
-        }))
-      }
-
-      return { data: result, error: null }
-    } catch (error) {
-      return { data: null, error: { message: getErrorMessage(error, '월별 예약 상태를 확인하는 중 오류가 발생했습니다.') } }
-    }
-  },
-  async getBootstrap(year: number, month: number) {
-    try {
-      const cacheKey = `dashboardBootstrap:${year}-${String(month).padStart(2, '0')}`
-      if (typeof window !== 'undefined') {
-        const cachedValue = sessionStorage.getItem(cacheKey)
-        if (cachedValue) {
-          const cached = JSON.parse(cachedValue)
-          if (Date.now() - cached.cachedAt < 15000) {
+          const cachedTtlMs = getDashboardBootstrapClientCacheTtl(Boolean(cached.data?.monthGate?.is_open))
+          if (Date.now() - cached.cachedAt < cachedTtlMs) {
             return { data: cached.data, error: null }
           }
         }
       }
 
       const response = await withTimeout(
-        fetch(`/api/dashboard/bootstrap?year=${year}&month=${month}`, {
+        fetch(`/api/dashboard/calendar?year=${year}&month=${month}`, {
           method: 'GET',
           headers: getUserAuthHeaders()
         }),
         LONG_QUERY_TIMEOUT_MS,
-        '대시보드 초기 정보를 불러오는 중 시간이 초과되었습니다.'
+        '대시보드 달력 정보를 불러오는 중 시간이 초과되었습니다.'
       )
 
       const result = await response.json()
 
       if (!response.ok) {
-        return { data: null, error: { message: result.error || '대시보드 정보를 불러오지 못했습니다.' } }
+        return { data: null, error: { message: result.error || '대시보드 달력 정보를 불러오지 못했습니다.' } }
       }
 
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem(cacheKey, JSON.stringify({
+        const cacheTtlMs = getDashboardBootstrapClientCacheTtl(Boolean(result.data?.monthGate?.is_open))
+        const serialized = JSON.stringify({
           cachedAt: Date.now(),
+          ttlMs: cacheTtlMs,
           data: result.data
-        }))
+        })
+        localStorage.setItem(cacheKey, serialized)
+        sessionStorage.setItem(cacheKey, serialized)
       }
 
       return { data: result.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '대시보드 달력 정보를 불러오는 중 오류가 발생했습니다.') } }
+    }
+  },
+  async getMonthGate(year: number, month: number) {
+    try {
+      const response = await withTimeout(
+        fetch(`/api/dashboard/gate?year=${year}&month=${month}`, {
+          method: 'GET',
+          headers: getUserAuthHeaders()
+        }),
+        QUERY_TIMEOUT_MS,
+        '예약 오픈 상태를 불러오는 중 시간이 초과되었습니다.'
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        return { data: null, error: { message: result.error || '예약 오픈 상태를 불러오지 못했습니다.' } }
+      }
+
+      return { data: result.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '예약 오픈 상태를 불러오는 중 오류가 발생했습니다.') } }
+    }
+  },
+  async getMe(year: number, month: number) {
+    try {
+      const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
+      const cacheKey = getDashboardMeClientCacheKey(year, month, sessionToken)
+      if (typeof window !== 'undefined') {
+        const cachedValue = localStorage.getItem(cacheKey) || sessionStorage.getItem(cacheKey)
+        if (cachedValue) {
+          const cached = JSON.parse(cachedValue)
+          if (Date.now() - cached.cachedAt < 5000) {
+            return { data: cached.data, error: null }
+          }
+        }
+      }
+
+      const response = await withTimeout(
+        fetch(`/api/dashboard/me?year=${year}&month=${month}`, {
+          method: 'GET',
+          headers: getUserAuthHeaders()
+        }),
+        LONG_QUERY_TIMEOUT_MS,
+        '내 대시보드 정보를 불러오는 중 시간이 초과되었습니다.'
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        return { data: null, error: { message: result.error || '내 대시보드 정보를 불러오지 못했습니다.' } }
+      }
+
+      if (typeof window !== 'undefined') {
+        const serialized = JSON.stringify({
+          cachedAt: Date.now(),
+          data: result.data
+        })
+        localStorage.setItem(cacheKey, serialized)
+        sessionStorage.setItem(cacheKey, serialized)
+      }
+
+      return { data: result.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '내 대시보드 정보를 불러오는 중 오류가 발생했습니다.') } }
+    }
+  },
+  async getBootstrap(year: number, month: number) {
+    try {
+      const [calendarResult, meResult] = await Promise.all([
+        this.getCalendar(year, month),
+        this.getMe(year, month)
+      ])
+
+      if (calendarResult.error) {
+        return { data: null, error: calendarResult.error }
+      }
+
+      if (meResult.error) {
+        return { data: null, error: meResult.error }
+      }
+
+      return {
+        data: {
+          ...(meResult.data || {}),
+          ...(calendarResult.data || {}),
+        },
+        error: null
+      }
     } catch (error) {
       return { data: null, error: { message: getErrorMessage(error, '대시보드 정보를 불러오는 중 오류가 발생했습니다.') } }
     }
