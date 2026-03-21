@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const year = Number(searchParams.get('year'))
     const month = Number(searchParams.get('month'))
+    const bypassCache = searchParams.get('bypassCache') === '1'
 
     if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
       return NextResponse.json({ error: '잘못된 연도 또는 월입니다.' }, { status: 400 })
@@ -44,7 +45,9 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const calendarResult = await getDashboardCalendarDataForMonth(regionId, userTierId, year, month, tierIsOpen)
+    const calendarResult = await getDashboardCalendarDataForMonth(regionId, userTierId, year, month, tierIsOpen, {
+      bypassCache,
+    })
     if (calendarResult.error || !calendarResult.data) {
       return NextResponse.json({ error: calendarResult.error || '달력 정보를 불러오지 못했습니다.' }, { status: 400 })
     }

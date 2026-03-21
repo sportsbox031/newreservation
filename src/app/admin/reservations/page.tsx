@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { settingsAPI, reservationAPI } from '@/lib/supabase';
+import { getAdminCalendarDayStatus } from '@/lib/adminCalendarStatus';
 import AdminNavigation from '@/components/AdminNavigation';
 
 type CalendarValue = Date | null | [Date | null, Date | null];
@@ -284,7 +285,7 @@ function AdminReservationsContent() {
   };
 
   // 모든 예약 데이터 로드
-  const loadAllReservations = async () => {
+  const loadAllReservations = async (): Promise<Reservation[]> => {
     try {
       const { data, error } = await reservationAPI.getAllReservationsForRegion(adminRegion);
 
@@ -294,9 +295,9 @@ function AdminReservationsContent() {
       }
 
       // 데이터 변환 (취소된 예약 제외)
-      const transformedData = data?.filter(item =>
+      const transformedData = data?.filter((item: any) =>
         item.status !== 'cancelled' && item.status !== 'admin_cancelled'
-      ).map(item => ({
+      ).map((item: any) => ({
         id: item.id,
         date: new Date(item.date),
         status: (item.status ?? 'pending') as ReservationStatus,
@@ -306,7 +307,7 @@ function AdminReservationsContent() {
         phone: item.users?.phone || '',
         email: item.users?.email || '',
         city_name: item.users?.cities?.name || '',
-        slots: item.reservation_slots?.map(slot => ({
+        slots: item.reservation_slots?.map((slot: any) => ({
           startTime: slot.start_time.substring(0, 5), // HH:MM 형식으로 자르기
           endTime: slot.end_time.substring(0, 5), // HH:MM 형식으로 자르기
           grade: slot.grade,
@@ -388,31 +389,7 @@ function AdminReservationsContent() {
   const getDayStatus = (date: Date): DayStatus => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    // 과거 날짜는 선택 불가
-    if (date < today) return 'blocked';
-
-    // 로컬 시간대로 날짜 변환 (시간대 오류 방지)
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const dateString = `${year}-${month}-${day}`;
-
-    // 차단된 날짜 체크: 하루 전체 차단(start_time=null)인 경우에만 날짜 자체를 막음
-    const fullDayBlocked = blockedDates.some(
-      b => b.date === dateString && !b.start_time && !b.end_time
-    );
-    if (fullDayBlocked) return 'blocked';
-
-    // 예약 현황 체크
-    const status = reservationStatus[dateString];
-    if (status) {
-      if (!status.isOpen) return 'closed';
-      if (status.isFull) return 'full';
-      if (status.current > 0 && status.current < status.max) return 'limited';
-    }
-
-    return 'available';
+    return getAdminCalendarDayStatus(date, today, reservationStatus, blockedDates);
   };
 
   // 달력 타일 클래스 설정
@@ -605,7 +582,7 @@ function AdminReservationsContent() {
         const day = String(selectedDate.getDate()).padStart(2, '0');
         const dateString = `${year}-${month}-${day}`;
 
-        const dayData = updatedReservations.filter(reservation => {
+        const dayData = updatedReservations.filter((reservation: Reservation) => {
           const reservationYear = reservation.date.getFullYear();
           const reservationMonth = String(reservation.date.getMonth() + 1).padStart(2, '0');
           const reservationDay = String(reservation.date.getDate()).padStart(2, '0');
@@ -617,7 +594,7 @@ function AdminReservationsContent() {
 
       // 모달에 표시 중인 예약이면 업데이트된 데이터로 동기화
       if (selectedReservation && selectedReservation.id === reservationId) {
-        const updatedReservation = updatedReservations.find(r => r.id === reservationId);
+        const updatedReservation = updatedReservations.find((r: Reservation) => r.id === reservationId);
         if (updatedReservation) {
           setSelectedReservation(updatedReservation);
         }
@@ -1224,7 +1201,7 @@ function AdminReservationsContent() {
                                 onClick={async () => {
                                   // 최신 데이터 로드 후 모달 열기
                                   const updatedReservations = await loadAllReservations();
-                                  const freshReservation = updatedReservations.find(r => r.id === reservation.id);
+                                  const freshReservation = updatedReservations.find((r: Reservation) => r.id === reservation.id);
                                   if (freshReservation) {
                                     setSelectedReservation(freshReservation);
                                     setActiveModal('reservationDetail');
@@ -2017,6 +1994,19 @@ function AdminReservationsContent() {
         /* 주말 스타일링 */
         .premium-calendar-container :global(.react-calendar__month-view__days__day--weekend abbr) {
           @apply text-red-600;
+        }
+
+        .premium-calendar-container :global(.calendar-day-full.react-calendar__tile--active),
+        .premium-calendar-container :global(.calendar-day-full.react-calendar__tile--active:hover),
+        .premium-calendar-container :global(.calendar-day-full.react-calendar__tile--now),
+        .premium-calendar-container :global(.calendar-day-full.react-calendar__tile--now:hover) {
+          @apply bg-gray-600 text-white border-gray-700;
+        }
+
+        .premium-calendar-container :global(.calendar-day-full.react-calendar__month-view__days__day--weekend abbr),
+        .premium-calendar-container :global(.calendar-day-full.react-calendar__tile--active abbr),
+        .premium-calendar-container :global(.calendar-day-full.react-calendar__tile--now abbr) {
+          @apply text-white;
         }
       `}</style>
     </div>

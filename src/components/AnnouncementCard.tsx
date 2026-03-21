@@ -2,6 +2,7 @@
 
 import { Bell, Calendar, AlertCircle, Users, MapPin } from 'lucide-react'
 import { useState } from 'react'
+import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
 
 interface Announcement {
   id: string
@@ -12,7 +13,7 @@ interface Announcement {
   created_at: string | null
   admins: {
     username: string
-  }
+  } | null
   regions?: {
     name: string
   } | null
@@ -139,7 +140,7 @@ export default function AnnouncementCard({
               <Calendar className="w-3 h-3" />
               <span>{formatDate(announcement.created_at)}</span>
             </div>
-            <span>작성자: {announcement.admins.username}</span>
+            <span>작성자: {getAnnouncementAuthorName(announcement)}</span>
           </div>
         </div>
         

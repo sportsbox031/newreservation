@@ -10,11 +10,13 @@ import {
   getDashboardCalendarSharedCacheKey,
   getDashboardBootstrapClientCacheKey,
   getDashboardCalendarClientCacheKey,
+  getDashboardClientCacheKeys,
   getDashboardMeClientCacheKey,
   getDashboardBootstrapUserMetaCacheKey,
   getDashboardBootstrapUserSummaryCacheKey,
   buildOpenDashboardBootstrapData,
   calculateRemainingReservationDays,
+  clearDashboardClientCaches,
   getDashboardBootstrapClientCacheTtl,
   pruneExpiredDashboardCacheEntries,
   type TimestampedCacheEntry,
@@ -196,6 +198,43 @@ test('getDashboardBootstrapClientCacheKey scopes the cache to the active session
     getDashboardMeClientCacheKey(2026, 4, 'session-token-123456789'),
     'dashboardMe:session-toke:2026-04'
   )
+})
+
+test('getDashboardClientCacheKeys returns every dashboard cache key for the month and session', () => {
+  assert.deepEqual(
+    getDashboardClientCacheKeys(2026, 4, 'session-token-123456789'),
+    [
+      'dashboardBootstrap:session-toke:2026-04',
+      'dashboardCalendar:session-toke:2026-04',
+      'dashboardMe:session-toke:2026-04',
+    ]
+  )
+})
+
+test('clearDashboardClientCaches removes dashboard cache entries from every provided storage', () => {
+  const removedKeys: string[] = []
+
+  clearDashboardClientCaches(2026, 4, 'session-token-123456789', [
+    {
+      removeItem(key: string) {
+        removedKeys.push(`local:${key}`)
+      },
+    },
+    {
+      removeItem(key: string) {
+        removedKeys.push(`session:${key}`)
+      },
+    },
+  ])
+
+  assert.deepEqual(removedKeys, [
+    'local:dashboardBootstrap:session-toke:2026-04',
+    'local:dashboardCalendar:session-toke:2026-04',
+    'local:dashboardMe:session-toke:2026-04',
+    'session:dashboardBootstrap:session-toke:2026-04',
+    'session:dashboardCalendar:session-toke:2026-04',
+    'session:dashboardMe:session-toke:2026-04',
+  ])
 })
 
 test('dashboard bootstrap server cache keys are stable and scoped to the right entities', () => {

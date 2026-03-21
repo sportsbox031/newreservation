@@ -205,6 +205,37 @@ export function getDashboardMeClientCacheKey(
   return `dashboardMe:${tokenKey}:${monthKey}`
 }
 
+export function getDashboardClientCacheKeys(
+  year: number,
+  month: number,
+  sessionToken?: string | null
+): string[] {
+  return [
+    getDashboardBootstrapClientCacheKey(year, month, sessionToken),
+    getDashboardCalendarClientCacheKey(year, month, sessionToken),
+    getDashboardMeClientCacheKey(year, month, sessionToken),
+  ]
+}
+
+type StorageLike = {
+  removeItem: (key: string) => void
+}
+
+export function clearDashboardClientCaches(
+  year: number,
+  month: number,
+  sessionToken?: string | null,
+  storages?: StorageLike[]
+): void {
+  const cacheKeys = getDashboardClientCacheKeys(year, month, sessionToken)
+
+  for (const storage of storages || []) {
+    for (const cacheKey of cacheKeys) {
+      storage.removeItem(cacheKey)
+    }
+  }
+}
+
 export function getDashboardBootstrapSharedCacheKey(regionId: number, year: number, month: number): string {
   return `dashboardShared:${regionId}:${year}:${month}`
 }

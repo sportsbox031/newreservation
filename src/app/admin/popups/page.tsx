@@ -6,6 +6,7 @@ import { popupAPI } from '@/lib/supabase'
 import { Bell, Plus, Edit, Trash2, Eye, EyeOff, Calendar, User, Type } from 'lucide-react'
 import RichTextEditor, { sanitizeHtml } from '@/components/RichTextEditor'
 import AdminNavigation from '@/components/AdminNavigation'
+import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
 
 interface HomepagePopup {
   id: string
@@ -22,7 +23,7 @@ interface HomepagePopup {
   admins: {
     id: string
     username: string
-  }
+  } | null
 }
 
 export default function PopupManagementPage() {
@@ -332,7 +333,7 @@ export default function PopupManagementPage() {
                     )}
                     <div className="flex items-center gap-1">
                       <User className="w-4 h-4" />
-                      <span>작성자: {popup.admins.username}</span>
+                      <span>작성자: {getAnnouncementAuthorName(popup)}</span>
                     </div>
                   </div>
                 </div>

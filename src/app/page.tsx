@@ -7,6 +7,7 @@ import { announcementAPI } from '@/lib/supabase'
 import { sanitizeHtml } from '@/components/RichTextEditor'
 import HomepagePopup from '@/components/HomepagePopup'
 import AttachmentList from '@/components/AttachmentList'
+import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
 
 interface Announcement {
   id: string
@@ -332,7 +333,7 @@ export default function Home() {
                               </p>
                               <div className="flex items-center gap-4 text-xs text-gray-500">
                                 <span>{formatDate(announcement.created_at)}</span>
-                                <span>작성자: {announcement.admins.username}</span>
+                                <span>작성자: {getAnnouncementAuthorName(announcement)}</span>
                               </div>
                             </div>
                           </div>
@@ -627,7 +628,7 @@ export default function Home() {
                     {selectedAnnouncement.title}
                   </h2>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-500">
-                    <span>작성자: {selectedAnnouncement.admins.username}</span>
+                    <span>작성자: {getAnnouncementAuthorName(selectedAnnouncement)}</span>
                     <span>작성일: {formatDate(selectedAnnouncement.created_at)}</span>
                   </div>
                 </div>

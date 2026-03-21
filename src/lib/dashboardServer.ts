@@ -193,14 +193,17 @@ export async function getDashboardCalendarDataForMonth(
   tierId: number,
   year: number,
   month: number,
-  isTierOpen: boolean
+  isTierOpen: boolean,
+  options?: {
+    bypassCache?: boolean
+  }
 ): Promise<{ data: DashboardCalendarData | null; error: string | null }> {
   const now = Date.now()
   pruneDashboardCaches(now)
 
   const cacheKey = getDashboardCalendarSharedCacheKey(regionId, tierId, year, month)
   const cachedCalendarData = dashboardCalendarCache.get(cacheKey)
-  if (cachedCalendarData && (now - cachedCalendarData.cachedAt) < DASHBOARD_CALENDAR_CACHE_TTL_MS) {
+  if (!options?.bypassCache && cachedCalendarData && (now - cachedCalendarData.cachedAt) < DASHBOARD_CALENDAR_CACHE_TTL_MS) {
     return { data: cachedCalendarData.data, error: null }
   }
 
@@ -316,16 +319,23 @@ export async function getDashboardMeDataForMonth(
   userId: string,
   userMeta: DashboardBootstrapUser,
   year: number,
-  month: number
+  month: number,
+  options?: {
+    bypassCache?: boolean
+  }
 ): Promise<{ data: DashboardMeData | null; error: string | null }> {
   const now = Date.now()
   pruneDashboardCaches(now)
 
   const userSummaryCacheKey = getDashboardBootstrapUserSummaryCacheKey(userId, year, month)
   const cachedUserSummary = dashboardUserSummaryCache.get(userSummaryCacheKey)
-  let reservations = cachedUserSummary?.data || null
+  let reservations = options?.bypassCache ? null : (cachedUserSummary?.data || null)
 
-  if (!cachedUserSummary || (now - cachedUserSummary.cachedAt) >= DASHBOARD_USER_SUMMARY_CACHE_TTL_MS) {
+  if (
+    options?.bypassCache ||
+    !cachedUserSummary ||
+    (now - cachedUserSummary.cachedAt) >= DASHBOARD_USER_SUMMARY_CACHE_TTL_MS
+  ) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const lastDay = new Date(year, month, 0).getDate()
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`

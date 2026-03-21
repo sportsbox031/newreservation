@@ -19,6 +19,7 @@ import RichTextEditor, { sanitizeHtml } from '@/components/RichTextEditor'
 import AdminNavigation from '@/components/AdminNavigation'
 import FileUploadManager, { FileAttachment } from '@/components/FileUploadManager'
 import { getRemovedExistingAttachments, type PersistedAttachment } from '@/lib/announcementAttachments'
+import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
 
 interface Announcement {
   id: string
@@ -35,7 +36,7 @@ interface Announcement {
   admins: {
     id?: string
     username: string
-  }
+  } | null
   regions?: {
     name: string
   } | null
@@ -419,7 +420,7 @@ export default function AdminAnnouncementsPage() {
                         <Eye className="w-3 h-3" />
                         <span>{announcement.view_count}회 조회</span>
                       </div>
-                      <span>작성자: {announcement.admins.username}</span>
+                      <span>작성자: {getAnnouncementAuthorName(announcement)}</span>
                     </div>
                   </div>
                   

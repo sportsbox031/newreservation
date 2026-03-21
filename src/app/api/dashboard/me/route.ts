@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const year = Number(searchParams.get('year'))
     const month = Number(searchParams.get('month'))
+    const bypassCache = searchParams.get('bypassCache') === '1'
 
     if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
       return NextResponse.json({ error: '잘못된 연도 또는 월입니다.' }, { status: 400 })
@@ -27,7 +28,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: userMetaResult.error || '사용자 정보를 불러오지 못했습니다.' }, { status: 400 })
     }
 
-    const meResult = await getDashboardMeDataForMonth(authResult.user.id, userMetaResult.data.userMeta, year, month)
+    const meResult = await getDashboardMeDataForMonth(
+      authResult.user.id,
+      userMetaResult.data.userMeta,
+      year,
+      month,
+      { bypassCache }
+    )
     if (meResult.error || !meResult.data) {
       return NextResponse.json({ error: meResult.error || '내 예약 정보를 불러오지 못했습니다.' }, { status: 400 })
     }

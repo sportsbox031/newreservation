@@ -1,12 +1,14 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
+import { getAuthTokenFromRequest } from '@/lib/authCookies'
 import {
   createAuthCacheEntry,
   getCachedAuthResult,
   pruneExpiredAuthCacheEntries,
   type AuthCacheEntry,
 } from '@/lib/authCache'
+import { parseDatabaseTimestamp } from '@/lib/authTimestamp'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -69,7 +71,7 @@ async function validateUserSessionToken(token: string, nowTimestamp: number): Pr
   }
 
   const now = new Date()
-  const expiresAt = new Date(userSession.expires_at)
+  const expiresAt = parseDatabaseTimestamp(userSession.expires_at)
   if (expiresAt < now) {
     return { authenticated: false, error: 'Session expired' }
   }
@@ -121,13 +123,7 @@ async function validateUserSessionToken(token: string, nowTimestamp: number): Pr
  */
 export async function validateApiRequest(request: NextRequest): Promise<AuthResult> {
   try {
-    // Authorization 헤더에서 토큰 추출
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return { authenticated: false, error: 'Authorization header missing' }
-    }
-
-    const token = authHeader.replace('Bearer ', '')
+    const token = getAuthTokenFromRequest(request)
     if (!token) {
       return { authenticated: false, error: 'Token missing' }
     }
@@ -165,7 +161,7 @@ export async function validateApiRequest(request: NextRequest): Promise<AuthResu
     if (!adminSessionError && adminSession) {
       // 세션 만료 확인
       const now = new Date()
-      const expiresAt = new Date(adminSession.expires_at)
+      const expiresAt = parseDatabaseTimestamp(adminSession.expires_at)
       if (expiresAt < now) {
         return { authenticated: false, error: 'Session expired' }
       }
@@ -201,12 +197,7 @@ export async function validateApiRequest(request: NextRequest): Promise<AuthResu
 
 export async function validateUserApiRequest(request: NextRequest): Promise<AuthResult> {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return { authenticated: false, error: 'Authorization header missing' }
-    }
-
-    const token = authHeader.replace('Bearer ', '')
+    const token = getAuthTokenFromRequest(request, ['user'])
     if (!token) {
       return { authenticated: false, error: 'Token missing' }
     }

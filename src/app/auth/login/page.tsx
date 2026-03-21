@@ -51,11 +51,6 @@ function LoginFormComponent() {
         // 관리자 정보를 localStorage에 저장
         localStorage.setItem('adminInfo', JSON.stringify(adminData));
 
-        // 세션 토큰 저장 (API 인증용)
-        if (adminData.session_token) {
-          localStorage.setItem('sessionToken', adminData.session_token);
-        }
-
         // 역할에 따라 리다이렉트
         if (adminData.role === 'super') {
           router.push('/admin');
@@ -89,13 +84,8 @@ function LoginFormComponent() {
           // 로그인 성공 - 사용자 정보와 세션 토큰을 localStorage에 저장
           console.log('로그인 성공:', result);
           localStorage.setItem('currentUser', JSON.stringify(result));
-          
-          // 세션 토큰 별도 저장 (보안상 분리)
-          if (result.session_token) {
-            localStorage.setItem('session_token', result.session_token);
-          }
-          
-          console.log('localStorage에 사용자 정보 및 세션 저장 완료');
+
+          console.log('localStorage에 사용자 정보 저장 완료');
           router.push('/dashboard');
         } else if (result.status === 'rejected') {
           setLoginError('회원가입이 거부되었습니다. 관리자에게 문의하세요.');

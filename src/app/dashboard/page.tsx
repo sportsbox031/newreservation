@@ -27,6 +27,7 @@ import AccountManagementModal from '@/components/AccountManagementModal';
 import { useSessionCheck } from '@/hooks/useSessionCheck';
 import { getDefaultDashboardMonth } from '@/lib/dashboardCalendar';
 import { shouldStartDashboardRefresh } from '@/lib/dashboardRefresh';
+import { applyReservationStatusDelta } from '@/lib/reservationStatus';
 import {
   RESERVATION_DELAYED_PROGRESS_MESSAGE,
   RESERVATION_PROGRESS_MESSAGE,
@@ -169,6 +170,8 @@ export default function DashboardPage() {
 
         if (targetDateString) {
           updateReservationStatusForDate(targetDateString, -1);
+          dashboardAPI.clearClientCaches(currentMonth.getFullYear(), currentMonth.getMonth() + 1);
+          await refreshDashboardData(true, true);
         }
         const updatedReservations = myReservations.filter(reservation => reservation.id !== reservationId);
         setMyReservations(updatedReservations);
@@ -332,7 +335,7 @@ export default function DashboardPage() {
 
   };
 
-  const refreshDashboardData = async (force = false) => {
+  const refreshDashboardData = async (force = false, bypassCache = false) => {
     if (!isAuthenticated || !user || !userRegion) return;
 
     const now = Date.now();
@@ -352,8 +355,10 @@ export default function DashboardPage() {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
 
-      const calendarPromise = dashboardAPI.getCalendar(year, month);
-      const mePromise = force ? dashboardAPI.getMe(year, month) : Promise.resolve({ data: null, error: null });
+      const calendarPromise = dashboardAPI.getCalendar(year, month, { bypassCache });
+      const mePromise = force
+        ? dashboardAPI.getMe(year, month, { bypassCache })
+        : Promise.resolve({ data: null, error: null });
       const [calendarResult, meResult] = await Promise.all([calendarPromise, mePromise]);
 
       if (calendarResult.error || !calendarResult.data) {
@@ -611,20 +616,7 @@ export default function DashboardPage() {
   };
 
   const updateReservationStatusForDate = (dateString: string, delta: number) => {
-    setReservationStatus(prev => {
-      const current = prev[dateString];
-      if (!current) return prev;
-
-      const nextCurrent = Math.max(0, current.current + delta);
-      return {
-        ...prev,
-        [dateString]: {
-          ...current,
-          current: nextCurrent,
-          isFull: current.max > 0 ? nextCurrent >= current.max : true
-        }
-      };
-    });
+    setReservationStatus(prev => applyReservationStatusDelta(prev, dateString, delta));
   };
 
   // 종료시간 자동 계산 (시작시간 + 40분)
@@ -1038,6 +1030,8 @@ export default function DashboardPage() {
         }
 
         updateReservationStatusForDate(dateString, 1);
+        dashboardAPI.clearClientCaches(currentMonth.getFullYear(), currentMonth.getMonth() + 1);
+        await refreshDashboardData(true, true);
       }
 
       // 모달 닫기

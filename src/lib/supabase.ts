@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
-import { v4 as uuidv4 } from 'uuid'
-import { hashPassword, isBcryptHash, legacyHashPassword, verifyPassword } from './passwordHash'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import {
+  clearDashboardClientCaches,
   getDashboardCalendarClientCacheKey,
   getDashboardBootstrapClientCacheTtl,
   getDashboardMeClientCacheKey,
 } from '@/lib/dashboardBootstrap'
 import { mapReservationErrorMessage } from '@/lib/reservationMessages'
+import { authApiClient } from '@/lib/authApiClient'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -43,38 +43,6 @@ function getAuthHeaders(): HeadersInit {
   }
 }
 
-// Helper function to generate session token
-const generateSessionToken = (): string => {
-  return uuidv4() + '_' + Date.now() + '_' + Math.random().toString(36).substring(2)
-}
-
-// Helper function to get user agent and IP
-const getClientInfo = (request?: Request) => {
-  return {
-    user_agent: request?.headers.get('user-agent') || 'Unknown',
-    ip_address: request?.headers.get('x-forwarded-for') || request?.headers.get('x-real-ip') || 'Unknown'
-  }
-}
-
-// Helper function to get city_id from city name
-const getCityId = async (cityName: string): Promise<number | null> => {
-  const { data, error } = await runQueryWithTimeout(
-    supabase
-      .from('cities')
-      .select('id')
-      .eq('name', cityName)
-      .single(),
-    '시/군 정보를 불러오는 중 시간이 초과되었습니다.'
-  )
-  
-  if (error) {
-    console.error('City lookup error:', error)
-    return null
-  }
-  
-  return data.id
-}
-
 // 회원 관련 함수들
 export const memberAPI = {
   // 회원가입
@@ -90,174 +58,33 @@ export const memberAPI = {
     class_count: number;
     privacy_consent: boolean;
   }) {
-    // Get city_id from city name
-    const cityId = await getCityId(userData.city_name)
-    if (!cityId) {
-      return { data: null, error: { message: '존재하지 않는 시/군입니다.' } }
-    }
-
-    // Hash password with bcrypt (안전한 해싱)
-    const password_hash = await hashPassword(userData.password)
-
-    console.log('🔍 회원가입 데이터:', {
-      organization_type: userData.organization_type,
-      student_count: userData.student_count,
-      class_count: userData.class_count,
-      student_count_type: typeof userData.student_count,
-      class_count_type: typeof userData.class_count
-    })
-
-    // organization_type을 DB에 저장, DB 트리거가 이를 기반으로 tier 자동 계산
-    // welfare → 무조건 Standard, school → student_count/class_count 기반 계산
-    const insertData: any = {
-      organization_type: userData.organization_type,
-      organization_name: userData.organization_name,
-      password_hash,
-      manager_name: userData.manager_name,
-      city_id: cityId,
-      phone: userData.phone,
-      email: userData.email,
-      student_count: userData.student_count,
-      class_count: userData.class_count,
-      privacy_consent: userData.privacy_consent,
-      status: 'pending'
-    }
-
-    console.log('📤 Insert 데이터:', insertData)
-
-    const { data, error } = await supabase
-      .from('users')
-      .insert([insertData])
-      .select()
-
-    console.log('✅ Insert 결과:', { data, error })
-
-    return { data, error }
+    return authApiClient.register(userData)
   },
 
   // 로그인 (하이브리드: bcrypt + 레거시 btoa 지원)
-  async login(organization_name: string, password: string, request?: Request) {
-    const { data, error } = await supabase
-      .from('users')
-      .select(`
-        *,
-        cities!inner(name, regions!inner(name, code))
-      `)
-      .eq('organization_name', organization_name)
-      .eq('status', 'approved')
-      .single()
-
-    if (error) return { data: null, error }
-
-    // 1단계: bcrypt로 검증 시도
-    let isPasswordValid = false
-    let needsMigration = false
-
-    try {
-      if (isBcryptHash(data.password_hash)) {
-        isPasswordValid = await verifyPassword(password, data.password_hash)
-      } else {
-        console.error('Invalid user password hash format during login', {
-          userId: data.id,
-          organizationName: data.organization_name,
-          hashPreview: String(data.password_hash).slice(0, 20),
-        })
-      }
-    } catch (error) {
-      console.error('User bcrypt verification failed', {
-        userId: data.id,
-        organizationName: data.organization_name,
-        error,
-      })
-    }
-
-    // bcrypt 검증 실패 시 → 레거시 btoa 해싱 시도
-    if (!isPasswordValid) {
-      const legacyHash = legacyHashPassword(password)
-      if (data.password_hash === legacyHash) {
-        isPasswordValid = true
-        needsMigration = true // 마이그레이션 필요 표시
-      }
-    }
-
-    if (!isPasswordValid) {
-      return { data: null, error: { message: '비밀번호가 일치하지 않습니다.' } }
-    }
-
-    // 2단계: 레거시 해싱이면 bcrypt로 즉시 업데이트
-    if (needsMigration) {
-      const newHash = await hashPassword(password)
-      await supabase
-        .from('users')
-        .update({ password_hash: newHash })
-        .eq('id', data.id)
-
-      // 업데이트된 해시로 data 갱신
-      data.password_hash = newHash
-    }
-
-    // 멀티 로그인 방지: 기존 활성 세션 모두 비활성화 (일반 사용자는 한 PC에서만 로그인 가능)
-    await supabase
-      .from('user_sessions')
-      .update({ is_active: false })
-      .eq('user_id', data.id)
-      .eq('is_active', true)
-
-    // 새 세션 생성
-    const sessionToken = generateSessionToken()
-    const clientInfo = getClientInfo(request)
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24시간 후 만료
-
-    const { data: sessionData, error: sessionError } = await supabase
-      .from('user_sessions')
-      .insert([{
-        user_id: data.id,
-        session_token: sessionToken,
-        user_agent: clientInfo.user_agent,
-        ip_address: clientInfo.ip_address,
-        expires_at: expiresAt.toISOString(),
-        is_active: true
-      }])
-      .select()
-
-    if (sessionError) {
-      console.error('Session creation failed')
-      return { data: null, error: { message: '로그인 처리 중 오류가 발생했습니다.' } }
-    }
-
-    // Remove password_hash from response for security
-    const { password_hash, ...userWithoutPassword } = data
-    return { 
-      data: {
-        ...userWithoutPassword,
-        session_token: sessionToken,
-        session_expires: expiresAt
-      }, 
-      error: null 
-    }
+  async login(organization_name: string, password: string) {
+    return authApiClient.loginUser(organization_name, password)
   },
 
   // 승인 대기 회원 목록 조회
   async getPendingMembers(regionCode?: string) {
-    let query = supabase
-      .from('users')
-      .select(`
-        *,
-        cities!inner(name, regions!inner(name, code))
-      `)
-      .eq('status', 'pending')
-
-    if (regionCode) {
-      query = query.eq('cities.regions.code', regionCode)
-    }
-
     try {
-      const { data, error } = await runQueryWithTimeout(
-        query,
-        '승인 대기 회원을 불러오는 중 시간이 초과되었습니다.',
-        LONG_QUERY_TIMEOUT_MS
-      )
-      return { data, error }
+      const query = new URLSearchParams({ status: 'pending' })
+      if (regionCode) {
+        query.set('regionCode', regionCode)
+      }
+
+      const response = await fetch(`/api/admin/members?${query.toString()}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '승인 대기 회원을 불러오지 못했습니다.' } }
+      }
+
+      const data = await response.json()
+      return { data: data.data, error: null }
     } catch (error) {
       return { data: null, error: timeoutError(getErrorMessage(error, '승인 대기 회원을 불러오는 중 오류가 발생했습니다.')) }
     }
@@ -265,25 +92,23 @@ export const memberAPI = {
 
   // 승인된 회원 목록 조회
   async getApprovedMembers(regionCode?: string) {
-    let query = supabase
-      .from('users')
-      .select(`
-        *,
-        cities!inner(name, regions!inner(name, code))
-      `)
-      .eq('status', 'approved')
-
-    if (regionCode) {
-      query = query.eq('cities.regions.code', regionCode)
-    }
-
     try {
-      const { data, error } = await runQueryWithTimeout(
-        query,
-        '승인된 회원을 불러오는 중 시간이 초과되었습니다.',
-        LONG_QUERY_TIMEOUT_MS
-      )
-      return { data, error }
+      const query = new URLSearchParams({ status: 'approved' })
+      if (regionCode) {
+        query.set('regionCode', regionCode)
+      }
+
+      const response = await fetch(`/api/admin/members?${query.toString()}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '승인된 회원을 불러오지 못했습니다.' } }
+      }
+
+      const data = await response.json()
+      return { data: data.data, error: null }
     } catch (error) {
       return { data: null, error: timeoutError(getErrorMessage(error, '승인된 회원을 불러오는 중 오류가 발생했습니다.')) }
     }
@@ -291,30 +116,40 @@ export const memberAPI = {
 
   // 모든 회원 조회 (관리자용)
   async getAllMembers() {
-    const { data, error } = await supabase
-      .from('users')
-      .select(`
-        *,
-        cities(name, regions(name))
-      `)
-      .order('created_at', { ascending: false })
+    try {
+      const response = await fetch('/api/admin/members', {
+        headers: getAuthHeaders(),
+      })
 
-    return { data, error }
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '회원 목록을 불러오지 못했습니다.' } }
+      }
+
+      const data = await response.json()
+      return { data: data.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '회원 목록을 불러오지 못했습니다.') } }
+    }
   },
 
   // 지역별 회원 조회 (관리자용)
   async getAllMembersForRegion(regionCode: string) {
-    let query = supabase
-      .from('users')
-      .select(`
-        *,
-        cities!inner(name, regions!inner(name, code))
-      `)
-      .eq('cities.regions.code', regionCode)
-      .order('created_at', { ascending: false })
+    try {
+      const response = await fetch(`/api/admin/members?regionCode=${regionCode}`, {
+        headers: getAuthHeaders(),
+      })
 
-    const { data, error } = await query
-    return { data, error }
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '회원 목록을 불러오지 못했습니다.' } }
+      }
+
+      const data = await response.json()
+      return { data: data.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '회원 목록을 불러오지 못했습니다.') } }
+    }
   },
 
   // 지역별 대기 중인 회원 목록 조회 (편의 함수)
@@ -329,95 +164,72 @@ export const memberAPI = {
 
   // 회원 승인/거부
   async updateMemberStatus(userId: string, status: 'approved' | 'rejected') {
-    const { data, error } = await supabase
-      .from('users')
-      .update({ status })
-      .eq('id', userId)
-      .select()
+    try {
+      const response = await fetch('/api/admin/members', {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'status',
+          memberId: userId,
+          status,
+        }),
+      })
 
-    return { data, error }
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '회원 상태 변경에 실패했습니다.' } }
+      }
+
+      const data = await response.json()
+      return { data: data.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '회원 상태 변경에 실패했습니다.') } }
+    }
   },
 
   // 비밀번호 초기화 (관리자용)
   async resetPassword(userId: string, newPassword: string) {
-    const password_hash = await hashPassword(newPassword)
-
-    if (!isBcryptHash(password_hash)) {
-      console.error('Generated invalid password hash during user reset', {
-        userId,
-        hashPreview: String(password_hash).slice(0, 20),
+    try {
+      const response = await fetch('/api/admin/members', {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'reset_password',
+          memberId: userId,
+          newPassword,
+        }),
       })
-      return { data: null, error: { message: '비밀번호 초기화 중 해시 생성에 실패했습니다.' } }
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '비밀번호 초기화에 실패했습니다.' } }
+      }
+
+      const data = await response.json()
+      return { data: data.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '비밀번호 초기화에 실패했습니다.') } }
     }
-
-    const { data, error } = await supabase
-      .from('users')
-      .update({ password_hash })
-      .eq('id', userId)
-      .select()
-
-    return { data, error }
   },
 
   // 회원 삭제 (관리자용) - 관련 데이터 모두 삭제
   async deleteMember(userId: string) {
     try {
-      // 1. 먼저 해당 사용자의 모든 예약 ID 조회
-      const { data: reservations } = await supabase
-        .from('reservations')
-        .select('id')
-        .eq('user_id', userId)
+      const response = await fetch(`/api/admin/members?memberId=${userId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      })
 
-      const reservationIds = reservations?.map(r => r.id) || []
-
-      // 2. 예약 슬롯 삭제 (reservations를 참조)
-      if (reservationIds.length > 0) {
-        await supabase
-          .from('reservation_slots')
-          .delete()
-          .in('reservation_id', reservationIds)
-
-        // 3. 예약 로그 삭제 (reservations를 참조)
-        await supabase
-          .from('reservation_logs')
-          .delete()
-          .in('reservation_id', reservationIds)
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '회원 삭제에 실패했습니다.' } }
       }
 
-      // 4. 예약 삭제
-      await supabase
-        .from('reservations')
-        .delete()
-        .eq('user_id', userId)
-
-      // 5. 예약 트랜잭션 삭제
-      await supabase
-        .from('reservation_transactions')
-        .delete()
-        .eq('user_id', userId)
-
-      // 6. 공지사항 조회 기록 삭제
-      await supabase
-        .from('announcement_views')
-        .delete()
-        .eq('user_id', userId)
-
-      // 7. 사용자 세션 삭제
-      await supabase
-        .from('user_sessions')
-        .delete()
-        .eq('user_id', userId)
-
-      // 8. 마지막으로 사용자 삭제
-      const { data, error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', userId)
-
-      return { data, error }
+      const data = await response.json()
+      return { data: data.data, error: null }
     } catch (error) {
       console.error('회원 삭제 중 오류:', error)
-      return { data: null, error }
+      return { data: null, error: { message: getErrorMessage(error, '회원 삭제에 실패했습니다.') } }
     }
   },
 
@@ -429,54 +241,76 @@ export const memberAPI = {
     student_count?: number;
     class_count?: number;
   }) {
-    const { data, error } = await supabase
-      .from('users')
-      .update(updateData)
-      .eq('id', userId)
-      .select()
+    try {
+      const response = await fetch('/api/account/user', {
+        method: 'PATCH',
+        headers: getUserAuthHeaders(),
+        body: JSON.stringify({
+          action: 'profile',
+          ...updateData,
+        }),
+      })
 
-    return { data, error }
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '사용자 정보 업데이트에 실패했습니다.' } }
+      }
+
+      const data = await response.json()
+      return { data: data.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '사용자 정보 업데이트에 실패했습니다.') } }
+    }
   },
 
   // 비밀번호 변경 (현재 비밀번호 확인 필요)
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
-    // 현재 비밀번호 확인
-    const { data: user, error: fetchError } = await supabase
-      .from('users')
-      .select('password_hash')
-      .eq('id', userId)
-      .single()
+    try {
+      const response = await fetch('/api/account/user', {
+        method: 'PATCH',
+        headers: getUserAuthHeaders(),
+        body: JSON.stringify({
+          action: 'password',
+          currentPassword,
+          newPassword,
+        }),
+      })
 
-    if (fetchError) {
-      return { data: null, error: { message: '사용자 정보를 찾을 수 없습니다.' } }
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '비밀번호 변경에 실패했습니다.' } }
+      }
+
+      const data = await response.json()
+      return { data: data.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '비밀번호 변경에 실패했습니다.') } }
     }
-
-    // 현재 비밀번호 검증 (bcrypt 사용)
-    const isPasswordValid = await verifyPassword(currentPassword, user.password_hash)
-    if (!isPasswordValid) {
-      return { data: null, error: { message: '현재 비밀번호가 일치하지 않습니다.' } }
-    }
-
-    // 새 비밀번호로 업데이트
-    const newPasswordHash = await hashPassword(newPassword)
-    const { data, error } = await supabase
-      .from('users')
-      .update({ password_hash: newPasswordHash })
-      .eq('id', userId)
-      .select()
-
-    return { data, error }
   },
 
   // 회원 등급 변경
   async updateMemberTier(userId: string, tier: 'Priority' | 'Standard') {
-    const { data, error } = await supabase
-      .from('users')
-      .update({ tier })
-      .eq('id', userId)
-      .select()
+    try {
+      const response = await fetch('/api/admin/members', {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'tier',
+          memberId: userId,
+          tier,
+        }),
+      })
 
-    return { data, error }
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '회원 등급 변경에 실패했습니다.' } }
+      }
+
+      const data = await response.json()
+      return { data: data.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '회원 등급 변경에 실패했습니다.') } }
+    }
   },
 
   // 회원 학생수/학급수 업데이트
@@ -518,6 +352,30 @@ export const settingsAPI = {
 
   // 차단된 날짜 목록 조회
   async getBlockedDates(regionCode: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const isAdminRequest = typeof localStorage !== 'undefined' && !!localStorage.getItem('adminInfo')
+        const query = new URLSearchParams({ action: 'blocked-dates' })
+        if (isAdminRequest) {
+          query.set('regionCode', regionCode)
+        }
+
+        const response = await fetch(`${isAdminRequest ? '/api/admin/settings' : '/api/user/settings'}?${query.toString()}`, {
+          headers: isAdminRequest ? getAuthHeaders() : getUserAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '차단 일정을 불러오지 못했습니다.' } }
+        }
+
+        const data = await response.json()
+        return { data: data.data, error: null }
+      } catch (error) {
+        return { data: null, error: timeoutError(getErrorMessage(error, '차단 일정을 불러오는 중 오류가 발생했습니다.')) }
+      }
+    }
+
     const regionId = await this.getRegionId(regionCode)
     if (!regionId) {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
@@ -559,6 +417,32 @@ export const settingsAPI = {
     startTime?: string | null,  // HH:MM 형식, null이면 하루 전체 차단
     endTime?: string | null     // HH:MM 형식, null이면 하루 전체 차단
   ) {
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/admin/settings', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            regionCode,
+            date,
+            reason,
+            start_time: startTime || null,
+            end_time: endTime || null,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '차단 일정 추가에 실패했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: timeoutError(getErrorMessage(error, '차단 일정 추가 중 오류가 발생했습니다.')) }
+      }
+    }
+
     const regionId = await this.getRegionId(regionCode)
     if (!regionId) {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
@@ -590,6 +474,25 @@ export const settingsAPI = {
 
   // 차단된 날짜 제거 (ID로)
   async removeBlockedDate(dateId: number) {
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch(`/api/admin/settings?action=blocked-date&id=${dateId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '차단 일정 삭제에 실패했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: timeoutError(getErrorMessage(error, '차단 일정 삭제 중 오류가 발생했습니다.')) }
+      }
+    }
+
     const { data, error } = await supabase
       .from('blocked_dates')
       .delete()
@@ -600,6 +503,37 @@ export const settingsAPI = {
 
   // 예약 설정 조회
   async getReservationSettings(regionCode: string, year: number, month: number) {
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams({
+          action: 'reservation-settings',
+          regionCode,
+          year: String(year),
+          month: String(month),
+        })
+        const response = await fetch(`/api/admin/settings?${query.toString()}`, {
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '예약 설정을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return {
+          data: {
+            is_open: false,
+            max_reservations_per_day: 2,
+            max_days_per_month: 4
+          },
+          error: timeoutError(getErrorMessage(error, '예약 설정을 불러오는 중 오류가 발생했습니다.'))
+        }
+      }
+    }
+
     const regionId = await this.getRegionId(regionCode)
     if (!regionId) {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
@@ -691,6 +625,32 @@ export const settingsAPI = {
       max_days_per_month?: number;
     }
   ) {
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/admin/settings', {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            action: 'reservation-settings',
+            regionCode,
+            year,
+            month,
+            ...settings,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '예약 설정 업데이트에 실패했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '예약 설정 업데이트 중 오류가 발생했습니다.') } }
+      }
+    }
+
     const regionId = await this.getRegionId(regionCode)
     if (!regionId) {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
@@ -721,6 +681,28 @@ export const settingsAPI = {
 
   // 특정 날짜의 예약 현황 조회
   async getDateReservationStatus(regionCode: string, date: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams({
+          action: 'date-status',
+          date,
+        })
+        const response = await fetch(`/api/user/settings?${query.toString()}`, {
+          headers: getUserAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '해당 날짜의 예약 현황을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: timeoutError(getErrorMessage(error, '해당 날짜의 예약 현황을 불러오는 중 오류가 발생했습니다.')) }
+      }
+    }
+
     const regionId = await this.getRegionId(regionCode)
     if (!regionId) {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
@@ -785,6 +767,36 @@ export const settingsAPI = {
 
   // 월별 예약 현황 일괄 조회 (성능 최적화)
   async getMonthReservationStatus(regionCode: string, year: number, month: number) {
+    if (typeof window !== 'undefined') {
+      try {
+        const isAdminRequest = typeof localStorage !== 'undefined' && !!localStorage.getItem('adminInfo')
+        const headers = isAdminRequest ? getAuthHeaders() : getUserAuthHeaders()
+        const query = new URLSearchParams({
+          action: 'month-status',
+          year: String(year),
+          month: String(month),
+        })
+
+        if (isAdminRequest) {
+          query.set('regionCode', regionCode)
+        }
+
+        const response = await fetch(`${isAdminRequest ? '/api/admin/settings' : '/api/user/settings'}?${query.toString()}`, {
+          headers,
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '월별 예약 현황을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: timeoutError(getErrorMessage(error, '월별 예약 현황을 불러오는 중 오류가 발생했습니다.')) }
+      }
+    }
+
     const regionId = await this.getRegionId(regionCode)
     if (!regionId) {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
@@ -889,6 +901,31 @@ export const settingsAPI = {
 
   // 특정 날짜 예약 제한 설정
   async setDailyReservationLimit(regionCode: string, date: string, maxReservations: number) {
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/admin/settings', {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            action: 'daily-limit',
+            regionCode,
+            date,
+            max_reservations: maxReservations,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '특정일 예약 제한 설정에 실패했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '특정일 예약 제한 설정 중 오류가 발생했습니다.') } }
+      }
+    }
+
     const regionId = await this.getRegionId(regionCode)
     if (!regionId) {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
@@ -943,6 +980,28 @@ export const settingsAPI = {
 
   // 지역의 모든 특정 날짜 예약 제한 조회
   async getAllDailyReservationLimits(regionCode: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams({
+          action: 'daily-limits',
+          regionCode,
+        })
+        const response = await fetch(`/api/admin/settings?${query.toString()}`, {
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '특정일 예약 제한을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '특정일 예약 제한을 불러오는 중 오류가 발생했습니다.') } }
+      }
+    }
+
     const regionId = await this.getRegionId(regionCode)
     if (!regionId) {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
@@ -960,6 +1019,30 @@ export const settingsAPI = {
 
   // 특정 날짜 예약 제한 제거
   async removeDailyReservationLimit(regionCode: string, date: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams({
+          action: 'daily-limit',
+          regionCode,
+          date,
+        })
+        const response = await fetch(`/api/admin/settings?${query.toString()}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '특정일 예약 제한 삭제에 실패했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '특정일 예약 제한 삭제 중 오류가 발생했습니다.') } }
+      }
+    }
+
     const regionId = await this.getRegionId(regionCode)
     if (!regionId) {
       return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
@@ -1020,6 +1103,28 @@ export const reservationAPI = {
 
   // 승인 대기 예약 목록 조회
   async getPendingReservations(regionCode?: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams({ scope: 'pending' })
+        if (regionCode) {
+          query.set('regionCode', regionCode)
+        }
+        const response = await fetch(`/api/admin/reservations?${query.toString()}`, {
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '승인 대기 예약을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: timeoutError(getErrorMessage(error, '승인 대기 예약을 불러오는 중 오류가 발생했습니다.')) }
+      }
+    }
+
     let query = supabase
       .from('reservations')
       .select(`
@@ -1054,6 +1159,28 @@ export const reservationAPI = {
 
   // 승인된 예약 목록 조회
   async getApprovedReservations(regionCode?: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams({ scope: 'approved' })
+        if (regionCode) {
+          query.set('regionCode', regionCode)
+        }
+        const response = await fetch(`/api/admin/reservations?${query.toString()}`, {
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '승인된 예약을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: timeoutError(getErrorMessage(error, '승인된 예약을 불러오는 중 오류가 발생했습니다.')) }
+      }
+    }
+
     let query = supabase
       .from('reservations')
       .select(`
@@ -1117,6 +1244,25 @@ export const reservationAPI = {
 
   // 지역별 모든 예약 조회 (관리자용)
   async getAllReservationsForRegion(regionCode: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams({ scope: 'all', regionCode })
+        const response = await fetch(`/api/admin/reservations?${query.toString()}`, {
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '예약 목록을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '예약 목록을 불러오지 못했습니다.') } }
+      }
+    }
+
     let query = supabase
       .from('reservations')
       .select(`
@@ -1158,6 +1304,30 @@ export const reservationAPI = {
 
   // 예약 승인/거부/취소
   async updateReservationStatus(reservationId: string, status: 'approved' | 'rejected' | 'cancelled') {
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/admin/reservations', {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            action: 'status',
+            reservationId,
+            status,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '예약 상태 변경에 실패했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '예약 상태 변경에 실패했습니다.') } }
+      }
+    }
+
     const { data, error } = await supabase
       .from('reservations')
       .update({ status })
@@ -1169,6 +1339,29 @@ export const reservationAPI = {
 
   // 예약 완전 삭제 (거절, 취소 시 사용)
   async deleteReservation(reservationId: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const isAdminRequest = typeof localStorage !== 'undefined' && !!localStorage.getItem('adminInfo')
+        const response = await fetch(
+          `${isAdminRequest ? '/api/admin/reservations' : '/api/user/reservations'}?reservationId=${reservationId}`,
+          {
+            method: 'DELETE',
+            headers: isAdminRequest ? getAuthHeaders() : getUserAuthHeaders(),
+          }
+        )
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '예약 삭제에 실패했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '예약 삭제에 실패했습니다.') } }
+      }
+    }
+
     const { data, error } = await supabase
       .from('reservations')
       .delete()
@@ -1180,6 +1373,29 @@ export const reservationAPI = {
 
   // 관리자 예약 강제 취소
   async forceCancel(reservationId: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/admin/reservations', {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            action: 'force_cancel',
+            reservationId,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '예약 강제 취소에 실패했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '예약 강제 취소에 실패했습니다.') } }
+      }
+    }
+
     // 먼저 단순 업데이트만 수행
     const { error: updateError } = await supabase
       .from('reservations')
@@ -1242,6 +1458,24 @@ export const reservationAPI = {
 
   // 사용자 예약 목록 조회
   async getUserReservations(userId: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/user/reservations', {
+          headers: getUserAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '내 예약 목록을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: timeoutError(getErrorMessage(error, '내 예약 목록을 불러오는 중 오류가 발생했습니다.')) }
+      }
+    }
+
     try {
       const { data, error } = await runQueryWithTimeout(
         supabase
@@ -1264,6 +1498,26 @@ export const reservationAPI = {
 
   // 예약 취소 요청 (승인된 예약의 경우)
   async requestCancellation(reservationId: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/user/reservations', {
+          method: 'PATCH',
+          headers: getUserAuthHeaders(),
+          body: JSON.stringify({ reservationId }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '취소 요청에 실패했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '취소 요청에 실패했습니다.') } }
+      }
+    }
+
     const { data, error } = await supabase
       .from('reservations')
       .update({ 
@@ -1277,6 +1531,28 @@ export const reservationAPI = {
 
   // 취소 요청 예약 목록 조회
   async getCancellationRequests(regionCode?: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams({ scope: 'cancel_requested' })
+        if (regionCode) {
+          query.set('regionCode', regionCode)
+        }
+        const response = await fetch(`/api/admin/reservations?${query.toString()}`, {
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '취소 요청 예약을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: timeoutError(getErrorMessage(error, '취소 요청 예약을 불러오는 중 오류가 발생했습니다.')) }
+      }
+    }
+
     let query = supabase
       .from('reservations')
       .select(`
@@ -1554,11 +1830,11 @@ export const utilityAPI = {
 }
 
 export const dashboardAPI = {
-  async getCalendar(year: number, month: number) {
+  async getCalendar(year: number, month: number, options?: { bypassCache?: boolean }) {
     try {
       const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
       const cacheKey = getDashboardCalendarClientCacheKey(year, month, sessionToken)
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && !options?.bypassCache) {
         const cachedValue = localStorage.getItem(cacheKey) || sessionStorage.getItem(cacheKey)
         if (cachedValue) {
           const cached = JSON.parse(cachedValue)
@@ -1570,7 +1846,7 @@ export const dashboardAPI = {
       }
 
       const response = await withTimeout(
-        fetch(`/api/dashboard/calendar?year=${year}&month=${month}`, {
+        fetch(`/api/dashboard/calendar?year=${year}&month=${month}${options?.bypassCache ? '&bypassCache=1' : ''}`, {
           method: 'GET',
           headers: getUserAuthHeaders()
         }),
@@ -1622,11 +1898,11 @@ export const dashboardAPI = {
       return { data: null, error: { message: getErrorMessage(error, '예약 오픈 상태를 불러오는 중 오류가 발생했습니다.') } }
     }
   },
-  async getMe(year: number, month: number) {
+  async getMe(year: number, month: number, options?: { bypassCache?: boolean }) {
     try {
       const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
       const cacheKey = getDashboardMeClientCacheKey(year, month, sessionToken)
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && !options?.bypassCache) {
         const cachedValue = localStorage.getItem(cacheKey) || sessionStorage.getItem(cacheKey)
         if (cachedValue) {
           const cached = JSON.parse(cachedValue)
@@ -1637,7 +1913,7 @@ export const dashboardAPI = {
       }
 
       const response = await withTimeout(
-        fetch(`/api/dashboard/me?year=${year}&month=${month}`, {
+        fetch(`/api/dashboard/me?year=${year}&month=${month}${options?.bypassCache ? '&bypassCache=1' : ''}`, {
           method: 'GET',
           headers: getUserAuthHeaders()
         }),
@@ -1690,54 +1966,40 @@ export const dashboardAPI = {
     } catch (error) {
       return { data: null, error: { message: getErrorMessage(error, '대시보드 정보를 불러오는 중 오류가 발생했습니다.') } }
     }
+  },
+  clearClientCaches(year: number, month: number) {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const sessionToken = localStorage.getItem('session_token')
+    clearDashboardClientCaches(year, month, sessionToken, [localStorage, sessionStorage])
   }
 }
 
 // 공지사항 관련 함수들
 export const announcementAPI = {
   // 사용자용: 공지사항 목록 조회 (지역별 필터링 적용)
-  async getAnnouncementsForUser(userId: string) {
+  async getAnnouncementsForUser(_userId: string) {
+    void _userId
     try {
-      // 먼저 사용자의 지역 정보를 조회
-      const { data: userData, error: userError } = await runQueryWithTimeout(
-        supabase
-          .from('users')
-          .select('cities!inner(region_id)')
-          .eq('id', userId)
-          .single(),
-        '사용자 공지사항 설정을 불러오는 중 시간이 초과되었습니다.'
-      )
-
-      if (userError) {
-        return { data: null, error: userError }
-      }
-
-      const userRegionId = userData?.cities?.region_id
-
-      let query = supabase
-        .from('announcements')
-        .select(`
-          *,
-          admins(username),
-          regions(name)
-        `)
-        .eq('is_published', true)
-
-      // userRegionId가 있으면 지역별 필터링 적용, 없으면 전체 공지만
-      if (userRegionId) {
-        query = query.or(`target_type.eq.all,and(target_type.eq.region,target_region_id.eq.${userRegionId})`)
-      } else {
-        query = query.eq('target_type', 'all')
-      }
-
-      const { data, error } = await runQueryWithTimeout(
-        query
-          .order('is_important', { ascending: false })
-          .order('created_at', { ascending: false }),
+      const response = await withTimeout(
+        fetch('/api/announcements/user', {
+          headers: getUserAuthHeaders(),
+        }),
+        QUERY_TIMEOUT_MS,
         '공지사항 목록을 불러오는 중 시간이 초과되었습니다.'
       )
 
-      return { data, error }
+      const result = await response.json().catch(() => null)
+      if (!response.ok) {
+        return {
+          data: null,
+          error: result?.error || { message: '공지사항 목록을 불러오는 중 오류가 발생했습니다.' }
+        }
+      }
+
+      return { data: result?.data || [], error: null }
     } catch (error) {
       console.error('getAnnouncementsForUser 오류:', error)
       return { data: null, error: timeoutError(getErrorMessage(error, '공지사항 목록을 불러오는 중 오류가 발생했습니다.')) }
@@ -2224,60 +2486,18 @@ export const popupAPI = {
 // 세션 관리 API
 export const sessionAPI = {
   // 세션 유효성 검사
-  async validateSession(sessionToken: string) {
-    try {
-      const { data, error } = await runQueryWithTimeout(
-        supabase
-          .from('user_sessions')
-          .select(`
-            *,
-            users!inner(
-              *,
-              cities!inner(name, regions!inner(name, code))
-            )
-          `)
-          .eq('session_token', sessionToken)
-          .eq('is_active', true)
-          .gte('expires_at', new Date().toISOString())
-          .single(),
-        '세션 확인 응답이 지연되고 있습니다.'
-      )
-
-      return { data, error }
-    } catch (error) {
-      return { data: null, error: timeoutError(getErrorMessage(error, '세션 확인 중 오류가 발생했습니다.')) }
-    }
+  async validateSession(sessionToken?: string) {
+    return authApiClient.validateUserSession(sessionToken)
   },
 
   // 세션 갱신 (활동 시간 업데이트)
-  async refreshSession(sessionToken: string) {
-    try {
-      const { data, error } = await runQueryWithTimeout(
-        supabase
-          .from('user_sessions')
-          .update({ 
-            last_activity: new Date().toISOString(),
-            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-          })
-          .eq('session_token', sessionToken)
-          .eq('is_active', true),
-        '세션 갱신 응답이 지연되고 있습니다.'
-      )
-
-      return { data, error }
-    } catch (error) {
-      return { data: null, error: timeoutError(getErrorMessage(error, '세션 갱신 중 오류가 발생했습니다.')) }
-    }
+  async refreshSession(sessionToken?: string) {
+    return authApiClient.refreshUserSession(sessionToken)
   },
 
   // 로그아웃 (세션 비활성화)
-  async logout(sessionToken: string) {
-    const { data, error } = await supabase
-      .from('user_sessions')
-      .update({ is_active: false })
-      .eq('session_token', sessionToken)
-
-    return { data, error }
+  async logout(sessionToken?: string) {
+    return authApiClient.logoutSession(sessionToken)
   },
 
   // 사용자의 모든 세션 비활성화
@@ -2433,6 +2653,24 @@ export const reservationConcurrencyAPI = {
 export const tierAPI = {
   // Get all available tiers
   async getAllTiers() {
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/admin/tier-settings?action=tiers', {
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '티어 목록을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '티어 목록을 불러오지 못했습니다.') } }
+      }
+    }
+
     const { data, error } = await supabase
       .from('member_tiers')
       .select('*')
@@ -2513,6 +2751,28 @@ export const tierAPI = {
 
   // Get tier reservation settings for specific region/month
   async getTierReservationSettings(regionCode: string, yearMonth: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams({
+          regionCode,
+          yearMonth,
+        })
+        const response = await fetch(`/api/admin/tier-settings?${query.toString()}`, {
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '티어별 예약 설정을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '티어별 예약 설정을 불러오지 못했습니다.') } }
+      }
+    }
+
     const { data, error } = await supabase
       .from('tier_reservation_settings')
       .select(`
@@ -2534,6 +2794,32 @@ export const tierAPI = {
     isOpen: boolean,
     adminId: string
   ) {
+    if (typeof window !== 'undefined') {
+      try {
+        const response = await fetch('/api/admin/tier-settings', {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            regionCode,
+            yearMonth,
+            tierId,
+            isOpen,
+            adminId,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '티어 예약 상태 변경에 실패했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '티어 예약 상태 변경에 실패했습니다.') } }
+      }
+    }
+
     // 현재 날짜로 설정 (수동 제어)
     const reservationStartDate = new Date().toISOString().split('T')[0]
 
@@ -2647,179 +2933,63 @@ export const tierAPI = {
 // 관리자 계정 관리 API
 export const adminAPI = {
   // 관리자 로그인 (하이브리드: bcrypt + 레거시 btoa 지원)
-  async login(username: string, password: string, request?: Request) {
-    try {
-      // 관리자 조회
-      const { data: admin, error: fetchError } = await supabase
-        .from('admins')
-        .select('*')
-        .eq('username', username)
-        .single()
-
-      if (fetchError || !admin) {
-        return { data: null, error: { message: '등록되지 않은 관리자 계정입니다.' } }
-      }
-
-      // 비밀번호 검증 (하이브리드)
-      let isPasswordValid = false
-      let needsMigration = false
-
-      try {
-        isPasswordValid = await verifyPassword(password, admin.password_hash)
-      } catch (error) {
-        // bcrypt 검증 실패 - 레거시 방식 시도
-      }
-
-      // bcrypt 검증 실패 시 → 레거시 btoa 해싱 시도
-      if (!isPasswordValid) {
-        const legacyHash = legacyHashPassword(password)
-        if (admin.password_hash === legacyHash) {
-          isPasswordValid = true
-          needsMigration = true
-        }
-      }
-
-      if (!isPasswordValid) {
-        return { data: null, error: { message: '비밀번호가 일치하지 않습니다.' } }
-      }
-
-      // 레거시 해싱이면 bcrypt로 즉시 업데이트
-      if (needsMigration) {
-        const newHash = await hashPassword(password)
-        await supabase
-          .from('admins')
-          .update({ password_hash: newHash })
-          .eq('id', admin.id)
-      }
-
-      // 관리자는 여러 PC에서 동시 로그인 가능 (기존 세션 유지)
-      // 일반 사용자와 달리 관리자는 멀티 로그인 허용
-
-      // 새 세션 생성
-      const sessionToken = generateSessionToken()
-      const clientInfo = getClientInfo(request)
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24시간 후 만료
-
-      const { error: sessionError } = await supabase
-        .from('admin_sessions')
-        .insert([{
-          admin_id: admin.id,
-          session_token: sessionToken,
-          user_agent: clientInfo.user_agent,
-          ip_address: clientInfo.ip_address,
-          expires_at: expiresAt.toISOString(),
-          is_active: true
-        }])
-
-      if (sessionError) {
-        console.error('Session creation failed:', sessionError)
-        return { data: null, error: { message: '로그인 처리 중 오류가 발생했습니다.' } }
-      }
-
-      // 지역 ID 가져오기 (role이 south/north인 경우)
-      let region_id = null
-      if (admin.role === 'south' || admin.role === 'north') {
-        const regionCode = admin.role === 'south' ? 'south' : 'north'
-        const regionIdResult = await this.getRegionIdByCode(regionCode)
-        region_id = regionIdResult
-      }
-
-      // 로그인 성공 (세션 토큰 포함)
-      return {
-        data: {
-          id: admin.id,
-          username: admin.username,
-          role: admin.role,
-          region_id: region_id,
-          phone: admin.phone,
-          email: admin.email,
-          isAuthenticated: true,
-          session_token: sessionToken,
-          session_expires: expiresAt
-        },
-        error: null
-      }
-    } catch (error) {
-      console.error('관리자 로그인 오류:', error)
-      return { data: null, error: { message: '로그인 중 오류가 발생했습니다.' } }
-    }
+  async login(username: string, password: string) {
+    return authApiClient.loginAdmin(username, password)
   },
 
-  // 지역 코드로 지역 ID 조회
-  async getRegionIdByCode(code: string): Promise<number | null> {
-    const { data, error } = await supabase
-      .from('regions')
-      .select('id')
-      .eq('code', code)
-      .single()
-
-    if (error) return null
-    return data.id
+  async logout(sessionToken?: string) {
+    return authApiClient.logoutSession(sessionToken)
   },
 
   // 관리자 정보 업데이트
   async updateAdminInfo(adminId: string, updates: { username?: string; phone?: string; email?: string }) {
     try {
-      console.log('📥 updateAdminInfo 호출:', { adminId, updates })
-
-      const { data, error } = await supabase
-        .from('admins')
-        .update(updates)
-        .eq('id', adminId)
-        .select()
-
-      console.log('📤 Supabase 응답:', {
-        data,
-        error,
-        errorType: error ? typeof error : 'null',
-        errorKeys: error ? Object.keys(error) : []
+      const response = await fetch('/api/account/admin', {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'profile',
+          phone: updates.phone,
+          email: updates.email,
+        }),
       })
 
-      if (error) {
-        console.error('DB 업데이트 오류:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          fullError: JSON.stringify(error)
-        })
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '관리자 정보 업데이트에 실패했습니다.' } }
       }
 
-      return { data, error }
+      const data = await response.json()
+      return { data: data.data, error: null }
     } catch (error) {
       console.error('예외 발생:', error)
-      return { data: null, error: { message: '업데이트 중 예외가 발생했습니다.' } }
+      return { data: null, error: { message: getErrorMessage(error, '관리자 정보 업데이트에 실패했습니다.') } }
     }
   },
 
   // 관리자 비밀번호 변경
   async changeAdminPassword(adminId: string, currentPassword: string, newPassword: string) {
-    // 현재 비밀번호 확인
-    const { data: admin, error: fetchError } = await supabase
-      .from('admins')
-      .select('password_hash')
-      .eq('id', adminId)
-      .single()
+    try {
+      const response = await fetch('/api/account/admin', {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'password',
+          currentPassword,
+          newPassword,
+        }),
+      })
 
-    if (fetchError) {
-      return { data: null, error: { message: '관리자 정보를 찾을 수 없습니다.' } }
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '관리자 비밀번호 변경에 실패했습니다.' } }
+      }
+
+      const data = await response.json()
+      return { data: data.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '관리자 비밀번호 변경에 실패했습니다.') } }
     }
-
-    // 현재 비밀번호 검증 (bcrypt 사용)
-    const isPasswordValid = await verifyPassword(currentPassword, admin.password_hash)
-    if (!isPasswordValid) {
-      return { data: null, error: { message: '현재 비밀번호가 일치하지 않습니다.' } }
-    }
-
-    // 새 비밀번호로 업데이트
-    const newPasswordHash = await hashPassword(newPassword)
-    const { data, error } = await supabase
-      .from('admins')
-      .update({ password_hash: newPasswordHash })
-      .eq('id', adminId)
-      .select()
-
-    return { data, error }
   },
 
   // 관리자 ID로 조회

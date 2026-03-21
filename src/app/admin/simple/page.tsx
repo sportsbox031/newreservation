@@ -11,6 +11,7 @@ import {
   LogOut,
   Home
 } from 'lucide-react'
+import { adminAPI } from '@/lib/supabase'
 
 export default function SimpleAdminPage() {
   type AdminInfo = {
@@ -71,9 +72,16 @@ export default function SimpleAdminPage() {
     return () => clearTimeout(timer)
   }, [router])
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminInfo')
-    router.push('/auth/login')
+  const handleLogout = async () => {
+    try {
+      await adminAPI.logout()
+    } catch (error) {
+      console.error('관리자 로그아웃 오류:', error)
+    } finally {
+      localStorage.removeItem('adminInfo')
+      localStorage.removeItem('sessionToken')
+      router.push('/auth/login')
+    }
   }
 
   // 로딩 중일 때

@@ -43,17 +43,10 @@ export async function checkClientSession(
     const sessionToken = localStorage.getItem('session_token');
     const cachedUser = getCachedCurrentUser();
     
-    if (!sessionToken) {
-      return {
-        isValid: false,
-        error: '세션 토큰이 없습니다.',
-        shouldLogout: true
-      };
-    }
+    const validationCacheKey = getSessionValidatedAtStorageKey(sessionToken || cachedUser?.id || 'cookie-session')
 
     if (!forceServerCheck && cachedUser) {
-      const validatedAtKey = getSessionValidatedAtStorageKey(sessionToken);
-      if (isFreshSessionValidation(localStorage.getItem(validatedAtKey), Date.now(), SESSION_CACHE_TTL_MS)) {
+      if (isFreshSessionValidation(localStorage.getItem(validationCacheKey), Date.now(), SESSION_CACHE_TTL_MS)) {
         return {
           isValid: true,
           user: cachedUser
@@ -62,7 +55,7 @@ export async function checkClientSession(
     }
 
     // 세션 유효성 검증
-    const { data: sessionData, error } = await sessionAPI.validateSession(sessionToken);
+    const { data: sessionData, error } = await sessionAPI.validateSession(sessionToken || undefined);
 
     if (error || !sessionData) {
       if (error && isTimeoutError(error)) {
@@ -85,10 +78,10 @@ export async function checkClientSession(
     }
 
     if (refreshActivity) {
-      await sessionAPI.refreshSession(sessionToken);
-      localStorage.setItem(getSessionValidatedAtStorageKey(sessionToken), String(Date.now()));
+      await sessionAPI.refreshSession(sessionToken || undefined);
+      localStorage.setItem(validationCacheKey, String(Date.now()));
     } else {
-      localStorage.setItem(getSessionValidatedAtStorageKey(sessionToken), String(Date.now()));
+      localStorage.setItem(validationCacheKey, String(Date.now()));
     }
 
     return {
@@ -114,10 +107,7 @@ export async function performLogout(sessionToken?: string): Promise<void> {
   try {
     const token = sessionToken || localStorage.getItem('session_token');
 
-    if (token) {
-      // 서버에서 세션 비활성화
-      await sessionAPI.logout(token);
-    }
+    await sessionAPI.logout(token || undefined);
 
     // 로컬 스토리지 정리
     localStorage.removeItem('session_token');

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { reservationAPI } from '@/lib/supabase'
 import { sendProgramDayNotification } from '@/lib/aligo'
+import { getReservationsByDateOnServer } from '@/lib/reservationSettingsServer'
 
 // Vercel Cron Job으로 매일 오전 9시에 호출됨
 export async function GET(request: NextRequest) {
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     console.log('📅 오늘 날짜:', todayString)
 
     // 오늘 예약된 승인 완료 상태의 예약 조회 (모든 지역)
-    const { data: reservations, error } = await reservationAPI.getReservationsByDate('', todayString)
+    const { data: reservations, error } = await getReservationsByDateOnServer('', todayString)
 
     if (error) {
       console.error('예약 조회 오류:', error)

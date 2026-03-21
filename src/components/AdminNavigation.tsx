@@ -14,6 +14,7 @@ import {
   UserCog
 } from 'lucide-react'
 import AccountManagementModal from './AccountManagementModal'
+import { adminAPI } from '@/lib/supabase'
 
 interface AdminNavigationProps {
   adminRole?: string
@@ -23,9 +24,16 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
   const pathname = usePathname()
   const [showAccountModal, setShowAccountModal] = useState(false)
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminInfo')
-    window.location.href = '/auth/login'
+  const handleLogout = async () => {
+    try {
+      await adminAPI.logout()
+    } catch (error) {
+      console.error('관리자 로그아웃 오류:', error)
+    } finally {
+      localStorage.removeItem('adminInfo')
+      localStorage.removeItem('sessionToken')
+      window.location.href = '/auth/login'
+    }
   }
 
   const handleAccountManagement = () => {

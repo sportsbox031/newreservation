@@ -5,6 +5,7 @@ import { announcementAPI } from '@/lib/supabase'
 import { Bell, Calendar, AlertCircle } from 'lucide-react'
 import { sanitizeHtml } from '@/components/RichTextEditor'
 import AttachmentList from '@/components/AttachmentList'
+import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
 
 interface Announcement {
   id: string
@@ -229,7 +230,7 @@ export default function AnnouncementsPage() {
                       <Calendar className="w-3 h-3" />
                       <span>{formatDate(announcement.created_at)}</span>
                     </div>
-                    <span>작성자: {announcement.admins.username}</span>
+                    <span>작성자: {getAnnouncementAuthorName(announcement)}</span>
                   </div>
                 </div>
                 
@@ -270,7 +271,7 @@ export default function AnnouncementsPage() {
                     {selectedAnnouncement.title}
                   </h2>
                   <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span>작성자: {selectedAnnouncement.admins.username}</span>
+                    <span>작성자: {getAnnouncementAuthorName(selectedAnnouncement)}</span>
                     <span>작성일: {formatDate(selectedAnnouncement.created_at)}</span>
                   </div>
                 </div>

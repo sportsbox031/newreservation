@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+import { Database } from '@/types/database'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    persistSession: false
+  }
+})
 
 const PUBLIC_POPUPS_CACHE_TTL_MS = 60 * 1000
 const PUBLIC_POPUPS_TIMEOUT_MS = 15000
@@ -30,7 +39,7 @@ export async function GET() {
 
   try {
     const { data, error } = await withTimeout(
-      supabase
+      supabaseAdmin
         .from('homepage_popups')
         .select(`
           *,
