@@ -52,7 +52,8 @@ export async function GET(request: NextRequest) {
     }
 
     const regionCode = request.nextUrl.searchParams.get('regionCode')
-    const result = await getMembersForAdmin(auth.user.role, regionCode)
+    const status = request.nextUrl.searchParams.get('status')
+    const result = await getMembersForAdmin(auth.user.role, regionCode, status)
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 400 })
     }

@@ -16,6 +16,10 @@ import {
 import { memberAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
 import ExcelJS from 'exceljs'
+import {
+  filterMembersForDisplay,
+  getMemberSummaryCounts,
+} from '@/lib/memberAdminHelpers'
 
 interface Member {
   id: string
@@ -48,6 +52,7 @@ export default function MembersPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all')
   const [regionFilter, setRegionFilter] = useState<'all' | '경기남부' | '경기북부'>('all')
   const [processing, setProcessing] = useState<string | null>(null)
+  const summaryCounts = getMemberSummaryCounts(members, { searchTerm, regionFilter })
 
   useEffect(() => {
     checkAuth()
@@ -96,29 +101,11 @@ export default function MembersPage() {
   }
 
   const filterMembers = () => {
-    let filtered = members
-
-    // 검색 필터
-    if (searchTerm) {
-      filtered = filtered.filter(member =>
-        member.organization_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.manager_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.phone.includes(searchTerm)
-      )
-    }
-
-    // 상태 필터
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(member => member.status === statusFilter)
-    }
-
-    // 지역 필터
-    if (regionFilter !== 'all') {
-      filtered = filtered.filter(member => member.cities?.regions?.name === regionFilter)
-    }
-
-    setFilteredMembers(filtered)
+    setFilteredMembers(filterMembersForDisplay(members, {
+      searchTerm,
+      statusFilter,
+      regionFilter,
+    }))
   }
 
   const handleStatusChange = async (memberId: string, status: 'approved' | 'rejected') => {
@@ -569,7 +556,7 @@ export default function MembersPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">대기중</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {members.filter(m => m.status === 'pending').length}
+                  {summaryCounts.pending}
                 </p>
               </div>
             </div>
@@ -582,7 +569,7 @@ export default function MembersPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">승인됨</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {members.filter(m => m.status === 'approved').length}
+                  {summaryCounts.approved}
                 </p>
               </div>
             </div>
@@ -594,7 +581,7 @@ export default function MembersPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">전체</p>
-                <p className="text-2xl font-bold text-gray-900">{members.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{summaryCounts.total}</p>
               </div>
             </div>
           </div>

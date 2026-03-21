@@ -68,17 +68,21 @@ export default function AdminDashboard() {
 
   const loadDashboardData = async (adminData: any) => {
     try {
+      const regionCode = adminData.role === 'south' || adminData.role === 'north'
+        ? adminData.role
+        : undefined
+
       // 통계 데이터 로드
       const [membersResult, reservationsResult, announcementsResult, cancelRequestsResult] = await Promise.all([
-        memberAPI.getPendingMembers(),
-        reservationAPI.getPendingReservations(),
+        memberAPI.getPendingMembers(regionCode),
+        reservationAPI.getPendingReservations(regionCode),
         announcementAPI.getPublicAnnouncements(),
-        reservationAPI.getCancellationRequests()
+        reservationAPI.getCancellationRequests(regionCode)
       ])
 
       // 승인된 회원 수 조회
-      const approvedMembersResult = await memberAPI.getApprovedMembers()
-      const approvedReservationsResult = await reservationAPI.getApprovedReservations()
+      const approvedMembersResult = await memberAPI.getApprovedMembers(regionCode)
+      const approvedReservationsResult = await reservationAPI.getApprovedReservations(regionCode)
 
       setStats({
         pendingMembers: membersResult.data?.length || 0,

@@ -3,7 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 import { hashPassword, verifyPassword } from '@/lib/passwordHash'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
-import { canManageRequestedRegion, resolveMemberRegionScope } from '@/lib/memberAdminHelpers'
+import {
+  canManageRequestedRegion,
+  resolveMemberRegionScope,
+  resolveMemberStatusScope,
+} from '@/lib/memberAdminHelpers'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -29,8 +33,13 @@ async function runQueryWithTimeout<T>(
   return withTimeout(promise, timeoutMs, message)
 }
 
-export async function getMembersForAdmin(adminRole: string, requestedRegionCode: string | null) {
+export async function getMembersForAdmin(
+  adminRole: string,
+  requestedRegionCode: string | null,
+  requestedStatus: string | null
+) {
   const regionScope = resolveMemberRegionScope(adminRole, requestedRegionCode)
+  const statusScope = resolveMemberStatusScope(requestedStatus)
 
   let query = supabaseAdmin
     .from('users')
@@ -42,6 +51,10 @@ export async function getMembersForAdmin(adminRole: string, requestedRegionCode:
 
   if (regionScope) {
     query = query.eq('cities.regions.code', regionScope)
+  }
+
+  if (statusScope) {
+    query = query.eq('status', statusScope)
   }
 
   try {
