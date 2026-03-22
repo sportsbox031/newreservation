@@ -29,6 +29,10 @@ import { getDefaultDashboardMonth } from '@/lib/dashboardCalendar';
 import { shouldStartDashboardRefresh } from '@/lib/dashboardRefresh';
 import { applyReservationStatusDelta } from '@/lib/reservationStatus';
 import {
+  EMPTY_RESERVATION_SLOT_FORM,
+  getClosedReservationModalState,
+} from '@/lib/reservationModalState';
+import {
   RESERVATION_DELAYED_PROGRESS_MESSAGE,
   RESERVATION_PROGRESS_MESSAGE,
   RESERVATION_SUCCESS_MESSAGE,
@@ -783,13 +787,7 @@ export default function DashboardPage() {
     setActiveModal('reservation');
     
     // 예약 폼 초기화
-    setReservationSlots([{
-      startTime: '',
-      endTime: '',
-      grade: '',
-      participantCount: '',
-      location: ''
-    }]);
+    setReservationSlots([{ ...EMPTY_RESERVATION_SLOT_FORM }]);
   };
 
   // 달력 타일 클래스 설정
@@ -899,6 +897,12 @@ export default function DashboardPage() {
     setIsSubmitting(true);
     setSubmitStatusMessage('');
     let delayedStatusTimer: number | null = null;
+    const closeReservationModal = () => {
+      const resetState = getClosedReservationModalState();
+      setActiveModal(resetState.activeModal);
+      setSelectedDate(resetState.selectedDate);
+      setReservationSlots(resetState.reservationSlots);
+    };
     
     try {
       const filteredSlots = reservationSlots.filter(slot => 
@@ -991,6 +995,7 @@ export default function DashboardPage() {
       );
 
       if (result.error) {
+        closeReservationModal();
         alert(`예약 신청 실패: ${result.error.message}`);
         setSubmitStatusMessage('');
         return;
@@ -1026,20 +1031,13 @@ export default function DashboardPage() {
       }
 
       // 모달 닫기
-      setActiveModal(null);
-      setSelectedDate(null);
-      setReservationSlots([{
-        startTime: '',
-        endTime: '',
-        grade: '',
-        participantCount: '',
-        location: ''
-      }]);
+      closeReservationModal();
       
       alert(RESERVATION_SUCCESS_MESSAGE);
       
     } catch (error) {
       console.error('예약 신청 오류:', error);
+      closeReservationModal();
       alert('예약 신청 중 오류가 발생했습니다.');
     } finally {
       if (typeof delayedStatusTimer === 'number') {
