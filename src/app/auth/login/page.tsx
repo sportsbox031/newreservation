@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Award, Eye, EyeOff, ArrowLeft, AlertCircle, CheckCircle, Calendar } from 'lucide-react';
 import { memberAPI, adminAPI } from '@/lib/supabase';
+import { clearLegacySessionTokens } from '@/lib/clientAuthHeaders';
 
 function hasErrorCode(error: unknown): error is { code: string; message?: string } {
   return typeof error === 'object' && error !== null && 'code' in error
@@ -48,6 +49,8 @@ function LoginFormComponent() {
           return;
         }
 
+        clearLegacySessionTokens(localStorage);
+
         // 관리자 정보를 localStorage에 저장
         localStorage.setItem('adminInfo', JSON.stringify(adminData));
 
@@ -83,6 +86,7 @@ function LoginFormComponent() {
         } else if (result.status === 'approved') {
           // 로그인 성공 - 사용자 정보와 세션 토큰을 localStorage에 저장
           console.log('로그인 성공:', result);
+          clearLegacySessionTokens(localStorage);
           localStorage.setItem('currentUser', JSON.stringify(result));
 
           console.log('localStorage에 사용자 정보 저장 완료');

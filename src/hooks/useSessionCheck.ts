@@ -12,6 +12,7 @@ import {
   getSessionValidatedAtStorageKey,
   isFreshSessionValidation,
 } from '@/lib/sessionCache';
+import { clearLegacySessionTokens } from '@/lib/clientAuthHeaders';
 
 export interface SessionCheckResult {
   isValid: boolean;
@@ -110,7 +111,7 @@ export async function performLogout(sessionToken?: string): Promise<void> {
     await sessionAPI.logout(token || undefined);
 
     // 로컬 스토리지 정리
-    localStorage.removeItem('session_token');
+    clearLegacySessionTokens(localStorage);
     localStorage.removeItem('currentUser');
     localStorage.removeItem('adminInfo');
     if (token) {

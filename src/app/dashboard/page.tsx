@@ -977,15 +977,6 @@ export default function DashboardPage() {
         return;
       }
 
-      // 세션 토큰 확인
-      const sessionToken = localStorage.getItem('session_token');
-      if (!sessionToken) {
-        alert('세션이 만료되었습니다. 다시 로그인해주세요.');
-        setIsSubmitting(false);
-        setSubmitStatusMessage('');
-        return;
-      }
-
       setSubmitStatusMessage(RESERVATION_PROGRESS_MESSAGE);
 
       delayedStatusTimer = window.setTimeout(() => {

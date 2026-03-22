@@ -9,6 +9,7 @@ import {
 } from '@/lib/dashboardBootstrap'
 import { mapReservationErrorMessage } from '@/lib/reservationMessages'
 import { authApiClient } from '@/lib/authApiClient'
+import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -34,13 +35,7 @@ async function runQueryWithTimeout<T>(promise: PromiseLike<T>, message: string, 
 
 // 인증 헤더 생성 헬퍼 함수
 function getAuthHeaders(): HeadersInit {
-  if (typeof window === 'undefined') return { 'Content-Type': 'application/json' }
-
-  const sessionToken = localStorage.getItem('sessionToken')
-  return {
-    'Content-Type': 'application/json',
-    ...(sessionToken && { 'Authorization': `Bearer ${sessionToken}` })
-  }
+  return buildCookieFirstClientHeaders()
 }
 
 // 회원 관련 함수들
@@ -2540,13 +2535,7 @@ export const sessionAPI = {
 }
 
 function getUserAuthHeaders(): HeadersInit {
-  if (typeof window === 'undefined') return { 'Content-Type': 'application/json' }
-
-  const sessionToken = localStorage.getItem('session_token')
-  return {
-    'Content-Type': 'application/json',
-    ...(sessionToken && { 'Authorization': `Bearer ${sessionToken}` })
-  }
+  return buildCookieFirstClientHeaders()
 }
 
 // 예약 동시성 제어 API
