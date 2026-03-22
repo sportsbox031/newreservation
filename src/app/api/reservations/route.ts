@@ -13,6 +13,11 @@ import {
   classifyReservationOutcome,
   createReservationLogPayload,
 } from '@/lib/reservationLogging'
+import {
+  isReservationStartTimeAllowed,
+  RESERVATION_MAX_START_TIME,
+  RESERVATION_MIN_START_TIME,
+} from '@/lib/reservationTimePolicy'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -203,6 +208,13 @@ export async function POST(request: NextRequest) {
     const startTimes = slots.map(slot => slot.start_time)
     if (new Set(startTimes).size !== startTimes.length) {
       return NextResponse.json({ error: '시작 시간이 중복됩니다. 각 타임의 시작 시간은 서로 달라야 합니다.' }, { status: 400 })
+    }
+
+    if (startTimes.some(startTime => !isReservationStartTimeAllowed(startTime))) {
+      return NextResponse.json(
+        { error: `예약 시작 시간은 ${RESERVATION_MIN_START_TIME}부터 ${RESERVATION_MAX_START_TIME}까지 선택할 수 있습니다.` },
+        { status: 400 }
+      )
     }
 
     const userTierResponse = await withTimeout(

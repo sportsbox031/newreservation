@@ -32,6 +32,7 @@ import {
   EMPTY_RESERVATION_SLOT_FORM,
   getClosedReservationModalState,
 } from '@/lib/reservationModalState';
+import { buildReservationStartTimeOptions } from '@/lib/reservationTimePolicy';
 import {
   RESERVATION_DELAYED_PROGRESS_MESSAGE,
   RESERVATION_PROGRESS_MESSAGE,
@@ -135,18 +136,8 @@ export default function DashboardPage() {
   // 학년 옵션
   const gradeOptions = ['1학년', '2학년', '3학년', '4학년', '5학년', '6학년', '기타'];
 
-  // 시간 선택 옵션 (09:00 ~ 17:00, 10분 단위) - 17:00이 마지막
-  const timeOptions = [
-    '09:00', '09:10', '09:20', '09:30', '09:40', '09:50',
-    '10:00', '10:10', '10:20', '10:30', '10:40', '10:50',
-    '11:00', '11:10', '11:20', '11:30', '11:40', '11:50',
-    '12:00', '12:10', '12:20', '12:30', '12:40', '12:50',
-    '13:00', '13:10', '13:20', '13:30', '13:40', '13:50',
-    '14:00', '14:10', '14:20', '14:30', '14:40', '14:50',
-    '15:00', '15:10', '15:20', '15:30', '15:40', '15:50',
-    '16:00', '16:10', '16:20', '16:30', '16:40', '16:50',
-    '17:00'
-  ];
+  // 시간 선택 옵션 (09:50 ~ 17:00, 10분 단위)
+  const timeOptions = buildReservationStartTimeOptions();
 
   // 예약 취소 처리
   const handleCancelReservation = async (reservationId: string, status: ReservationStatus) => {
