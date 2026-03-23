@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { Award, Eye, EyeOff, ArrowLeft, AlertCircle, CheckCircle, Calendar } from 'lucide-react';
 import { memberAPI, adminAPI } from '@/lib/supabase';
 import { clearLegacySessionTokens } from '@/lib/clientAuthHeaders';
+import { mapLoginErrorMessage } from '@/lib/loginErrorMessage';
 
 function hasErrorCode(error: unknown): error is { code: string; message?: string } {
   return typeof error === 'object' && error !== null && 'code' in error
@@ -44,7 +45,7 @@ function LoginFormComponent() {
         const { data: adminData, error: adminError } = await adminAPI.login(data.organization_name, data.password);
 
         if (adminError || !adminData) {
-          setLoginError(adminError?.message || '관리자 로그인에 실패했습니다.');
+          setLoginError(mapLoginErrorMessage(adminError, 'admin'));
           setIsSubmitting(false);
           return;
         }
@@ -74,7 +75,7 @@ function LoginFormComponent() {
           // 데이터가 없음 - 등록되지 않은 단체명
           setLoginError('등록되지 않은 단체명입니다.');
         } else {
-          setLoginError('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
+          setLoginError(mapLoginErrorMessage(error, 'user'));
         }
         return;
       }
