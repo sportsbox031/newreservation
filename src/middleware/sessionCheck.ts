@@ -1,3 +1,5 @@
+// Deprecated legacy helper: unused localStorage-based session flow kept only for historical reference.
+// Active session handling lives in src/hooks/useSessionCheck.ts.
 // 세션 검증 미들웨어
 import { sessionAPI } from '@/lib/supabase'
 

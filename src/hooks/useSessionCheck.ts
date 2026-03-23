@@ -13,6 +13,7 @@ import {
   isFreshSessionValidation,
 } from '@/lib/sessionCache';
 import { clearLegacySessionTokens } from '@/lib/clientAuthHeaders';
+import { getCookieFirstClientSessionScope } from '@/lib/clientSessionIdentity';
 
 export interface SessionCheckResult {
   isValid: boolean;
@@ -41,10 +42,9 @@ export async function checkClientSession(
   forceServerCheck: boolean = false
 ): Promise<SessionCheckResult> {
   try {
-    const sessionToken = localStorage.getItem('session_token');
     const cachedUser = getCachedCurrentUser();
-    
-    const validationCacheKey = getSessionValidatedAtStorageKey(sessionToken || cachedUser?.id || 'cookie-session')
+    const sessionScope = getCookieFirstClientSessionScope(localStorage)
+    const validationCacheKey = getSessionValidatedAtStorageKey(sessionScope)
 
     if (!forceServerCheck && cachedUser) {
       if (isFreshSessionValidation(localStorage.getItem(validationCacheKey), Date.now(), SESSION_CACHE_TTL_MS)) {
@@ -56,7 +56,7 @@ export async function checkClientSession(
     }
 
     // 세션 유효성 검증
-    const { data: sessionData, error } = await sessionAPI.validateSession(sessionToken || undefined);
+    const { data: sessionData, error } = await sessionAPI.validateSession();
 
     if (error || !sessionData) {
       if (error && isTimeoutError(error)) {
@@ -79,7 +79,7 @@ export async function checkClientSession(
     }
 
     if (refreshActivity) {
-      await sessionAPI.refreshSession(sessionToken || undefined);
+      await sessionAPI.refreshSession();
       localStorage.setItem(validationCacheKey, String(Date.now()));
     } else {
       localStorage.setItem(validationCacheKey, String(Date.now()));
@@ -106,7 +106,8 @@ export async function performLogout(sessionToken?: string): Promise<void> {
   markManualLogout();
 
   try {
-    const token = sessionToken || localStorage.getItem('session_token');
+    const token = sessionToken;
+    const sessionScope = getCookieFirstClientSessionScope(localStorage)
 
     await sessionAPI.logout(token || undefined);
 
@@ -117,6 +118,7 @@ export async function performLogout(sessionToken?: string): Promise<void> {
     if (token) {
       localStorage.removeItem(getSessionValidatedAtStorageKey(token));
     }
+    localStorage.removeItem(getSessionValidatedAtStorageKey(sessionScope));
     localStorage.removeItem('sessionValidatedAt');
 
     // 페이지 리디렉션
@@ -189,10 +191,8 @@ export function useSessionCheck() {
 
     // 초기 세션 체크
     checkSession(false, false);
-    const initialToken = localStorage.getItem('session_token');
-    lastWriteTime = initialToken
-      ? Number(localStorage.getItem(getSessionValidatedAtStorageKey(initialToken)) || Date.now())
-      : Date.now();
+    const initialSessionScope = getCookieFirstClientSessionScope(localStorage);
+    lastWriteTime = Number(localStorage.getItem(getSessionValidatedAtStorageKey(initialSessionScope)) || Date.now());
 
     const handleVisibilityOrFocus = async () => {
       const now = Date.now();

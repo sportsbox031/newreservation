@@ -10,6 +10,7 @@ import {
 import { mapReservationErrorMessage } from '@/lib/reservationMessages'
 import { authApiClient } from '@/lib/authApiClient'
 import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'
+import { getCookieFirstClientSessionScope } from '@/lib/clientSessionIdentity'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -1827,8 +1828,8 @@ export const utilityAPI = {
 export const dashboardAPI = {
   async getCalendar(year: number, month: number, options?: { bypassCache?: boolean }) {
     try {
-      const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
-      const cacheKey = getDashboardCalendarClientCacheKey(year, month, sessionToken)
+      const sessionScope = typeof window !== 'undefined' ? getCookieFirstClientSessionScope(localStorage) : 'cookie-session'
+      const cacheKey = getDashboardCalendarClientCacheKey(year, month, sessionScope)
       if (typeof window !== 'undefined' && !options?.bypassCache) {
         const cachedValue = localStorage.getItem(cacheKey) || sessionStorage.getItem(cacheKey)
         if (cachedValue) {
@@ -1895,8 +1896,8 @@ export const dashboardAPI = {
   },
   async getMe(year: number, month: number, options?: { bypassCache?: boolean }) {
     try {
-      const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('session_token') : null
-      const cacheKey = getDashboardMeClientCacheKey(year, month, sessionToken)
+      const sessionScope = typeof window !== 'undefined' ? getCookieFirstClientSessionScope(localStorage) : 'cookie-session'
+      const cacheKey = getDashboardMeClientCacheKey(year, month, sessionScope)
       if (typeof window !== 'undefined' && !options?.bypassCache) {
         const cachedValue = localStorage.getItem(cacheKey) || sessionStorage.getItem(cacheKey)
         if (cachedValue) {
@@ -1967,8 +1968,8 @@ export const dashboardAPI = {
       return
     }
 
-    const sessionToken = localStorage.getItem('session_token')
-    clearDashboardClientCaches(year, month, sessionToken, [localStorage, sessionStorage])
+    const sessionScope = getCookieFirstClientSessionScope(localStorage)
+    clearDashboardClientCaches(year, month, sessionScope, [localStorage, sessionStorage])
   }
 }
 

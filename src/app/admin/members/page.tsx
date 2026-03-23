@@ -20,6 +20,7 @@ import {
   filterMembersForDisplay,
   getMemberSummaryCounts,
 } from '@/lib/memberAdminHelpers'
+import { buildCookieFirstJsonRequestInit } from '@/lib/clientAuthHeaders'
 
 interface Member {
   id: string
@@ -121,20 +122,12 @@ export default function MembersPage() {
         // 알림톡 발송 (삭제 전에 먼저 발송)
         const member = members.find(m => m.id === memberId)
         if (member) {
-          const sessionToken = localStorage.getItem('sessionToken')
-          fetch('/api/notifications/aligo', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${sessionToken}`
-            },
-            body: JSON.stringify({
+          fetch('/api/notifications/aligo', buildCookieFirstJsonRequestInit({
               type: 'member_rejection',
               phone: member.phone,
               organizationName: member.organization_name,
               tplCode: process.env.NEXT_PUBLIC_ALIGO_MEMBER_REJECTION_TPL_CODE || ''
-            })
-          })
+            }))
             .then(res => res.json())
             .then(result => {
               if (!result.success) {
@@ -169,20 +162,12 @@ export default function MembersPage() {
         const member = members.find(m => m.id === memberId)
         if (member) {
           // 알림톡 발송 (실패해도 승인 프로세스는 계속 진행)
-          const sessionToken = localStorage.getItem('sessionToken')
-          fetch('/api/notifications/aligo', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${sessionToken}`
-            },
-            body: JSON.stringify({
+          fetch('/api/notifications/aligo', buildCookieFirstJsonRequestInit({
               type: 'member_approval',
               phone: member.phone,
               organizationName: member.organization_name,
               tplCode: process.env.NEXT_PUBLIC_ALIGO_MEMBER_APPROVAL_TPL_CODE || ''
-            })
-          })
+            }))
             .then(res => res.json())
             .then(result => {
               if (!result.success) {

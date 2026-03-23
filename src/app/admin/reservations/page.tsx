@@ -35,6 +35,7 @@ import ExcelJS from 'exceljs';
 import { settingsAPI, reservationAPI } from '@/lib/supabase';
 import { getAdminCalendarDayStatus } from '@/lib/adminCalendarStatus';
 import AdminNavigation from '@/components/AdminNavigation';
+import { buildCookieFirstJsonRequestInit } from '@/lib/clientAuthHeaders';
 
 type CalendarValue = Date | null | [Date | null, Date | null];
 
@@ -544,22 +545,14 @@ function AdminReservationsContent() {
           : '';
 
         // 알림톡 발송 (실패해도 승인 프로세스는 계속 진행)
-        const sessionToken = localStorage.getItem('sessionToken')
-        fetch('/api/notifications/aligo', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionToken}`
-          },
-          body: JSON.stringify({
+        fetch('/api/notifications/aligo', buildCookieFirstJsonRequestInit({
             type: 'reservation_approval',
             phone: reservation.phone,
             organizationName: reservation.organization_name,
             reservationDate,
             timeSlot,
             tplCode: process.env.NEXT_PUBLIC_ALIGO_RESERVATION_APPROVAL_TPL_CODE || ''
-          })
-        })
+          }))
           .then(res => res.json())
           .then(result => {
             if (!result.success) {
@@ -625,21 +618,13 @@ function AdminReservationsContent() {
           weekday: 'long'
         })
 
-        const sessionToken = localStorage.getItem('sessionToken')
-        fetch('/api/notifications/aligo', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionToken}`
-          },
-          body: JSON.stringify({
+        fetch('/api/notifications/aligo', buildCookieFirstJsonRequestInit({
             type: 'reservation_rejection',
             phone: reservation.phone,
             organizationName: reservation.organization_name,
             reservationDate,
             tplCode: process.env.NEXT_PUBLIC_ALIGO_RESERVATION_REJECTION_TPL_CODE || ''
-          })
-        })
+          }))
           .then(res => res.json())
           .then(result => {
             if (!result.success) {
