@@ -136,7 +136,7 @@ export default function DashboardPage() {
   // 학년 옵션
   const gradeOptions = ['1학년', '2학년', '3학년', '4학년', '5학년', '6학년', '기타'];
 
-  // 시간 선택 옵션 (09:50 ~ 17:00, 10분 단위)
+  // 시간 선택 옵션 (10:00 ~ 16:30, 10분 단위)
   const timeOptions = buildReservationStartTimeOptions();
 
   // 예약 취소 처리
