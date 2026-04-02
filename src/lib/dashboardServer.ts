@@ -19,6 +19,7 @@ import {
   type TimestampedCacheEntry,
 } from '@/lib/dashboardBootstrap'
 import { buildDashboardUserMetaContextFromAuthUser } from '@/lib/dashboardUserContext'
+import { getActiveReservationMonthForRegion } from '@/lib/reservationSettingsServer'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -169,6 +170,15 @@ export async function getDashboardTierOpenState(
   tierId: number,
   yearMonth: string
 ): Promise<{ data: boolean | null; error: string | null }> {
+  const activeMonthResult = await getActiveReservationMonthForRegion(regionCode)
+  if (activeMonthResult.error) {
+    return { data: null, error: activeMonthResult.error.message }
+  }
+
+  if (activeMonthResult.data?.yearMonth !== yearMonth) {
+    return { data: false, error: null }
+  }
+
   const tierSettingResponse = await withTimeout(
     supabaseAdmin
       .from('tier_reservation_settings')

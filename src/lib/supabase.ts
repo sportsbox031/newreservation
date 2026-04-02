@@ -1826,6 +1826,28 @@ export const utilityAPI = {
 }
 
 export const dashboardAPI = {
+  async getActiveMonth() {
+    try {
+      const response = await withTimeout(
+        fetch('/api/dashboard/active-month', {
+          method: 'GET',
+          headers: getUserAuthHeaders()
+        }),
+        QUERY_TIMEOUT_MS,
+        '활성 예약 월을 불러오는 중 시간이 초과되었습니다.'
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        return { data: null, error: { message: result.error || '활성 예약 월을 불러오지 못했습니다.' } }
+      }
+
+      return { data: result.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '활성 예약 월을 불러오는 중 오류가 발생했습니다.') } }
+    }
+  },
   async getCalendar(year: number, month: number, options?: { bypassCache?: boolean }) {
     try {
       const sessionScope = typeof window !== 'undefined' ? getCookieFirstClientSessionScope(localStorage) : 'cookie-session'
@@ -2740,6 +2762,41 @@ export const tierAPI = {
   },
 
   // Get tier reservation settings for specific region/month
+  async getActiveReservationMonth(regionCode: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        const query = new URLSearchParams({
+          action: 'active-month',
+          regionCode,
+        })
+        const response = await fetch(`/api/admin/tier-settings?${query.toString()}`, {
+          headers: getAuthHeaders(),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          return { data: null, error: errorData.error || { message: '활성 예약 월을 불러오지 못했습니다.' } }
+        }
+
+        const payload = await response.json()
+        return { data: payload.data, error: null }
+      } catch (error) {
+        return { data: null, error: { message: getErrorMessage(error, '활성 예약 월을 불러오지 못했습니다.') } }
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('tier_reservation_settings')
+      .select('year_month')
+      .eq('region_code', regionCode)
+      .eq('is_open', true)
+      .limit(1)
+      .maybeSingle()
+
+    return { data: { yearMonth: data?.year_month ?? null }, error }
+  },
+
+  // Get tier reservation settings for specific region/month
   async getTierReservationSettings(regionCode: string, yearMonth: string) {
     if (typeof window !== 'undefined') {
       try {
@@ -2856,6 +2913,21 @@ export const tierAPI = {
     }
 
     const yearMonth = targetDate.substring(0, 7) // Extract YYYY-MM from YYYY-MM-DD
+
+    const { data: activeMonthData, error: activeMonthError } = await this.getActiveReservationMonth(regionCode)
+    if (activeMonthError) {
+      return {
+        canReserve: false,
+        reason: activeMonthError.message || '예약 신청 가능 여부를 확인하는 중 오류가 발생했습니다.'
+      }
+    }
+
+    if (activeMonthData?.yearMonth !== yearMonth) {
+      return {
+        canReserve: false,
+        reason: '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.'
+      }
+    }
 
     // Get tier reservation settings for the region and month
     let settings

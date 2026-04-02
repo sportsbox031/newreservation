@@ -4,6 +4,7 @@ import { Database } from '@/types/database'
 import { validateUserApiRequest } from '@/lib/auth'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import { isReservationTimeoutError } from '@/lib/reservationError'
+import { getActiveReservationMonthForRegion } from '@/lib/reservationSettingsServer'
 import {
   getTierIdFromName,
   getTierReservationWindowKey,
@@ -235,12 +236,35 @@ export async function POST(request: NextRequest) {
     }
 
     const regionCode = body.regionId === 2 ? 'north' : 'south'
+    const targetYearMonth = getTierReservationWindowKey(body.date)
+    const activeMonthResult = await getActiveReservationMonthForRegion(regionCode)
+    if (activeMonthResult.error) {
+      return NextResponse.json({ error: activeMonthResult.error.message }, { status: 400 })
+    }
+
+    if (activeMonthResult.data?.yearMonth !== targetYearMonth) {
+      logReservationWarn(createReservationLogPayload({
+        phase: 'request',
+        outcome: 'tier_closed',
+        userId: authResult.user.id,
+        regionId: body.regionId,
+        date: body.date,
+        slotCount: slots.length,
+        durationMs: Date.now() - requestStartedAt,
+        message: '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.',
+      }))
+      return NextResponse.json(
+        { error: '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.' },
+        { status: 409 }
+      )
+    }
+
     const tierSettingResponse = await withTimeout(
       supabaseAdmin
         .from('tier_reservation_settings')
         .select('is_open')
         .eq('region_code', regionCode)
-        .eq('year_month', getTierReservationWindowKey(body.date))
+        .eq('year_month', targetYearMonth)
         .eq('tier_id', getTierIdFromName(userTierResponse.data.tier))
         .maybeSingle(),
       RESERVATION_ROUTE_TIMEOUT_MS,

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isAdmin, validateApiRequest } from '@/lib/auth'
 import {
   getActiveTiersOnServer,
+  getActiveReservationMonthForRegion,
   getTierReservationSettingsOnServer,
   updateTierReservationStatusOnServer,
 } from '@/lib/reservationSettingsServer'
@@ -37,6 +38,14 @@ export async function GET(request: NextRequest) {
     const regionScope = resolveReservationRegionScope(auth.user.role, request.nextUrl.searchParams.get('regionCode'))
     if (regionScope.error || !regionScope.regionCode) {
       return NextResponse.json({ error: regionScope.error || { message: 'regionCode가 필요합니다.' } }, { status: 400 })
+    }
+
+    if (action === 'active-month') {
+      const result = await getActiveReservationMonthForRegion(regionScope.regionCode)
+      if (result.error) {
+        return NextResponse.json({ error: result.error }, { status: 400 })
+      }
+      return NextResponse.json({ data: result.data })
     }
 
     const yearMonth = request.nextUrl.searchParams.get('yearMonth')

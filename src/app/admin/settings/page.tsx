@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { settingsAPI, reservationConcurrencyAPI, tierAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
+import { buildReservationMonthTransitionMessage, normalizeYearMonth } from '@/lib/reservationActiveMonth'
 
 interface BlockedDate {
   id: number
@@ -80,6 +81,7 @@ export default function SettingsPage() {
   // 티어 관련 데이터 - NEW
   const [tiers, setTiers] = useState<Tier[]>([])
   const [tierSettings, setTierSettings] = useState<{ [key: string]: TierReservationSetting[] }>({})
+  const [activeReservationMonth, setActiveReservationMonth] = useState<{ [key: string]: string | null }>({})
 
   // UI 상태
   const [newBlockedDate, setNewBlockedDate] = useState({
@@ -138,7 +140,8 @@ export default function SettingsPage() {
         loadSettings(),
         loadBlockedDates(),
         loadDailyLimits(),
-        loadTierData() // NEW: 티어 데이터 로딩 추가
+        loadTierData(),
+        loadActiveReservationMonth()
       ])
     } catch (error) {
       console.error('데이터 로드 오류:', error)
@@ -207,6 +210,18 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error('티어 데이터 로드 오류:', error)
+    }
+  }
+
+  const loadActiveReservationMonth = async () => {
+    const regionCode = activeTab
+    const { data, error } = await tierAPI.getActiveReservationMonth(regionCode)
+
+    if (!error) {
+      setActiveReservationMonth(prev => ({
+        ...prev,
+        [activeTab]: data?.yearMonth ?? null,
+      }))
     }
   }
 
@@ -609,6 +624,15 @@ export default function SettingsPage() {
   const toggleTierReservationStatus = async (tierId: number, currentStatus: boolean) => {
     const regionCode = activeTab
     const yearMonth = `${currentYear}-${currentMonth.toString().padStart(2, '0')}`
+    const normalizedTargetMonth = normalizeYearMonth(yearMonth)
+    const currentActiveMonth = activeReservationMonth[activeTab] ?? null
+
+    if (!currentStatus && normalizedTargetMonth && currentActiveMonth && currentActiveMonth !== normalizedTargetMonth) {
+      const confirmed = confirm(buildReservationMonthTransitionMessage(currentActiveMonth, normalizedTargetMonth))
+      if (!confirmed) {
+        return
+      }
+    }
 
     setSaving(true)
     try {
@@ -629,8 +653,7 @@ export default function SettingsPage() {
       const tierName = tiers.find(t => t.id === tierId)?.tier_name || '티어'
       showMessage('success', `${tierName} 예약이 ${!currentStatus ? '시작' : '종료'}되었습니다.`)
 
-      // 티어 데이터 다시 로드
-      loadTierData()
+      await Promise.all([loadTierData(), loadActiveReservationMonth(), loadSettings()])
     } catch (error) {
       showMessage('error', '티어 예약 상태 변경 중 오류가 발생했습니다.')
       console.error('Toggle tier reservation error:', error)
@@ -641,12 +664,18 @@ export default function SettingsPage() {
 
   // 전체 예약 시작/종료
   const toggleAllTierReservations = async (shouldOpen: boolean) => {
-    if (!confirm(`모든 티어의 예약을 ${shouldOpen ? '시작' : '종료'}하시겠습니까?`)) {
-      return
-    }
-
     const regionCode = activeTab
     const yearMonth = `${currentYear}-${currentMonth.toString().padStart(2, '0')}`
+    const normalizedTargetMonth = normalizeYearMonth(yearMonth)
+    const currentActiveMonth = activeReservationMonth[activeTab] ?? null
+
+    const confirmationMessage = shouldOpen && normalizedTargetMonth && currentActiveMonth && currentActiveMonth !== normalizedTargetMonth
+      ? buildReservationMonthTransitionMessage(currentActiveMonth, normalizedTargetMonth)
+      : `모든 티어의 예약을 ${shouldOpen ? '시작' : '종료'}하시겠습니까?`
+
+    if (!confirm(confirmationMessage)) {
+      return
+    }
 
     setSaving(true)
     try {
@@ -669,8 +698,7 @@ export default function SettingsPage() {
 
       showMessage('success', `모든 티어의 예약이 ${shouldOpen ? '시작' : '종료'}되었습니다.`)
 
-      // 티어 데이터 다시 로드
-      loadTierData()
+      await Promise.all([loadTierData(), loadActiveReservationMonth(), loadSettings()])
     } catch (error) {
       showMessage('error', '전체 예약 상태 변경 중 오류가 발생했습니다.')
       console.error('Toggle all tier reservations error:', error)

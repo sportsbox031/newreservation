@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import {
+  normalizeYearMonth,
+  parseYearMonthParts,
+  resolveActiveReservationMonth,
+} from '@/lib/reservationActiveMonth'
+import {
   getReservationStatusesForScope,
   resolveReservationRegionScope,
   type ReservationRegionCode,
@@ -158,6 +163,84 @@ export async function updateReservationSettingsForRegionMonth(
     return {
       data: null,
       error: timeoutError(getErrorMessage(error, '예약 설정 업데이트 중 오류가 발생했습니다.')),
+    }
+  }
+}
+
+async function setReservationMonthOpenState(regionCode: string, yearMonth: string, isOpen: boolean) {
+  const parsed = parseYearMonthParts(yearMonth)
+  if (!parsed) {
+    return { data: null, error: { message: '잘못된 예약 월입니다.' } }
+  }
+
+  const currentSettings = await getReservationSettingsForRegionMonth(regionCode, parsed.year, parsed.month)
+  if (currentSettings.error && !currentSettings.data) {
+    return currentSettings
+  }
+
+  return updateReservationSettingsForRegionMonth(regionCode, parsed.year, parsed.month, {
+    is_open: isOpen,
+    max_days_per_month: currentSettings.data?.max_days_per_month ?? 4,
+    max_reservations_per_day: currentSettings.data?.max_reservations_per_day ?? 2,
+  })
+}
+
+export async function getActiveReservationMonthForRegion(regionCode: string) {
+  try {
+    const regionId = await getRegionIdByCode(regionCode)
+    if (!regionId) {
+      return { data: null, error: { message: '존재하지 않는 지역입니다.' } }
+    }
+
+    const [settingsResponse, tierSettingsResponse] = await Promise.all([
+      runQueryWithTimeout(
+        supabaseAdmin
+          .from('reservation_settings')
+          .select('year, month')
+          .eq('region_id', regionId)
+          .eq('is_open', true),
+        '활성 예약 월을 불러오는 중 시간이 초과되었습니다.'
+      ),
+      runQueryWithTimeout(
+        supabaseAdmin
+          .from('tier_reservation_settings')
+          .select('year_month')
+          .eq('region_code', regionCode)
+          .eq('is_open', true),
+        '티어 예약 상태를 불러오는 중 시간이 초과되었습니다.'
+      ),
+    ])
+
+    if (settingsResponse.error) {
+      return { data: null, error: settingsResponse.error }
+    }
+
+    if (tierSettingsResponse.error) {
+      return { data: null, error: tierSettingsResponse.error }
+    }
+
+    const activeMonths = (settingsResponse.data ?? []).map((item) =>
+      normalizeYearMonth(`${item.year}-${item.month}`)
+    )
+    const tierOpenMonths = (tierSettingsResponse.data ?? []).map((item) =>
+      normalizeYearMonth(item.year_month)
+    )
+
+    const yearMonth = resolveActiveReservationMonth({
+      activeMonths,
+      tierOpenMonths,
+    })
+
+    return {
+      data: {
+        yearMonth,
+      },
+      error: null,
+    }
+  } catch (error) {
+    return {
+      data: null,
+      error: timeoutError(getErrorMessage(error, '활성 예약 월을 불러오는 중 오류가 발생했습니다.')),
     }
   }
 }
@@ -475,13 +558,51 @@ export async function updateTierReservationStatusOnServer(
   isOpen: boolean,
   adminId: string
 ) {
+  const normalizedYearMonth = normalizeYearMonth(yearMonth)
+  if (!normalizedYearMonth) {
+    return { data: null, error: { message: '잘못된 예약 월입니다.' } }
+  }
+
+  if (isOpen) {
+    const activeMonthResult = await getActiveReservationMonthForRegion(regionCode)
+    if (activeMonthResult.error) {
+      return activeMonthResult
+    }
+
+    const currentActiveYearMonth = activeMonthResult.data?.yearMonth
+    if (currentActiveYearMonth && currentActiveYearMonth !== normalizedYearMonth) {
+      const closePreviousResult = await runQueryWithTimeout(
+        supabaseAdmin
+          .from('tier_reservation_settings')
+          .update({ is_open: false })
+          .eq('region_code', regionCode)
+          .eq('year_month', currentActiveYearMonth),
+        '이전 예약 월을 종료하는 중 시간이 초과되었습니다.'
+      )
+
+      if (closePreviousResult.error) {
+        return { data: null, error: closePreviousResult.error }
+      }
+
+      const closeMonthSettingResult = await setReservationMonthOpenState(regionCode, currentActiveYearMonth, false)
+      if (closeMonthSettingResult.error) {
+        return closeMonthSettingResult
+      }
+    }
+
+    const openMonthSettingResult = await setReservationMonthOpenState(regionCode, normalizedYearMonth, true)
+    if (openMonthSettingResult.error) {
+      return openMonthSettingResult
+    }
+  }
+
   const reservationStartDate = new Date().toISOString().split('T')[0]
 
   const { data, error } = await supabaseAdmin
     .from('tier_reservation_settings')
     .upsert([{
       region_code: regionCode,
-      year_month: yearMonth,
+      year_month: normalizedYearMonth,
       tier_id: tierId,
       is_open: isOpen,
       reservation_start_date: reservationStartDate,
@@ -494,7 +615,34 @@ export async function updateTierReservationStatusOnServer(
       member_tiers!inner(tier_name, tier_level)
     `)
 
-  return { data, error }
+  if (error) {
+    return { data, error }
+  }
+
+  if (!isOpen) {
+    const remainingOpenSettings = await runQueryWithTimeout(
+      supabaseAdmin
+        .from('tier_reservation_settings')
+        .select('tier_id')
+        .eq('region_code', regionCode)
+        .eq('year_month', normalizedYearMonth)
+        .eq('is_open', true),
+      '남아 있는 티어 예약 상태를 확인하는 중 시간이 초과되었습니다.'
+    )
+
+    if (remainingOpenSettings.error) {
+      return { data: null, error: remainingOpenSettings.error }
+    }
+
+    if (!remainingOpenSettings.data || remainingOpenSettings.data.length === 0) {
+      const closeMonthSettingResult = await setReservationMonthOpenState(regionCode, normalizedYearMonth, false)
+      if (closeMonthSettingResult.error) {
+        return closeMonthSettingResult
+      }
+    }
+  }
+
+  return { data, error: null }
 }
 
 function getReservationListQuery() {

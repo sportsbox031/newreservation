@@ -25,9 +25,9 @@ import {
 import { dashboardAPI, settingsAPI, reservationAPI } from '@/lib/supabase';
 import AccountManagementModal from '@/components/AccountManagementModal';
 import { useSessionCheck } from '@/hooks/useSessionCheck';
-import { getDefaultDashboardMonth } from '@/lib/dashboardCalendar';
 import { shouldStartDashboardRefresh } from '@/lib/dashboardRefresh';
 import { applyReservationStatusDelta } from '@/lib/reservationStatus';
+import { getInitialDashboardMonth } from '@/lib/reservationActiveMonth';
 import {
   EMPTY_RESERVATION_SLOT_FORM,
   getClosedReservationModalState,
@@ -82,7 +82,7 @@ interface UserTier {
 export default function DashboardPage() {
   const { isAuthenticated, user, isLoading, sessionError, logout } = useSessionCheck();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<Date>(getDefaultDashboardMonth);
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => getInitialDashboardMonth(null));
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [remainingDays, setRemainingDays] = useState(0); // 이번 달 남은 예약 가능 일수
@@ -118,6 +118,7 @@ export default function DashboardPage() {
   }[]>([]);
   const [userRegion, setUserRegion] = useState<'south' | 'north' | null>(null);
   const [isMonthClosed, setIsMonthClosed] = useState(true); // 예약 종료가 기본값 (각 월마다 관리자가 수동으로 열어야 함)
+  const [hasResolvedActiveMonth, setHasResolvedActiveMonth] = useState(false);
   const [userTier, setUserTier] = useState<UserTier | null>(null);
   const [currentUserInfo, setCurrentUserInfo] = useState<{
     organization_name: string;
@@ -228,6 +229,32 @@ export default function DashboardPage() {
       loadUserTier();
     }
   }, [user, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !userRegion) {
+      setHasResolvedActiveMonth(false);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const resolveActiveMonth = async () => {
+      const result = await dashboardAPI.getActiveMonth();
+      if (isCancelled) {
+        return;
+      }
+
+      const activeYearMonth = result.data?.yearMonth ?? null;
+      setCurrentMonth(getInitialDashboardMonth(activeYearMonth));
+      setHasResolvedActiveMonth(true);
+    };
+
+    resolveActiveMonth();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isAuthenticated, userRegion]);
 
   // 실시간 하루 최대예약개수 체크 함수
   const checkReservationCapacity = async (date: Date) => {
@@ -391,14 +418,14 @@ export default function DashboardPage() {
 
   // 데이터 로드 (월 변경이나 지역 변경 시 실행)
   useEffect(() => {
-    if (isAuthenticated && user && userRegion) {
+    if (hasResolvedActiveMonth && isAuthenticated && user && userRegion) {
       refreshDashboardData(true);
     }
-  }, [currentMonth, isAuthenticated, user, userRegion]);
+  }, [currentMonth, hasResolvedActiveMonth, isAuthenticated, user, userRegion]);
 
   // 실시간 설정 변경 감지를 위한 주기적 새로고침 (취소 승인 반영 포함)
   useEffect(() => {
-    if (!isAuthenticated || !user || !userRegion) return;
+    if (!hasResolvedActiveMonth || !isAuthenticated || !user || !userRegion) return;
 
     const refreshIfVisible = () => {
       if (document.visibilityState === 'visible' && activeModal !== 'reservation' && !isSubmitting) {
@@ -413,7 +440,7 @@ export default function DashboardPage() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', refreshIfVisible);
     };
-  }, [currentMonth, isAuthenticated, user, userRegion, activeModal, isSubmitting]);
+  }, [currentMonth, hasResolvedActiveMonth, isAuthenticated, user, userRegion, activeModal, isSubmitting]);
 
   useEffect(() => {
     if (activeModal === 'myReservations' && !hasLoadedMyReservations) {
