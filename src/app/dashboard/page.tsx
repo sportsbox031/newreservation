@@ -31,6 +31,7 @@ import { getInitialDashboardMonth } from '@/lib/reservationActiveMonth';
 import {
   EMPTY_RESERVATION_SLOT_FORM,
   getClosedReservationModalState,
+  type ReservationSlotFormState,
 } from '@/lib/reservationModalState';
 import { buildReservationStartTimeOptions } from '@/lib/reservationTimePolicy';
 import {
@@ -701,27 +702,15 @@ export default function DashboardPage() {
     setReservationSlots(updatedSlots);
   };
 
-  // 타임 슬롯 추가
-  const addTimeSlot = () => {
-    if (reservationSlots.length < 2) {
-      setReservationSlots([
-        ...reservationSlots,
-        {
-          startTime: '',
-          endTime: '',
-          grade: '',
-          participantCount: '',
-          location: ''
-        }
-      ]);
-    }
-  };
+  // 2번째 슬롯이 입력되었는지 확인
+  const isSlotFilled = (slot: ReservationSlotFormState) =>
+    slot.startTime !== '' || slot.grade !== '' || slot.participantCount !== '' || slot.location !== '';
 
-  // 타임 슬롯 제거
-  const removeTimeSlot = (index: number) => {
-    if (reservationSlots.length > 1) {
-      setReservationSlots(reservationSlots.filter((_, i) => i !== index));
-    }
+  // 2번째 슬롯 초기화
+  const clearSecondSlot = () => {
+    const updatedSlots = [...reservationSlots];
+    updatedSlots[1] = { ...EMPTY_RESERVATION_SLOT_FORM };
+    setReservationSlots(updatedSlots);
   };
 
   // 필드 값 복사
@@ -805,7 +794,7 @@ export default function DashboardPage() {
     setActiveModal('reservation');
     
     // 예약 폼 초기화
-    setReservationSlots([{ ...EMPTY_RESERVATION_SLOT_FORM }]);
+    setReservationSlots([{ ...EMPTY_RESERVATION_SLOT_FORM }, { ...EMPTY_RESERVATION_SLOT_FORM }]);
   };
 
   // 달력 타일 클래스 설정
@@ -1549,14 +1538,27 @@ export default function DashboardPage() {
               </div>
 
               <form onSubmit={handleReservationSubmit} className="space-y-4 sm:space-y-6">
-                {reservationSlots.map((slot, index) => (
-                  <div key={index} className="border rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4">
+                {reservationSlots.map((slot, index) => {
+                  const isOptional = index > 0;
+                  const isRequired = !isOptional;
+                  return (
+                  <div
+                    key={index}
+                    className={`rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4 ${
+                      isOptional
+                        ? 'border-2 border-dashed border-gray-300'
+                        : 'border border-gray-200'
+                    }`}
+                  >
                     <div className="flex justify-between items-center">
                       <h4 className="text-sm sm:text-base font-semibold text-gray-900">
                         {index + 1}번째 타임
+                        {isOptional && (
+                          <span className="ml-2 text-xs font-normal text-gray-400">(선택)</span>
+                        )}
                       </h4>
                       <div className="flex space-x-1 sm:space-x-2">
-                        {reservationSlots.length > 1 && index > 0 && (
+                        {isOptional && (
                           <button
                             type="button"
                             onClick={() => copyToSlot(0, index)}
@@ -1567,11 +1569,12 @@ export default function DashboardPage() {
                             <span className="sm:hidden">복사</span>
                           </button>
                         )}
-                        {reservationSlots.length > 1 && (
+                        {isOptional && isSlotFilled(slot) && (
                           <button
                             type="button"
-                            onClick={() => removeTimeSlot(index)}
-                            className="text-red-600 hover:text-red-700 p-1"
+                            onClick={clearSecondSlot}
+                            className="text-xs text-gray-400 hover:text-red-500 flex items-center p-1"
+                            title="초기화"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -1594,12 +1597,12 @@ export default function DashboardPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                          시작시간 *
+                          시작시간 {isRequired && '*'}
                         </label>
                         <select
                           value={slot.startTime}
                           onChange={(e) => handleStartTimeChange(index, e.target.value)}
-                          required
+                          required={isRequired}
                           className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">선택하세요</option>
@@ -1635,7 +1638,7 @@ export default function DashboardPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div>
                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                          학년 *
+                          학년 {isRequired && '*'}
                         </label>
                         <select
                           value={slot.grade}
@@ -1644,7 +1647,7 @@ export default function DashboardPage() {
                             updated[index].grade = e.target.value;
                             setReservationSlots(updated);
                           }}
-                          required
+                          required={isRequired}
                           className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">선택하세요</option>
@@ -1655,7 +1658,7 @@ export default function DashboardPage() {
                       </div>
                       <div>
                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                          인원 *
+                          인원 {isRequired && '*'}
                         </label>
                         <input
                           type="number"
@@ -1667,7 +1670,7 @@ export default function DashboardPage() {
                             updated[index].participantCount = e.target.value;
                             setReservationSlots(updated);
                           }}
-                          required
+                          required={isRequired}
                           className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="참여 인원"
                         />
@@ -1676,7 +1679,7 @@ export default function DashboardPage() {
 
                     <div>
                       <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                        장소 *
+                        장소 {isRequired && '*'}
                       </label>
                       <input
                         type="text"
@@ -1687,24 +1690,14 @@ export default function DashboardPage() {
                           updated[index].location = e.target.value;
                           setReservationSlots(updated);
                         }}
-                        required
+                        required={isRequired}
                         className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="운영 장소를 입력해주세요"
                       />
                     </div>
                   </div>
-                ))}
-
-                {reservationSlots.length < 2 && (
-                  <button
-                    type="button"
-                    onClick={addTimeSlot}
-                    className="w-full py-2.5 sm:py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm sm:text-base text-gray-600 hover:border-blue-300 hover:text-blue-600 flex items-center justify-center space-x-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span className="break-keep">타임 추가 (최대 2개)</span>
-                  </button>
-                )}
+                  );
+                })}
 
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-3 sm:pt-4 border-t">
                   <button

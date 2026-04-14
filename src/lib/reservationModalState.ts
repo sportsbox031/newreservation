@@ -18,6 +18,6 @@ export function getClosedReservationModalState() {
   return {
     activeModal: null,
     selectedDate: null,
-    reservationSlots: [{ ...EMPTY_RESERVATION_SLOT_FORM }],
+    reservationSlots: [{ ...EMPTY_RESERVATION_SLOT_FORM }, { ...EMPTY_RESERVATION_SLOT_FORM }],
   }
 }
