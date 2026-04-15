@@ -608,7 +608,7 @@ function AdminReservationsContent() {
       setActionLoading(reservationId);
 
       // 알림톡 발송 (삭제 전에 먼저 발송)
-      const reservation = dayReservations.find(r => r.id === reservationId)
+      const reservation = allReservations.find(r => r.id === reservationId)
       if (reservation) {
         // 예약 날짜 포맷팅
         const reservationDate = new Date(reservation.date).toLocaleDateString('ko-KR', {
