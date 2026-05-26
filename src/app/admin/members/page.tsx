@@ -322,6 +322,71 @@ export default function MembersPage() {
     )
   }
 
+  const handleDownloadSmsExcel = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet('문자전송용')
+
+      worksheet.columns = [
+        { width: 15 }, // 전화번호
+        { width: 30 }, // 단체명
+      ]
+
+      const headerRow = worksheet.getRow(1)
+      ;['전화번호', '단체명'].forEach((header, index) => {
+        const cell = headerRow.getCell(index + 1)
+        cell.value = header
+        cell.font = { name: '맑은 고딕', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5DADE2' } }
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF3498DB' } },
+          left: { style: 'thin', color: { argb: 'FF3498DB' } },
+          bottom: { style: 'thin', color: { argb: 'FF3498DB' } },
+          right: { style: 'thin', color: { argb: 'FF3498DB' } }
+        }
+      })
+      headerRow.height = 25
+
+      filteredMembers.forEach((member, index) => {
+        const row = worksheet.getRow(2 + index)
+        ;[member.phone, member.organization_name].forEach((value, colIndex) => {
+          const cell = row.getCell(colIndex + 1)
+          cell.value = value
+          cell.font = { name: '맑은 고딕', size: 10 }
+          cell.alignment = { horizontal: 'center', vertical: 'middle' }
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFD5DBDB' } },
+            left: { style: 'thin', color: { argb: 'FFD5DBDB' } },
+            bottom: { style: 'thin', color: { argb: 'FFD5DBDB' } },
+            right: { style: 'thin', color: { argb: 'FFD5DBDB' } }
+          }
+        })
+        row.height = 20
+      })
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+
+      const filterText = regionFilter !== 'all' ? `_${regionFilter}` : ''
+      const statusText = statusFilter !== 'all'
+        ? statusFilter === 'pending' ? '_대기중' : '_승인됨'
+        : ''
+
+      link.download = `문자전송용_회원목록${filterText}${statusText}_${new Date().toLocaleDateString('ko-KR')}.xlsx`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('문자전송용 Excel 다운로드 오류:', error)
+      alert('Excel 다운로드 중 오류가 발생했습니다.')
+    }
+  }
+
   const handleDownloadExcel = async () => {
     try {
       // 엑셀 워크북 생성
@@ -519,6 +584,13 @@ export default function MembersPage() {
                   <option value="pending">대기중</option>
                   <option value="approved">승인됨</option>
                 </select>
+                <button
+                  onClick={handleDownloadSmsExcel}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  문자전송용 다운로드
+                </button>
                 <button
                   onClick={handleDownloadExcel}
                   className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
