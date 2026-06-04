@@ -162,8 +162,8 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
         manager_name: formData.manager_name,
         phone: formData.phone,
         email: formData.email,
-        student_count: formData.student_count,
-        class_count: formData.class_count
+        student_count: Number(formData.student_count) || 0,
+        class_count: Number(formData.class_count) || 0
       })
 
       if (updateError) {

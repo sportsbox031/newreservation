@@ -9,9 +9,9 @@ const updateUserProfileSchema = z.object({
   action: z.literal('profile'),
   manager_name: z.string().min(1).optional(),
   phone: z.string().min(1).optional(),
-  email: z.string().email().optional(),
-  student_count: z.number().int().nonnegative().optional(),
-  class_count: z.number().int().nonnegative().optional(),
+  email: z.union([z.string().email(), z.literal('')]).optional(),
+  student_count: z.coerce.number().int().nonnegative().optional(),
+  class_count: z.coerce.number().int().nonnegative().optional(),
 })
 
 const updateUserPasswordSchema = z.object({
