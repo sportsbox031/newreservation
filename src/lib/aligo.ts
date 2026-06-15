@@ -80,6 +80,28 @@ export async function sendMemberApprovalNotification(
   })
 }
 
+// 신규 회원가입 신청 시 지역 관리자에게 보내는 알림톡
+export async function sendNewMemberAdminNotification(
+  phone: string,
+  organizationName: string,
+  tplCode: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const subject = '[경기도체육회 스포츠박스] 신규 회원가입 신청 안내'
+
+  const message = `[경기도체육회 스포츠박스]
+신규 회원가입 신청 안내
+
+#{단체명}이 회원가입 신청을 했습니다. 확인 후 승인바랍니다.`.replace(/#{단체명}/g, organizationName)
+
+  return sendAligoKakaoTalk({
+    tplCode,
+    receiver: phone,
+    subject,
+    message,
+    failover: true
+  })
+}
+
 // 예약 승인 알림톡
 export async function sendReservationApprovalNotification(
   phone: string,

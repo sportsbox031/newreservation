@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import { hashPassword, isBcryptHash, legacyHashPassword, verifyPassword } from '@/lib/passwordHash'
+import { sendNewMemberAdminNotification } from '@/lib/aligo'
 import {
   buildAdminLoginResult,
   buildSessionValidationResult,
@@ -70,6 +71,64 @@ async function getRegionIdByCode(regionCode: 'south' | 'north'): Promise<number 
   return data.id
 }
 
+// 신규 회원가입 신청 시 해당 지역(남부/북부) 관리자에게 알림톡 발송
+// (회원가입 자체는 정상 처리하고, 알림 실패는 무시한다)
+async function notifyRegionAdminsOfNewMember(cityId: number, organizationName: string) {
+  // 신규 회원 안내 알림톡 템플릿 코드 (Aligo 등록 코드). 환경변수로 덮어쓸 수 있다.
+  const tplCode = process.env.NEXT_PUBLIC_ALIGO_NEW_MEMBER_ADMIN_TPL_CODE || 'UI_6779'
+
+  try {
+    // 가입 도시 → 지역 코드(south/north) 조회
+    const { data: city, error: cityError } = await runQueryWithTimeout(
+      supabaseAdmin
+        .from('cities')
+        .select('regions!inner(code)')
+        .eq('id', cityId)
+        .single(),
+      '지역 정보를 불러오는 중 시간이 초과되었습니다.'
+    )
+
+    const regionCode = (city as { regions?: { code?: string } } | null)?.regions?.code
+    if (cityError || (regionCode !== 'south' && regionCode !== 'north')) {
+      console.warn('신규 회원 알림: 지역 정보를 확인할 수 없어 발송을 건너뜁니다.', cityError)
+      return
+    }
+
+    // 해당 지역 관리자(role = south/north) 중 휴대전화번호가 등록된 계정 조회
+    const { data: admins, error: adminError } = await runQueryWithTimeout(
+      supabaseAdmin
+        .from('admins')
+        .select('phone')
+        .eq('role', regionCode),
+      '관리자 정보를 불러오는 중 시간이 초과되었습니다.'
+    )
+
+    if (adminError) {
+      console.error('신규 회원 알림: 관리자 조회 오류', adminError)
+      return
+    }
+
+    const phones = (admins || [])
+      .map((admin) => admin.phone)
+      .filter((phone): phone is string => !!phone && phone.trim().length > 0)
+
+    if (phones.length === 0) {
+      console.warn(`신규 회원 알림: ${regionCode} 지역 관리자 연락처가 없어 발송을 건너뜁니다.`)
+      return
+    }
+
+    await Promise.all(
+      phones.map((phone) =>
+        sendNewMemberAdminNotification(phone, organizationName, tplCode).catch((err) =>
+          console.error('신규 회원 관리자 알림톡 발송 오류:', err)
+        )
+      )
+    )
+  } catch (err) {
+    console.error('신규 회원 관리자 알림 처리 오류:', err)
+  }
+}
+
 export async function registerMemberOnServer(userData: {
   organization_type: 'school' | 'welfare'
   organization_name: string
@@ -109,6 +168,11 @@ export async function registerMemberOnServer(userData: {
         .select(),
       '회원가입 처리 중 시간이 초과되었습니다.'
     )
+
+    // 가입 성공 시 해당 지역 관리자에게 알림톡 발송 (실패해도 가입은 정상 처리)
+    if (!error && data && data.length > 0) {
+      await notifyRegionAdminsOfNewMember(cityId, userData.organization_name)
+    }
 
     return { data, error }
   } catch (error) {
