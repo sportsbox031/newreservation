@@ -33,3 +33,27 @@ test('validateFileMetadata accepts HWPX when the browser reports haansofthwp MIM
 
   assert.equal(result.valid, true)
 })
+
+test('validateFileMetadata accepts HWPX saved by Hangul 2018/2022 (application/hwp+zip)', () => {
+  const result = validateFileMetadata('공지사항.hwpx', 1024, 'application/hwp+zip')
+
+  assert.equal(result.valid, true)
+})
+
+test('validateFileMetadata accepts HWPX when the browser reports an empty MIME type', () => {
+  const result = validateFileMetadata('공지사항.hwpx', 1024, '')
+
+  assert.equal(result.valid, true)
+})
+
+test('validateFileMetadata rejects a disallowed extension', () => {
+  const result = validateFileMetadata('malware.exe', 1024, 'application/octet-stream')
+
+  assert.equal(result.valid, false)
+})
+
+test('validateFileMetadata rejects a MIME/extension mismatch for strict types', () => {
+  const result = validateFileMetadata('image.png', 1024, 'application/pdf')
+
+  assert.equal(result.valid, false)
+})

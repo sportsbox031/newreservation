@@ -8,35 +8,80 @@
  * 4. 파일 크기 제한
  */
 
-// 허용된 파일 타입 (MIME type)
-const ALLOWED_MIME_TYPES = {
+// 허용된 확장자 → 해당 확장자에 매칭되는 MIME type 목록
+//
+// 검증은 "확장자 화이트리스트"를 1차 기준으로 한다.
+// MIME 목록이 비어있는([]) 확장자는 MIME 검증을 생략하고 확장자만으로 허용한다.
+//
+// HWP/HWPX는 한컴오피스 버전(2014/2018/2022)과 OS 레지스트리 설정에 따라
+// 브라우저가 보고하는 MIME type이 제각각이다.
+//   - 2014: application/haansofthwp, application/octet-stream 등
+//   - 2018/2022: application/hwp+zip (HWPX 공식 MIME) 등
+// 이 값들을 MIME 화이트리스트로 일일이 막으면 특정 버전이 업로드되지 않으므로
+// hwp/hwpx는 확장자만으로 허용한다.
+const ALLOWED_EXTENSIONS: Record<string, readonly string[]> = {
   // 문서
-  'application/pdf': ['pdf'],
-  'application/msword': ['doc'],
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
-  'application/x-hwp': ['hwp'],
-  'application/haansofthwp': ['hwp', 'hwpx'],
-  'application/vnd.hancom.hwp': ['hwp'],
-  'application/hwp': ['hwp'],
-  'application/vnd.hancom.hwpx': ['hwpx'],
-  'application/x-hwpx': ['hwpx'],
-  'application/zip': ['zip', 'hwpx'],
-  'application/octet-stream': ['hwp', 'hwpx'],
-  'application/vnd.ms-excel': ['xls'],
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
-  'application/vnd.ms-powerpoint': ['ppt'],
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['pptx'],
-  'text/plain': ['txt'],
+  pdf: ['application/pdf'],
+  doc: ['application/msword'],
+  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  hwp: [],  // MIME 신뢰 불가 → 확장자만 검증
+  hwpx: [], // MIME 신뢰 불가 → 확장자만 검증
+  xls: ['application/vnd.ms-excel'],
+  xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ppt: ['application/vnd.ms-powerpoint'],
+  pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+  txt: ['text/plain'],
 
   // 이미지
-  'image/jpeg': ['jpg', 'jpeg'],
-  'image/png': ['png'],
-  'image/gif': ['gif'],
-  'image/webp': ['webp'],
+  jpg: ['image/jpeg'],
+  jpeg: ['image/jpeg'],
+  png: ['image/png'],
+  gif: ['image/gif'],
+  webp: ['image/webp'],
 
   // 압축 파일 (필요한 경우만)
-  'application/x-zip-compressed': ['zip'],
-} as const
+  zip: ['application/zip', 'application/x-zip-compressed'],
+}
+
+const ALLOWED_EXTENSION_LABEL = 'HWP, HWPX, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, JPG, PNG, GIF, WEBP, ZIP'
+
+/**
+ * 확장자 + MIME type 검증 (확장자 화이트리스트 1차, MIME은 보조)
+ *
+ * - 확장자가 허용 목록에 없으면 거부
+ * - 허용 MIME 목록이 비어있으면(hwp/hwpx 등) 확장자만으로 허용
+ * - 브라우저가 MIME을 비워서 보내거나 octet-stream으로 보내면 허용
+ *   (브라우저/OS가 MIME을 인식하지 못하는 정상 케이스)
+ * - 그 외에는 MIME이 확장자와 일치해야 함
+ */
+function validateExtensionAndMime(filename: string, rawMimeType: string): FileValidationResult {
+  const extension = getFileExtension(filename)
+  const mimeType = (rawMimeType || '').toLowerCase()
+
+  if (!(extension in ALLOWED_EXTENSIONS)) {
+    return {
+      valid: false,
+      error: `허용되지 않는 파일 형식입니다. 허용 형식: ${ALLOWED_EXTENSION_LABEL}`
+    }
+  }
+
+  const allowedMimes = ALLOWED_EXTENSIONS[extension]
+
+  // MIME을 신뢰할 수 없는 포맷이거나, 브라우저가 MIME을 인식하지 못한 경우 확장자만으로 허용
+  if (
+    allowedMimes.length === 0 ||
+    mimeType === '' ||
+    mimeType === 'application/octet-stream' ||
+    allowedMimes.includes(mimeType)
+  ) {
+    return { valid: true }
+  }
+
+  return {
+    valid: false,
+    error: `파일 확장자(${extension})가 파일 형식(${mimeType})과 일치하지 않습니다.`
+  }
+}
 
 // 최대 파일 크기 (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB in bytes
@@ -66,27 +111,7 @@ function getFileExtension(filename: string): string {
  * @returns 검증 결과
  */
 export function validateFileType(file: File): FileValidationResult {
-  const mimeType = file.type.toLowerCase()
-  const extension = getFileExtension(file.name)
-
-  // MIME type이 허용 목록에 있는지 확인
-  if (!(mimeType in ALLOWED_MIME_TYPES)) {
-    return {
-      valid: false,
-      error: `허용되지 않는 파일 형식입니다. 허용 형식: HWP, HWPX, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, JPG, PNG, GIF, WEBP, ZIP`
-    }
-  }
-
-  // 확장자가 MIME type과 일치하는지 확인
-  const allowedExtensions = ALLOWED_MIME_TYPES[mimeType as keyof typeof ALLOWED_MIME_TYPES] as readonly string[]
-  if (!allowedExtensions.includes(extension)) {
-    return {
-      valid: false,
-      error: `파일 확장자(${extension})가 파일 형식(${mimeType})과 일치하지 않습니다.`
-    }
-  }
-
-  return { valid: true }
+  return validateExtensionAndMime(file.name, file.type)
 }
 
 /**
@@ -223,24 +248,9 @@ export function validateFileMetadata(
   const nameResult = validateFileName(fileName)
   if (!nameResult.valid) return nameResult
 
-  // 확장자 검증
-  const extension = getFileExtension(fileName)
-  const mimeType = fileType.toLowerCase()
-
-  if (!(mimeType in ALLOWED_MIME_TYPES)) {
-    return {
-      valid: false,
-      error: '허용되지 않는 파일 형식입니다.'
-    }
-  }
-
-  const allowedExtensions = ALLOWED_MIME_TYPES[mimeType as keyof typeof ALLOWED_MIME_TYPES] as readonly string[]
-  if (!allowedExtensions.includes(extension)) {
-    return {
-      valid: false,
-      error: '파일 확장자가 파일 형식과 일치하지 않습니다.'
-    }
-  }
+  // 확장자 + MIME type 검증
+  const typeResult = validateExtensionAndMime(fileName, fileType)
+  if (!typeResult.valid) return typeResult
 
   // 크기 검증
   if (fileSize > MAX_FILE_SIZE) {

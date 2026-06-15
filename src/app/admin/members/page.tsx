@@ -16,6 +16,7 @@ import {
 import { memberAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
 import ExcelJS from 'exceljs'
+import * as XLSX from 'xlsx'
 import {
   filterMembersForDisplay,
   getMemberSummaryCounts,
@@ -324,51 +325,25 @@ export default function MembersPage() {
 
   const handleDownloadSmsExcel = async () => {
     try {
-      const workbook = new ExcelJS.Workbook()
-      const worksheet = workbook.addWorksheet('문자전송용')
-
-      worksheet.columns = [
-        { width: 15 }, // 전화번호
-        { width: 30 }, // 단체명
+      // 문자전송용 파일은 Excel 97-2003(.xls/BIFF8) 형식으로 생성한다.
+      // ExcelJS는 .xls 쓰기를 지원하지 않으므로 SheetJS(xlsx)를 사용한다.
+      const rows = [
+        ['전화번호', '단체명'],
+        ...filteredMembers.map((member) => [member.phone, member.organization_name]),
       ]
 
-      const headerRow = worksheet.getRow(1)
-      ;['전화번호', '단체명'].forEach((header, index) => {
-        const cell = headerRow.getCell(index + 1)
-        cell.value = header
-        cell.font = { name: '맑은 고딕', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5DADE2' } }
-        cell.alignment = { horizontal: 'center', vertical: 'middle' }
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FF3498DB' } },
-          left: { style: 'thin', color: { argb: 'FF3498DB' } },
-          bottom: { style: 'thin', color: { argb: 'FF3498DB' } },
-          right: { style: 'thin', color: { argb: 'FF3498DB' } }
-        }
-      })
-      headerRow.height = 25
+      const worksheet = XLSX.utils.aoa_to_sheet(rows)
+      worksheet['!cols'] = [
+        { wch: 15 }, // 전화번호
+        { wch: 30 }, // 단체명
+      ]
 
-      filteredMembers.forEach((member, index) => {
-        const row = worksheet.getRow(2 + index)
-        ;[member.phone, member.organization_name].forEach((value, colIndex) => {
-          const cell = row.getCell(colIndex + 1)
-          cell.value = value
-          cell.font = { name: '맑은 고딕', size: 10 }
-          cell.alignment = { horizontal: 'center', vertical: 'middle' }
-          cell.border = {
-            top: { style: 'thin', color: { argb: 'FFD5DBDB' } },
-            left: { style: 'thin', color: { argb: 'FFD5DBDB' } },
-            bottom: { style: 'thin', color: { argb: 'FFD5DBDB' } },
-            right: { style: 'thin', color: { argb: 'FFD5DBDB' } }
-          }
-        })
-        row.height = 20
-      })
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, '문자전송용')
 
-      const buffer = await workbook.xlsx.writeBuffer()
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      })
+      // bookType: 'biff8' → 실제 Excel 97-2003 (.xls) 바이너리
+      const buffer = XLSX.write(workbook, { bookType: 'biff8', type: 'array' })
+      const blob = new Blob([buffer], { type: 'application/vnd.ms-excel' })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -378,7 +353,7 @@ export default function MembersPage() {
         ? statusFilter === 'pending' ? '_대기중' : '_승인됨'
         : ''
 
-      link.download = `문자전송용_회원목록${filterText}${statusText}_${new Date().toLocaleDateString('ko-KR')}.xlsx`
+      link.download = `문자전송용_회원목록${filterText}${statusText}_${new Date().toLocaleDateString('ko-KR')}.xls`
       link.click()
       window.URL.revokeObjectURL(url)
     } catch (error) {

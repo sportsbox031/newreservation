@@ -8,6 +8,19 @@ import RichTextEditor, { sanitizeHtml } from '@/components/RichTextEditor'
 import AdminNavigation from '@/components/AdminNavigation'
 import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
 
+// datetime-local 입력은 한국 시간(KST) 기준으로 표시/입력한다.
+// 1) 표시: 특정 시각(instant)을 KST 벽시계 기준 YYYY-MM-DDTHH:MM 문자열로 변환
+const toKSTInputValue = (date: Date) => {
+  const kst = new Date(date.getTime() + 9 * 60 * 60 * 1000)
+  return kst.toISOString().slice(0, 16)
+}
+
+// 2) 저장: KST 기준 datetime-local 문자열을 저장용 UTC ISO 문자열로 변환
+const kstInputToISO = (value: string) => {
+  if (!value) return value
+  return new Date(`${value}:00+09:00`).toISOString()
+}
+
 interface HomepagePopup {
   id: string
   title: string
@@ -98,8 +111,8 @@ export default function PopupManagementPage() {
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
     setFormData(prev => ({
       ...prev,
-      start_date: now.toISOString().slice(0, 16),
-      end_date: tomorrow.toISOString().slice(0, 16)
+      start_date: toKSTInputValue(now),
+      end_date: toKSTInputValue(tomorrow)
     }))
     setEditingPopup(null)
     setShowCreateModal(true)
@@ -111,8 +124,8 @@ export default function PopupManagementPage() {
       content: popup.content,
       content_type: popup.content_type,
       is_active: popup.is_active,
-      start_date: new Date(popup.start_date).toISOString().slice(0, 16),
-      end_date: popup.end_date ? new Date(popup.end_date).toISOString().slice(0, 16) : '',
+      start_date: toKSTInputValue(new Date(popup.start_date)),
+      end_date: popup.end_date ? toKSTInputValue(new Date(popup.end_date)) : '',
       display_order: popup.display_order
     })
     setEditingPopup(popup)
@@ -130,7 +143,8 @@ export default function PopupManagementPage() {
     try {
       const submitData = {
         ...formData,
-        end_date: formData.end_date || null,
+        start_date: kstInputToISO(formData.start_date),
+        end_date: formData.end_date ? kstInputToISO(formData.end_date) : null,
         author_id: adminInfo?.id // 로그인한 관리자 ID 사용
       }
 
@@ -203,7 +217,8 @@ export default function PopupManagementPage() {
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'Asia/Seoul'
     })
   }
 
