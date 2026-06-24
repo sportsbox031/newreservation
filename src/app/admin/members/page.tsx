@@ -36,6 +36,7 @@ interface Member {
   tier: 'Priority' | 'Standard' | null
   student_count: number | null
   class_count: number | null
+  last_login_at?: string | null
   cities: {
     name: string
     regions: {
@@ -380,13 +381,14 @@ export default function MembersPage() {
         { width: 12 }, // 학급수
         { width: 12 }, // 회원등급
         { width: 12 }, // 상태
-        { width: 20 }  // 가입일
+        { width: 20 }, // 가입일
+        { width: 20 }  // 최근 로그인
       ]
 
       // 제목 행
       const titleRow = worksheet.getRow(1)
       titleRow.getCell(1).value = '회원 목록'
-      worksheet.mergeCells(1, 1, 1, 11)
+      worksheet.mergeCells(1, 1, 1, 12)
       titleRow.getCell(1).font = { name: '맑은 고딕', size: 16, bold: true, color: { argb: 'FF1F4788' } }
       titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6EAF8' } }
       titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
@@ -403,7 +405,7 @@ export default function MembersPage() {
 
       // 헤더 행
       const headerRow = worksheet.getRow(3)
-      const headers = ['단체명', '대표자명', '전화번호', '이메일', '지역', '시/군', '학생수', '학급수', '회원등급', '상태', '가입일']
+      const headers = ['단체명', '대표자명', '전화번호', '이메일', '지역', '시/군', '학생수', '학급수', '회원등급', '상태', '가입일', '최근 로그인']
       headers.forEach((header, index) => {
         const cell = headerRow.getCell(index + 1)
         cell.value = header
@@ -438,7 +440,8 @@ export default function MembersPage() {
           member.class_count || 0,
           member.tier,
           statusText,
-          formatDate(member.created_at)
+          formatDate(member.created_at),
+          member.last_login_at ? formatDate(member.last_login_at) : '기록 없음'
         ]
 
         rowData.forEach((value, colIndex) => {
@@ -659,6 +662,9 @@ export default function MembersPage() {
                       티어
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      최근 로그인
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       액션
                     </th>
                   </tr>
@@ -715,6 +721,11 @@ export default function MembersPage() {
                         ) : (
                           getTierBadge(member.tier)
                         )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {member.last_login_at ? formatDate(member.last_login_at) : '기록 없음'}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">

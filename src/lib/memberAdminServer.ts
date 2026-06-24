@@ -64,13 +64,53 @@ export async function getMembersForAdmin(
       LONG_QUERY_TIMEOUT_MS
     )
 
-    return { data, error }
+    if (error || !data) {
+      return { data, error }
+    }
+
+    const enriched = await attachLastLoginAt(data)
+    return { data: enriched, error }
   } catch (error) {
     return {
       data: null,
       error: timeoutError(getErrorMessage(error, '회원 정보를 불러오는 중 오류가 발생했습니다.')),
     }
   }
+}
+
+// 회원 목록에 최근 로그인 시각(user_sessions.created_at의 최신값)을 붙인다.
+async function attachLastLoginAt<T extends { id: string }>(members: T[]) {
+  const userIds = members.map((member) => member.id)
+  if (userIds.length === 0) {
+    return members.map((member) => ({ ...member, last_login_at: null }))
+  }
+
+  const lastLoginMap = new Map<string, string>()
+
+  try {
+    const { data: sessions } = await runQueryWithTimeout(
+      supabaseAdmin
+        .from('user_sessions')
+        .select('user_id, created_at')
+        .in('user_id', userIds)
+        .order('created_at', { ascending: false }),
+      '로그인 기록을 불러오는 중 시간이 초과되었습니다.'
+    )
+
+    for (const session of sessions ?? []) {
+      // created_at 내림차순이므로 user_id별 첫 항목이 가장 최근 로그인이다.
+      if (session.user_id && session.created_at && !lastLoginMap.has(session.user_id)) {
+        lastLoginMap.set(session.user_id, session.created_at)
+      }
+    }
+  } catch {
+    // 로그인 기록 조회 실패 시에도 회원 목록 자체는 정상 반환한다.
+  }
+
+  return members.map((member) => ({
+    ...member,
+    last_login_at: lastLoginMap.get(member.id) ?? null,
+  }))
 }
 
 async function getMemberRegionCode(memberId: string): Promise<string | null> {
