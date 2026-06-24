@@ -78,6 +78,16 @@ export async function getMembersForAdmin(
   }
 }
 
+// user_sessions.created_at은 시간대 없는(UTC) timestamp이므로 UTC ISO로 명시한다.
+// (시간대 표식이 없으면 클라이언트가 로컬 시간으로 오해해 9시간 어긋난다.)
+function toUtcIso(value: string): string {
+  const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(value)
+  if (hasTimezone) {
+    return value
+  }
+  return `${value.replace(' ', 'T')}Z`
+}
+
 // 회원 목록에 최근 로그인 시각(user_sessions.created_at의 최신값)을 붙인다.
 async function attachLastLoginAt<T extends { id: string }>(members: T[]) {
   const userIds = members.map((member) => member.id)
@@ -100,7 +110,7 @@ async function attachLastLoginAt<T extends { id: string }>(members: T[]) {
     for (const session of sessions ?? []) {
       // created_at 내림차순이므로 user_id별 첫 항목이 가장 최근 로그인이다.
       if (session.user_id && session.created_at && !lastLoginMap.has(session.user_id)) {
-        lastLoginMap.set(session.user_id, session.created_at)
+        lastLoginMap.set(session.user_id, toUtcIso(session.created_at))
       }
     }
   } catch {
