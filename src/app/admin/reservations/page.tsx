@@ -29,10 +29,11 @@ import {
   Timer,
   GraduationCap,
   Download,
-  Users2
+  Users2,
+  Shuffle
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
-import { settingsAPI, reservationAPI } from '@/lib/supabase';
+import { settingsAPI, reservationAPI, staffAPI } from '@/lib/supabase';
 import { getAdminCalendarDayStatus } from '@/lib/adminCalendarStatus';
 import AdminNavigation from '@/components/AdminNavigation';
 import { buildCookieFirstJsonRequestInit } from '@/lib/clientAuthHeaders';
@@ -70,6 +71,28 @@ type DayStatus = 'available' | 'limited' | 'full' | 'blocked' | 'closed';
 
 // 모달 타입
 type ModalType = 'reservationList' | 'reservationDetail' | null;
+
+// 담당자 타입
+interface StaffMemberLite {
+  id: number;
+  name: string;
+  team_no: number | null;
+  is_active: boolean;
+}
+
+// 예약별 배정 타입 (staff_members 조인 포함)
+interface AssignmentLite {
+  id: number;
+  reservation_id: string;
+  staff_id: number;
+  team_no: number | null;
+  method: 'manual' | 'random_team' | 'random_individual';
+  staff_members: {
+    name: string;
+    team_no: number | null;
+  };
+}
+
 
 function AdminReservationsContent() {
   const ADMIN_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
@@ -118,11 +141,20 @@ function AdminReservationsContent() {
   );
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  // 담당자 배정 상태
+  const [staffMembers, setStaffMembers] = useState<StaffMemberLite[]>([]);
+  const [assignments, setAssignments] = useState<{ [reservationId: string]: AssignmentLite[] }>({});
+  const [showRandomAssignChoice, setShowRandomAssignChoice] = useState(false);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [manualStaffIds, setManualStaffIds] = useState<number[]>([]);
+
   const refreshReservationData = async () => {
     await Promise.all([
       loadReservationStatus(),
       loadBlockedDates(),
-      loadAllReservations()
+      loadAllReservations(),
+      loadStaffMembers(),
+      loadAssignments()
     ]);
   };
 
@@ -149,6 +181,13 @@ function AdminReservationsContent() {
       refreshReservationData();
     }
   }, [currentMonth, adminRegion]);
+
+  // 상세 모달의 수동 배정 편집 상태를 현재 배정으로 초기화
+  useEffect(() => {
+    if (selectedReservation) {
+      setManualStaffIds((assignments[selectedReservation.id] || []).map(a => a.staff_id));
+    }
+  }, [selectedReservation, assignments]);
 
   // 실시간 설정 변경 감지를 위한 주기적 새로고침
   useEffect(() => {
@@ -328,6 +367,96 @@ function AdminReservationsContent() {
     }
   };
 
+  // 담당자 목록 로드 (오류가 나도 기존 예약 관리 기능에는 영향 없음)
+  const loadStaffMembers = async () => {
+    try {
+      const { data, error } = await staffAPI.getStaffMembers(adminRegion);
+      if (!error && data) {
+        setStaffMembers(data);
+      }
+    } catch (error) {
+      console.error('담당자 목록 로드 오류:', error);
+    }
+  };
+
+  // 이번 달 담당자 배정 로드 (오류가 나도 기존 예약 관리 기능에는 영향 없음)
+  const loadAssignments = async () => {
+    try {
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth() + 1;
+      const { data, error } = await staffAPI.getAssignments(adminRegion, year, month);
+
+      if (!error && data) {
+        const grouped: { [reservationId: string]: AssignmentLite[] } = {};
+        for (const assignment of data as AssignmentLite[]) {
+          if (!grouped[assignment.reservation_id]) {
+            grouped[assignment.reservation_id] = [];
+          }
+          grouped[assignment.reservation_id].push(assignment);
+        }
+        setAssignments(grouped);
+      }
+    } catch (error) {
+      console.error('담당자 배정 로드 오류:', error);
+    }
+  };
+
+  // 월 전체 랜덤 배정 실행 (현재 보고 있는 월의 모든 예약 대상)
+  const handleRandomAssign = async (method: 'random_team' | 'random_individual') => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth() + 1;
+
+    setAssignLoading(true);
+    try {
+      const { data, error } = await staffAPI.assignRandomMonth(adminRegion, year, month, method);
+
+      if (error) {
+        alert((error as any).message || '월 전체 랜덤 배정에 실패했습니다.');
+        return;
+      }
+
+      await loadAssignments();
+      const skippedInfo = data?.skippedDays
+        ? `\n(담당자 전원 휴가로 건너뛴 날짜: ${data.skippedDays}일)`
+        : '';
+      alert(`${year}년 ${month}월 예약 ${data?.assignedReservations ?? 0}개에 담당자가 ${method === 'random_team' ? '팀' : '개인'} 배정되었습니다.${skippedInfo}`);
+    } catch (error) {
+      console.error('월 전체 랜덤 배정 오류:', error);
+      alert('월 전체 랜덤 배정 중 오류가 발생했습니다.');
+    } finally {
+      setAssignLoading(false);
+      setShowRandomAssignChoice(false);
+    }
+  };
+
+  // 수동 배정 저장 (상세 모달)
+  const handleManualAssignSave = async () => {
+    if (!selectedReservation) return;
+
+    setAssignLoading(true);
+    try {
+      const { error } = await staffAPI.assignManual(adminRegion, selectedReservation.id, manualStaffIds);
+
+      if (error) {
+        alert((error as any).message || '담당자 배정에 실패했습니다.');
+        return;
+      }
+
+      await loadAssignments();
+      alert(manualStaffIds.length > 0 ? '담당자 배정이 저장되었습니다.' : '담당자 배정이 해제되었습니다.');
+    } catch (error) {
+      console.error('담당자 배정 오류:', error);
+      alert('담당자 배정 중 오류가 발생했습니다.');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  // 특정 예약의 배정 담당자 목록
+  const getAssignedStaff = (reservationId: string): AssignmentLite[] => {
+    return assignments[reservationId] || [];
+  };
+
   // 특정 날짜의 예약 로드
   const loadDayReservations = async (date: Date) => {
     try {
@@ -354,6 +483,7 @@ function AdminReservationsContent() {
   const handleDateClick = async (value: CalendarValue) => {
     if (!value || Array.isArray(value)) return;
     setSelectedDate(value);
+    setShowRandomAssignChoice(false);
     await loadDayReservations(value);
 
     // 해당 날짜의 예약이 있으면 바로 상세보기 모달 열기
@@ -514,6 +644,35 @@ function AdminReservationsContent() {
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${color}`}>
         {label}
       </span>
+    );
+  };
+
+  // 배정된 담당자 배지 목록
+  const AssignedStaffBadges = ({ reservationId }: { reservationId: string }) => {
+    const items = getAssignedStaff(reservationId);
+    if (items.length === 0) return null;
+
+    const methodLabel = items[0].method === 'manual'
+      ? '수동배정'
+      : items[0].method === 'random_team' ? '랜덤(팀)' : '랜덤(개인)';
+
+    return (
+      <div className="flex items-center flex-wrap gap-1.5 mt-2">
+        <Users2 className="w-4 h-4 text-indigo-500" />
+        <span className="text-xs font-medium text-indigo-700">담당자:</span>
+        {items.map(assignment => {
+          const teamNo = assignment.team_no ?? assignment.staff_members?.team_no;
+          return (
+            <span
+              key={assignment.id}
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
+            >
+              {assignment.staff_members?.name}{teamNo ? ` (${teamNo}팀)` : ''}
+            </span>
+          );
+        })}
+        <span className="text-xs text-gray-400">· {methodLabel}</span>
+      </div>
     );
   };
 
@@ -1020,6 +1179,15 @@ function AdminReservationsContent() {
                 </div>
 
                 <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setShowRandomAssignChoice(true)}
+                    disabled={assignLoading}
+                    className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    title="이번 달 전체 예약에 담당자를 랜덤 배정합니다"
+                  >
+                    <Shuffle className="w-4 h-4" />
+                    <span>담당자 랜덤배정</span>
+                  </button>
                   {viewMode === 'calendar' && (
                     <button
                       onClick={handleDownloadExcel}
@@ -1180,6 +1348,7 @@ function AdminReservationsContent() {
                                   </span>
                                 </div>
                               </div>
+                              <AssignedStaffBadges reservationId={reservation.id} />
                             </div>
 
                             {/* 액션 버튼들 */}
@@ -1413,6 +1582,67 @@ function AdminReservationsContent() {
         </div>
       </div>
 
+      {/* 담당자 랜덤배정 방식 선택 모달 (월 전체) */}
+      {showRandomAssignChoice && (
+        <div className={modalOverlayClass()}>
+          <div className="bg-white rounded-xl max-w-lg w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                <Shuffle className="w-5 h-5 mr-2 text-indigo-600" />
+                담당자 랜덤배정
+              </h3>
+              <button
+                onClick={() => setShowRandomAssignChoice(false)}
+                disabled={assignLoading}
+                className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-5">
+              <p className="text-sm text-indigo-900 font-medium mb-2">
+                {currentMonth.getFullYear()}년 {currentMonth.getMonth() + 1}월 · {adminRegion === 'south' ? '경기남부' : '경기북부'} 전체 예약 대상
+              </p>
+              <ul className="text-sm text-indigo-800 space-y-1">
+                <li>· 기존 배정은 새 배정으로 교체됩니다.</li>
+                <li>· 휴가 등록된 담당자는 해당 날짜 배정에서 제외됩니다.</li>
+                <li>· 하루 스케줄 1개면 가용 담당자 전원, 여러 개면 균등 분배됩니다.</li>
+                <li>· 수원시 예약은 팀배정 시 두 팀이 번갈아 담당합니다.</li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => handleRandomAssign('random_team')}
+                disabled={assignLoading}
+                className="w-full flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium"
+              >
+                {assignLoading ? <Spinner size="sm" color="white" /> : (
+                  <><Users2 className="w-4 h-4 mr-2" />팀배정 — 한 팀(2명)이 같은 스케줄에 함께</>
+                )}
+              </button>
+              <button
+                onClick={() => handleRandomAssign('random_individual')}
+                disabled={assignLoading}
+                className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
+              >
+                {assignLoading ? <Spinner size="sm" color="white" /> : (
+                  <><User className="w-4 h-4 mr-2" />개인배정 — 팀 구분 없이 섞어서</>
+                )}
+              </button>
+              <button
+                onClick={() => setShowRandomAssignChoice(false)}
+                disabled={assignLoading}
+                className="w-full px-4 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 예약 목록 모달 (달력 날짜 클릭 시) */}
       {activeModal === 'reservationList' && selectedDate && (
         <div className={modalOverlayClass()}>
@@ -1517,6 +1747,8 @@ function AdminReservationsContent() {
                               ))}
                             </div>
                           </div>
+
+                          <AssignedStaffBadges reservationId={reservation.id} />
                         </div>
 
                         {/* 액션 버튼들 */}
@@ -1763,6 +1995,65 @@ function AdminReservationsContent() {
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* 담당자 배정 (수동) */}
+                <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 p-6 rounded-xl shadow-sm">
+                  <h4 className="font-bold text-gray-900 mb-1 flex items-center">
+                    <Users2 className="w-5 h-5 mr-2 text-indigo-600" />
+                    담당자 배정
+                  </h4>
+                  <p className="text-xs text-gray-500 mb-4">
+                    체크한 담당자가 이 예약에 배정됩니다. 모두 해제하고 저장하면 배정이 해제됩니다.
+                  </p>
+                  {staffMembers.filter(staff => staff.is_active).length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                      등록된 담당자가 없습니다. 설정 → 담당자 관리에서 먼저 등록해주세요.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-3 mb-4">
+                        {staffMembers.filter(staff => staff.is_active).map(staff => (
+                          <label
+                            key={staff.id}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                              manualStaffIds.includes(staff.id)
+                                ? 'bg-indigo-100 border-indigo-400 text-indigo-900'
+                                : 'bg-white border-gray-200 text-gray-700 hover:border-indigo-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={manualStaffIds.includes(staff.id)}
+                              onChange={(e) => {
+                                setManualStaffIds(prev => e.target.checked
+                                  ? [...prev, staff.id]
+                                  : prev.filter(id => id !== staff.id));
+                              }}
+                              className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                            />
+                            <span className="text-sm font-medium">
+                              {staff.name}{staff.team_no ? ` (${staff.team_no}팀)` : ''}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="flex justify-end">
+                        <button
+                          onClick={handleManualAssignSave}
+                          disabled={assignLoading}
+                          className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                        >
+                          {assignLoading ? (
+                            <Spinner size="sm" color="white" />
+                          ) : (
+                            <UserCheck className="w-4 h-4" />
+                          )}
+                          <span>배정 저장</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* 액션 버튼들 */}
