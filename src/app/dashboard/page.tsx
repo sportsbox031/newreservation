@@ -210,22 +210,16 @@ export default function DashboardPage() {
   // 세션 기반 사용자 정보 설정
   useEffect(() => {
     if (user && isAuthenticated) {
-      console.log('Dashboard - 세션 검증된 사용자 데이터:', user);
-      
       // 지역 코드 추출
       let regionCode = 'south'; // 기본값
       let regionName = '경기남부'; // 기본값
-      
+
       if (user.cities && user.cities.regions) {
         regionCode = user.cities.regions.code;
         regionName = user.cities.regions.name;
-        console.log('Dashboard - 추출된 지역 정보:', { regionCode, regionName });
       } else if (user.region_code) {
         regionCode = user.region_code;
         regionName = user.region_code === 'south' ? '경기남부' : '경기북부';
-        console.log('Dashboard - region_code에서 추출:', { regionCode, regionName });
-      } else {
-        console.log('Dashboard - 기본값 사용:', { regionCode, regionName });
       }
       
       // 사용자 정보 설정
@@ -541,31 +535,23 @@ export default function DashboardPage() {
         // 데이터 형식 변환 (API 응답 → 컴포넌트 상태 형식)
         const formattedStatus: Record<string, { current: number; max: number; isFull: boolean; isOpen: boolean }> = {};
         let hasAnyOpenDay = false;
-        let totalDays = 0;
-        let closedDays = 0;
-        
+
         Object.keys(monthStatus).forEach(dateString => {
           const status = monthStatus[dateString];
-          totalDays++;
-          
+
           formattedStatus[dateString] = {
             current: status.current_reservations,
             max: status.max_reservations_per_day,
             isFull: status.is_full,
             isOpen: status.is_open
           };
-          
+
           // 하나라도 열린 날이 있으면 월 전체가 열린 것으로 간주
           if (status.is_open) {
             hasAnyOpenDay = true;
-          } else {
-            closedDays++;
           }
         });
-        
-        // 디버깅을 위한 로그
-        console.log(`${year}년 ${month}월: 전체 ${totalDays}일 중 ${closedDays}일 닫힘, 열린 날 있음: ${hasAnyOpenDay}`);
-        
+
         setReservationStatus(formattedStatus);
         // 열린 날이 하나라도 있으면 월이 열린 것으로 간주
         setIsMonthClosed(!hasAnyOpenDay);
@@ -1022,7 +1008,6 @@ export default function DashboardPage() {
         setSubmitStatusMessage(prev => prev ? RESERVATION_DELAYED_PROGRESS_MESSAGE : prev);
       }, 4000);
 
-      console.log('예약 API 호출:', { userId: user.id, regionId, dateString });
       const result = await reservationAPI.submitReservation(
         regionId,
         dateString,
@@ -1087,7 +1072,6 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     try {
       await logout(); // useSessionCheck hook의 logout 함수 사용
-      console.log('세션 기반 로그아웃 완료');
     } catch (error) {
       console.error('로그아웃 처리 오류:', error);
       // 오류가 발생해도 강제 로그아웃
@@ -1193,6 +1177,8 @@ export default function DashboardPage() {
               <button
                 onClick={handleOpenMyReservations}
                 className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 p-1 sm:p-0"
+                title="내 예약"
+                aria-label="내 예약"
               >
                 <List className="w-4 h-4" />
                 <span className="hidden sm:inline text-sm">내 예약</span>
@@ -1200,6 +1186,8 @@ export default function DashboardPage() {
               <button
                 onClick={handleAccountManagement}
                 className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 p-1 sm:p-0"
+                title="계정 관리"
+                aria-label="계정 관리"
               >
                 <UserCog className="w-4 h-4" />
                 <span className="hidden sm:inline text-sm">계정 관리</span>
@@ -1207,6 +1195,8 @@ export default function DashboardPage() {
               <button
                 onClick={handleLogout}
                 className="flex items-center space-x-1 text-gray-700 hover:text-red-600 p-1 sm:p-0"
+                title="로그아웃"
+                aria-label="로그아웃"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline text-sm">로그아웃</span>

@@ -101,8 +101,7 @@ export default function Home() {
     setSelectedAnnouncement(announcement)
 
     // 첨부파일 로드
-    const { data, error } = await announcementAPI.getAttachments(announcement.id)
-    console.log('📎 홈 페이지 첨부파일 로드:', { announcement_id: announcement.id, data, error })
+    const { data } = await announcementAPI.getAttachments(announcement.id)
     setAttachments(data || [])
 
     setShowModal(true)
@@ -172,19 +171,22 @@ export default function Home() {
               />
               <div className="text-2xl font-bold text-[#0066CC]">스포츠박스</div>
             </div>
-            <nav className="hidden md:flex items-center space-x-8">
-              <a href="#notices" className="text-gray-700 hover:text-[#0066CC] py-2">공지사항</a>
-              <a href="#intro" className="text-gray-700 hover:text-[#0066CC] py-2">사업소개</a>
-              <a href="#programs" className="text-gray-700 hover:text-[#0066CC] py-2">운영프로그램</a>
-              <a href="#process" className="text-gray-700 hover:text-[#0066CC] py-2">신청절차</a>
-              <a href="#faq" className="text-gray-700 hover:text-[#0066CC] py-2">자주 묻는 질문</a>
+            <div className="flex items-center gap-4 md:gap-8">
+              <nav className="hidden md:flex items-center space-x-8">
+                <a href="#notices" className="text-gray-700 hover:text-[#0066CC] py-2">공지사항</a>
+                <a href="#intro" className="text-gray-700 hover:text-[#0066CC] py-2">사업소개</a>
+                <a href="#programs" className="text-gray-700 hover:text-[#0066CC] py-2">운영프로그램</a>
+                <a href="#process" className="text-gray-700 hover:text-[#0066CC] py-2">신청절차</a>
+                <a href="#faq" className="text-gray-700 hover:text-[#0066CC] py-2">자주 묻는 질문</a>
+              </nav>
+              {/* 로그인 버튼은 모바일에서도 항상 표시 */}
               <Link
                 href="/auth/login"
-                className="bg-[#0066CC] text-white px-4 py-2 rounded-lg hover:bg-[#0066CC]/90"
+                className="bg-[#0066CC] text-white px-3 md:px-4 py-2 rounded-lg hover:bg-[#0066CC]/90 text-sm md:text-base whitespace-nowrap"
               >
                 회원가입/로그인
               </Link>
-            </nav>
+            </div>
           </div>
         </div>
       </header>
@@ -203,7 +205,7 @@ export default function Home() {
           <div className="container mx-auto px-4 sm:px-6 relative h-full flex items-center">
             <div className="max-w-2xl">
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 text-white drop-shadow-lg">SPORTS BOX</h1>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 md:mb-6 text-[#0066CC] drop-shadow">모두를 위한 스포츠</h2>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 md:mb-6 text-blue-100 drop-shadow-lg">모두를 위한 스포츠</h2>
               <p className="text-base sm:text-lg md:text-xl mb-6 md:mb-8 text-white drop-shadow-lg">경기도체육회 스포츠박스가 여러분의 건강한 생활을 지원합니다</p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <Link
@@ -583,7 +585,7 @@ export default function Home() {
               </div>
             </div>
             <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-              <p>&copy; 2025 경기도체육회 스포츠박스. All rights reserved.</p>
+              <p>&copy; {new Date().getFullYear()} 경기도체육회 스포츠박스. All rights reserved.</p>
             </div>
           </div>
         </footer>
