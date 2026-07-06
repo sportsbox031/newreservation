@@ -2525,6 +2525,27 @@ export const staffAPI = {
     }
   },
 
+  // 구글캘린더 월 동기화 (담당자 지정된 예약을 지역 캘린더에 반영)
+  async syncCalendarMonth(regionCode: string, year: number, month: number) {
+    try {
+      const response = await fetch('/api/admin/calendar-sync', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ regionCode, year, month }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '구글캘린더 동기화에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '구글캘린더 동기화에 실패했습니다.') } }
+    }
+  },
+
   // 수동 배정 (특정 예약의 담당자 목록 교체, 빈 배열이면 해제)
   async assignManual(regionCode: string, reservationId: string, staffIds: number[]) {
     try {

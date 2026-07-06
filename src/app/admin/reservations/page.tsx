@@ -147,6 +147,7 @@ function AdminReservationsContent() {
   const [showRandomAssignChoice, setShowRandomAssignChoice] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
   const [manualStaffIds, setManualStaffIds] = useState<number[]>([]);
+  const [calendarSyncLoading, setCalendarSyncLoading] = useState(false);
 
   const refreshReservationData = async () => {
     await Promise.all([
@@ -455,6 +456,37 @@ function AdminReservationsContent() {
   // 특정 예약의 배정 담당자 목록
   const getAssignedStaff = (reservationId: string): AssignmentLite[] => {
     return assignments[reservationId] || [];
+  };
+
+  // 구글캘린더 월 동기화 (담당자 지정된 예약 대상)
+  const handleCalendarSync = async () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth() + 1;
+    const regionLabel = adminRegion === 'south' ? '경기남부' : '경기북부';
+
+    if (!confirm(`${year}년 ${month}월 담당자 지정된 예약을 ${regionLabel} 구글캘린더에 동기화하시겠습니까?\n(배정이 해제되거나 취소된 예약의 이벤트는 캘린더에서 삭제됩니다)`)) {
+      return;
+    }
+
+    setCalendarSyncLoading(true);
+    try {
+      const { data, error } = await staffAPI.syncCalendarMonth(adminRegion, year, month);
+
+      if (error) {
+        alert((error as any).message || '구글캘린더 동기화에 실패했습니다.');
+        return;
+      }
+
+      const failInfo = data?.failed
+        ? `\n실패 ${data.failed}건:\n${(data.failures || []).join('\n')}`
+        : '';
+      alert(`구글캘린더 동기화 완료 (대상 ${data?.totalTargets ?? 0}개)\n생성 ${data?.created ?? 0} · 갱신 ${data?.updated ?? 0} · 변경없음 ${data?.unchanged ?? 0} · 삭제 ${data?.deleted ?? 0}${failInfo}`);
+    } catch (error) {
+      console.error('구글캘린더 동기화 오류:', error);
+      alert('구글캘린더 동기화 중 오류가 발생했습니다.');
+    } finally {
+      setCalendarSyncLoading(false);
+    }
   };
 
   // 특정 날짜의 예약 로드
@@ -1187,6 +1219,19 @@ function AdminReservationsContent() {
                   >
                     <Shuffle className="w-4 h-4" />
                     <span>담당자 랜덤배정</span>
+                  </button>
+                  <button
+                    onClick={handleCalendarSync}
+                    disabled={calendarSyncLoading}
+                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    title="담당자 지정된 예약을 지역 구글캘린더에 동기화합니다"
+                  >
+                    {calendarSyncLoading ? (
+                      <Spinner size="sm" color="white" />
+                    ) : (
+                      <CalendarIcon className="w-4 h-4" />
+                    )}
+                    <span>구글캘린더</span>
                   </button>
                   {viewMode === 'calendar' && (
                     <button
