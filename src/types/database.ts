@@ -239,6 +239,39 @@ type ExtendedPublic = Merge<
             },
           ]
         }
+        reservation_calendar_events: {
+          Row: {
+            id: number
+            reservation_id: string
+            region_code: string
+            date: string
+            calendar_id: string
+            google_event_id: string
+            payload_hash: string | null
+            synced_at: string
+          }
+          Insert: {
+            id?: number
+            reservation_id: string
+            region_code: string
+            date: string
+            calendar_id: string
+            google_event_id: string
+            payload_hash?: string | null
+            synced_at?: string
+          }
+          Update: {
+            id?: number
+            reservation_id?: string
+            region_code?: string
+            date?: string
+            calendar_id?: string
+            google_event_id?: string
+            payload_hash?: string | null
+            synced_at?: string
+          }
+          Relationships: []
+        }
         reservation_staff_assignments: {
           Row: {
             id: number

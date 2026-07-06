@@ -43,3 +43,7 @@ next-env.d.ts
 .vercel
 .env*.local
 nul
+
+# 구글 서비스 계정 키 파일 (절대 커밋 금지)
+sportsbox-calendar-*.json
+*.iam.gserviceaccount.json
