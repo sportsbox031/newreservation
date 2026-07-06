@@ -24,6 +24,17 @@ import AdminNavigation from '@/components/AdminNavigation'
 import { buildReservationMonthTransitionMessage, normalizeYearMonth } from '@/lib/reservationActiveMonth'
 import { getKstNowLocalString } from '@/lib/reservationSchedule'
 import { formatDateTimeKST } from '@/lib/formatDate'
+import StaffManagementSection from '@/components/admin/StaffManagementSection'
+
+// 기능별 탭 구분
+type SettingsFunctionTab = 'control' | 'rules' | 'blocked' | 'staff'
+
+const FUNCTION_TABS: { key: SettingsFunctionTab; label: string }[] = [
+  { key: 'control', label: '예약 제어' },
+  { key: 'rules', label: '예약 규칙·특정일' },
+  { key: 'blocked', label: '예약 불가 날짜' },
+  { key: 'staff', label: '담당자 관리' },
+]
 
 interface BlockedDate {
   id: number
@@ -88,6 +99,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [adminInfo, setAdminInfo] = useState<any>(null)
   const [activeTab, setActiveTab] = useState<'south' | 'north'>('south')
+  const [functionTab, setFunctionTab] = useState<SettingsFunctionTab>('control')
   
   // 현재 년/월
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
@@ -894,11 +906,30 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {/* 기능별 탭 */}
+        <div className="mb-6">
+          <div className="flex flex-wrap gap-2 bg-white rounded-lg shadow p-2">
+            {FUNCTION_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setFunctionTab(tab.key)}
+                className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-colors ${
+                  functionTab === tab.key
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* 메시지 표시 */}
         {message && (
           <div className={`mb-6 p-4 rounded-lg flex items-center ${
-            message.type === 'success' 
-              ? 'bg-green-50 text-green-800 border border-green-200' 
+            message.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200'
               : 'bg-red-50 text-red-800 border border-red-200'
           }`}>
             {message.type === 'success' ? (
@@ -936,14 +967,17 @@ export default function SettingsPage() {
           </div>
 
           {/* 티어별 예약 제어로 대체됨 */}
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="font-medium text-blue-900 mb-2">📋 안내</h3>
-            <p className="text-sm text-blue-800">
-              예약 제어는 아래 티어별 설정에서 각각 관리됩니다. Priority와 Standard 회원의 예약을 개별적으로 시작/종료할 수 있습니다.
-            </p>
-          </div>
+          {functionTab === 'control' && (
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="font-medium text-blue-900 mb-2">📋 안내</h3>
+              <p className="text-sm text-blue-800">
+                예약 제어는 아래 티어별 설정에서 각각 관리됩니다. Priority와 Standard 회원의 예약을 개별적으로 시작/종료할 수 있습니다.
+              </p>
+            </div>
+          )}
         </div>
 
+        {functionTab === 'control' && (<>
         {/* 전체 예약 제어 */}
         <div className="bg-white rounded-lg shadow mb-8">
           <div className="px-6 py-4 border-b border-gray-200">
@@ -1190,6 +1224,9 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        </>)}
+
+        {functionTab === 'rules' && (<>
         {/* 기본 설정 */}
         <div className="bg-white rounded-lg shadow mb-8">
           <div className="px-6 py-4 border-b border-gray-200">
@@ -1334,7 +1371,10 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* 차단된 날짜 관리 */}
+        </>)}
+
+        {functionTab === 'blocked' && (
+        /* 차단된 날짜 관리 */
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -1562,6 +1602,16 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+        )}
+
+        {/* 담당자 관리 */}
+        {functionTab === 'staff' && (
+          <StaffManagementSection
+            regionCode={activeTab}
+            year={currentYear}
+            month={currentMonth}
+          />
+        )}
 
       </div>
     </div>

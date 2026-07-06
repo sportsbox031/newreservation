@@ -221,6 +221,110 @@ type ExtendedPublic = Merge<
             },
           ]
         }
+        staff_members: {
+          Row: {
+            id: number
+            region_code: string
+            name: string
+            team_no: number | null
+            is_active: boolean
+            sort_order: number
+            created_at: string
+          }
+          Insert: {
+            id?: number
+            region_code: string
+            name: string
+            team_no?: number | null
+            is_active?: boolean
+            sort_order?: number
+            created_at?: string
+          }
+          Update: {
+            id?: number
+            region_code?: string
+            name?: string
+            team_no?: number | null
+            is_active?: boolean
+            sort_order?: number
+            created_at?: string
+          }
+          Relationships: []
+        }
+        staff_vacations: {
+          Row: {
+            id: number
+            staff_id: number
+            date: string
+            created_at: string
+          }
+          Insert: {
+            id?: number
+            staff_id: number
+            date: string
+            created_at?: string
+          }
+          Update: {
+            id?: number
+            staff_id?: number
+            date?: string
+            created_at?: string
+          }
+          Relationships: [
+            {
+              foreignKeyName: 'staff_vacations_staff_id_fkey'
+              columns: ['staff_id']
+              isOneToOne: false
+              referencedRelation: 'staff_members'
+              referencedColumns: ['id']
+            },
+          ]
+        }
+        reservation_staff_assignments: {
+          Row: {
+            id: number
+            reservation_id: string
+            staff_id: number
+            team_no: number | null
+            method: 'manual' | 'random_team' | 'random_individual'
+            assigned_by: string | null
+            created_at: string
+          }
+          Insert: {
+            id?: number
+            reservation_id: string
+            staff_id: number
+            team_no?: number | null
+            method?: 'manual' | 'random_team' | 'random_individual'
+            assigned_by?: string | null
+            created_at?: string
+          }
+          Update: {
+            id?: number
+            reservation_id?: string
+            staff_id?: number
+            team_no?: number | null
+            method?: 'manual' | 'random_team' | 'random_individual'
+            assigned_by?: string | null
+            created_at?: string
+          }
+          Relationships: [
+            {
+              foreignKeyName: 'reservation_staff_assignments_reservation_id_fkey'
+              columns: ['reservation_id']
+              isOneToOne: false
+              referencedRelation: 'reservations'
+              referencedColumns: ['id']
+            },
+            {
+              foreignKeyName: 'reservation_staff_assignments_staff_id_fkey'
+              columns: ['staff_id']
+              isOneToOne: false
+              referencedRelation: 'staff_members'
+              referencedColumns: ['id']
+            },
+          ]
+        }
       }
     >
     Functions: Merge<
@@ -286,6 +390,10 @@ export type UserPenaltyInsert = Database['public']['Tables']['user_penalties']['
 
 export type ReservationSchedule = Database['public']['Tables']['reservation_schedules']['Row']
 export type ReservationScheduleInsert = Database['public']['Tables']['reservation_schedules']['Insert']
+
+export type StaffMember = Database['public']['Tables']['staff_members']['Row']
+export type StaffVacation = Database['public']['Tables']['staff_vacations']['Row']
+export type ReservationStaffAssignment = Database['public']['Tables']['reservation_staff_assignments']['Row']
 
 export type ReservationTransaction = Database['public']['Tables']['reservation_transactions']['Row']
 export type ReservationTransactionInsert = Database['public']['Tables']['reservation_transactions']['Insert']

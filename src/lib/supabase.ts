@@ -2312,6 +2312,241 @@ export const reservationScheduleAPI = {
   },
 }
 
+// 담당자 관리 및 예약 배정 API (관리자 전용)
+export const staffAPI = {
+  // 담당자 목록 조회
+  async getStaffMembers(regionCode: string) {
+    try {
+      const query = new URLSearchParams({ regionCode })
+      const response = await fetch(`/api/admin/staff?${query.toString()}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '담당자 목록을 불러오지 못했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '담당자 목록을 불러오지 못했습니다.') } }
+    }
+  },
+
+  // 담당자 등록
+  async createStaffMember(regionCode: string, name: string, teamNo: number | null) {
+    try {
+      const response = await fetch('/api/admin/staff', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ regionCode, name, teamNo }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '담당자 등록에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '담당자 등록에 실패했습니다.') } }
+    }
+  },
+
+  // 담당자 수정 (이름/팀/활성 여부)
+  async updateStaffMember(
+    regionCode: string,
+    staffId: number,
+    updates: { name?: string; teamNo?: number | null; isActive?: boolean }
+  ) {
+    try {
+      const response = await fetch('/api/admin/staff', {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ regionCode, staffId, ...updates }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '담당자 수정에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '담당자 수정에 실패했습니다.') } }
+    }
+  },
+
+  // 담당자 삭제
+  async deleteStaffMember(regionCode: string, staffId: number) {
+    try {
+      const query = new URLSearchParams({ regionCode, id: String(staffId) })
+      const response = await fetch(`/api/admin/staff?${query.toString()}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '담당자 삭제에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '담당자 삭제에 실패했습니다.') } }
+    }
+  },
+
+  // 월별 휴가 목록 조회
+  async getVacations(regionCode: string, yearMonth: string) {
+    try {
+      const query = new URLSearchParams({ regionCode, yearMonth })
+      const response = await fetch(`/api/admin/staff/vacations?${query.toString()}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '휴가 목록을 불러오지 못했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '휴가 목록을 불러오지 못했습니다.') } }
+    }
+  },
+
+  // 휴가 등록
+  async addVacation(regionCode: string, staffId: number, date: string) {
+    try {
+      const response = await fetch('/api/admin/staff/vacations', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ regionCode, staffId, date }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '휴가 등록에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '휴가 등록에 실패했습니다.') } }
+    }
+  },
+
+  // 휴가 삭제
+  async removeVacation(regionCode: string, vacationId: number) {
+    try {
+      const query = new URLSearchParams({ regionCode, id: String(vacationId) })
+      const response = await fetch(`/api/admin/staff/vacations?${query.toString()}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '휴가 삭제에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '휴가 삭제에 실패했습니다.') } }
+    }
+  },
+
+  // 월별 배정 목록 조회
+  async getAssignments(regionCode: string, year: number, month: number) {
+    try {
+      const query = new URLSearchParams({ regionCode, year: String(year), month: String(month) })
+      const response = await fetch(`/api/admin/staff/assignments?${query.toString()}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '담당자 배정 정보를 불러오지 못했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '담당자 배정 정보를 불러오지 못했습니다.') } }
+    }
+  },
+
+  // 월 전체 랜덤 배정 (해당 월의 모든 예약을 날짜 순서대로 다시 배정)
+  async assignRandomMonth(regionCode: string, year: number, month: number, method: 'random_team' | 'random_individual') {
+    try {
+      const response = await fetch('/api/admin/staff/assignments', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ action: 'random_month', regionCode, year, month, method }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '월 전체 랜덤 배정에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '월 전체 랜덤 배정에 실패했습니다.') } }
+    }
+  },
+
+  // 랜덤 배정 (해당 날짜의 모든 예약을 다시 배정)
+  async assignRandom(regionCode: string, date: string, method: 'random_team' | 'random_individual') {
+    try {
+      const response = await fetch('/api/admin/staff/assignments', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ action: 'random', regionCode, date, method }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '랜덤 배정에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '랜덤 배정에 실패했습니다.') } }
+    }
+  },
+
+  // 수동 배정 (특정 예약의 담당자 목록 교체, 빈 배열이면 해제)
+  async assignManual(regionCode: string, reservationId: string, staffIds: number[]) {
+    try {
+      const response = await fetch('/api/admin/staff/assignments', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ action: 'manual', regionCode, reservationId, staffIds }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '담당자 배정에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '담당자 배정에 실패했습니다.') } }
+    }
+  },
+}
+
 // 관리자 계정 관리 API
 export const adminAPI = {
   // 관리자 로그인 (하이브리드: bcrypt + 레거시 btoa 지원)
