@@ -237,8 +237,6 @@ function AdminReservationsContent() {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
 
-      console.log(`[DEBUG] Admin loadReservationStatus for ${year}-${month}, region: ${adminRegion}`);
-
       // 월별 일괄 조회로 성능 개선 (31개 API 호출 → 1개 API 호출)
       const { data: monthStatus, error } = await settingsAPI.getMonthReservationStatus(adminRegion, year, month);
 
@@ -266,12 +264,9 @@ function AdminReservationsContent() {
         // 데이터 형식 변환 (API 응답 → 컴포넌트 상태 형식)
         const formattedStatus: Record<string, { current: number; max: number; isFull: boolean; isOpen: boolean }> = {};
         let hasAnyOpenDay = false;
-        let totalDays = 0;
-        let closedDays = 0;
 
         Object.keys(monthStatus).forEach(dateString => {
           const status = monthStatus[dateString];
-          totalDays++;
 
           formattedStatus[dateString] = {
             current: status.current_reservations,
@@ -283,13 +278,8 @@ function AdminReservationsContent() {
           // 하나라도 열린 날이 있으면 월 전체가 열린 것으로 간주
           if (status.is_open) {
             hasAnyOpenDay = true;
-          } else {
-            closedDays++;
           }
         });
-
-        // 디버깅을 위한 로그
-        console.log(`[DEBUG] Admin ${year}년 ${month}월: 전체 ${totalDays}일 중 ${closedDays}일 닫힘, 열린 날 있음: ${hasAnyOpenDay}`);
 
         setReservationStatus(formattedStatus);
         // 열린 날이 하나라도 있으면 월이 열린 것으로 간주
@@ -595,19 +585,6 @@ function AdminReservationsContent() {
       b => b.date === dateString && b.start_time && b.end_time
     );
 
-    // 디버깅용 로그 - 현재 월의 모든 날짜
-    const currentYear = currentMonth.getFullYear();
-    const currentMonthNum = currentMonth.getMonth() + 1;
-    if (year === currentYear && date.getMonth() + 1 === currentMonthNum && day <= '05') {
-      console.log(`[DEBUG] getTileContent for ${dateString}:`, {
-        status,
-        isFullDayBlocked,
-        hasTimeBlocked,
-        hasReservationStatus: !!reservationStatus[dateString],
-        reservationStatusKeys: Object.keys(reservationStatus).slice(0, 5)
-      });
-    }
-
     if (isLoadingCalendar) {
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -621,6 +598,11 @@ function AdminReservationsContent() {
         {isFullDayBlocked && (
           <div className="flex items-center justify-center w-5 h-5 bg-red-500 rounded-full shadow-sm" title="예약 불가 (하루 전체)">
             <X className="w-3 h-3 text-white" />
+          </div>
+        )}
+        {hasTimeBlocked && !isFullDayBlocked && (
+          <div className="absolute top-1 right-1 flex items-center justify-center w-4 h-4 bg-amber-400 rounded-full shadow-sm" title="시간대별 차단 있음">
+            <Clock className="w-2.5 h-2.5 text-white" />
           </div>
         )}
         {status && !isFullDayBlocked && (
@@ -1177,7 +1159,7 @@ function AdminReservationsContent() {
           {/* 달력/리스트 섹션 */}
           <div className="xl:col-span-2">
             <div className="bg-white rounded-xl shadow-sm p-8">
-              <div className="flex justify-between items-center mb-8">
+              <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
                 <div className="flex items-center space-x-4">
                   <h2 className="text-2xl font-bold text-gray-900">
                     {viewMode === 'calendar' ? '예약 달력' : '예약 목록'}
@@ -1210,7 +1192,7 @@ function AdminReservationsContent() {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-wrap items-center gap-3">
                   <button
                     onClick={() => setShowRandomAssignChoice(true)}
                     disabled={assignLoading}

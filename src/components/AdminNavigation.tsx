@@ -104,15 +104,17 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
                   <Link
                     key={item.href}
                     href={item.href}
+                    title={item.label}
+                    aria-label={item.label}
                     className={`
                       flex items-center space-x-1 px-2 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap
-                      ${isActive 
-                        ? 'bg-blue-100 text-blue-700' 
+                      ${isActive
+                        ? 'bg-blue-100 text-blue-700'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                       }
                     `}
                   >
-                    <Icon className="w-3 h-3" />
+                    <Icon className="w-4 h-4 sm:w-3 sm:h-3" />
                     <span className="hidden sm:inline">{item.label}</span>
                   </Link>
                 )
@@ -128,16 +130,20 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
             </span>
             <button
               onClick={handleAccountManagement}
+              title="계정 관리"
+              aria-label="계정 관리"
               className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <UserCog className="w-3 h-3" />
+              <UserCog className="w-4 h-4 sm:w-3 sm:h-3" />
               <span className="text-xs hidden sm:inline">계정</span>
             </button>
             <button
               onClick={handleLogout}
+              title="로그아웃"
+              aria-label="로그아웃"
               className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <LogOut className="w-3 h-3" />
+              <LogOut className="w-4 h-4 sm:w-3 sm:h-3" />
               <span className="text-xs hidden sm:inline">로그아웃</span>
             </button>
           </div>
