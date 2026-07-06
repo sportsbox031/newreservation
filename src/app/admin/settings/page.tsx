@@ -16,11 +16,14 @@ import {
   Users,
   Settings,
   Info,
-  Sun
+  Sun,
+  AlarmClock
 } from 'lucide-react'
-import { settingsAPI, tierAPI } from '@/lib/supabase'
+import { settingsAPI, tierAPI, reservationScheduleAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
 import { buildReservationMonthTransitionMessage, normalizeYearMonth } from '@/lib/reservationActiveMonth'
+import { getKstNowLocalString } from '@/lib/reservationSchedule'
+import { formatDateTimeKST } from '@/lib/formatDate'
 
 interface BlockedDate {
   id: number
@@ -63,6 +66,23 @@ interface TierReservationSetting {
   }
 }
 
+interface ReservationScheduleItem {
+  id: number
+  region_code: string
+  year_month: string
+  tier_id: number | null
+  action: 'open' | 'close'
+  scheduled_at: string
+  executed_at: string | null
+  execution_result: string | null
+  created_at: string
+}
+
+interface ReservationScheduleList {
+  pending: ReservationScheduleItem[]
+  executed: ReservationScheduleItem[]
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -82,6 +102,15 @@ export default function SettingsPage() {
   const [tiers, setTiers] = useState<Tier[]>([])
   const [tierSettings, setTierSettings] = useState<{ [key: string]: TierReservationSetting[] }>({})
   const [activeReservationMonth, setActiveReservationMonth] = useState<{ [key: string]: string | null }>({})
+
+  // 예약 자동 시작/종료 스케줄 (한국 시간 기준)
+  const [schedules, setSchedules] = useState<{ [key: string]: ReservationScheduleList }>({})
+  const [newSchedule, setNewSchedule] = useState<{
+    target: string  // 'all' 또는 티어 ID 문자열
+    action: 'open' | 'close'
+    scheduledAt: string  // "YYYY-MM-DDTHH:mm" (KST)
+  }>({ target: 'all', action: 'open', scheduledAt: '' })
+  const [kstNow, setKstNow] = useState(() => getKstNowLocalString())
 
   // UI 상태
   const [newBlockedDate, setNewBlockedDate] = useState({
@@ -111,6 +140,12 @@ export default function SettingsPage() {
     }
   }, [adminInfo, currentYear, currentMonth, activeTab])
 
+  // 현재 한국 시간 표시용 시계
+  useEffect(() => {
+    const timer = setInterval(() => setKstNow(getKstNowLocalString()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   const checkAuth = () => {
     const adminAuth = localStorage.getItem('adminInfo')
     if (!adminAuth) {
@@ -136,6 +171,8 @@ export default function SettingsPage() {
 
   const loadAllData = async () => {
     try {
+      // 스케줄 조회가 기한 지난 자동 시작/종료를 먼저 반영하므로 순서를 보장한다
+      await loadSchedules()
       await Promise.all([
         loadSettings(),
         loadBlockedDates(),
@@ -223,6 +260,98 @@ export default function SettingsPage() {
         [activeTab]: data?.yearMonth ?? null,
       }))
     }
+  }
+
+  const loadSchedules = async () => {
+    const regionCode = activeTab
+    const { data, error } = await reservationScheduleAPI.getSchedules(regionCode)
+
+    if (!error && data) {
+      setSchedules(prev => ({ ...prev, [activeTab]: data }))
+    }
+  }
+
+  // 예약 자동 시작/종료 스케줄 등록
+  const addSchedule = async () => {
+    if (!newSchedule.scheduledAt) {
+      showMessage('error', '실행 시각(한국 시간)을 선택해주세요.')
+      return
+    }
+
+    if (newSchedule.scheduledAt <= kstNow) {
+      showMessage('error', '실행 시각은 현재 한국 시간 이후여야 합니다.')
+      return
+    }
+
+    const yearMonth = `${currentYear}-${currentMonth.toString().padStart(2, '0')}`
+    const normalizedTargetMonth = normalizeYearMonth(yearMonth)
+    const currentActiveMonth = activeReservationMonth[activeTab] ?? null
+    const tierId = newSchedule.target === 'all' ? null : Number(newSchedule.target)
+
+    // 다른 월이 열려 있는 상태에서 시작 예약 시, 실행 시점에 이전 월이 자동 종료됨을 안내
+    if (newSchedule.action === 'open' && normalizedTargetMonth && currentActiveMonth && currentActiveMonth !== normalizedTargetMonth) {
+      const confirmed = confirm(
+        `${buildReservationMonthTransitionMessage(currentActiveMonth, normalizedTargetMonth)}\n(예약된 시각에 자동으로 처리됩니다.)`
+      )
+      if (!confirmed) {
+        return
+      }
+    }
+
+    setSaving(true)
+    try {
+      const { error } = await reservationScheduleAPI.createSchedule({
+        regionCode: activeTab,
+        yearMonth,
+        tierId,
+        action: newSchedule.action,
+        scheduledAtKst: newSchedule.scheduledAt,
+      })
+
+      if (error) {
+        showMessage('error', (error as any).message || '예약 스케줄 등록에 실패했습니다.')
+        return
+      }
+
+      const targetName = tierId === null
+        ? '전체 티어'
+        : (tiers.find(t => t.id === tierId)?.tier_name || '티어')
+      showMessage('success', `${targetName} ${newSchedule.action === 'open' ? '예약 시작' : '예약 종료'} 스케줄이 등록되었습니다.`)
+      setNewSchedule(prev => ({ ...prev, scheduledAt: '' }))
+      loadSchedules()
+    } catch (error) {
+      showMessage('error', '예약 스케줄 등록 중 오류가 발생했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // 대기중 스케줄 삭제
+  const removeSchedule = async (scheduleId: number) => {
+    if (!confirm('이 자동 시작/종료 스케줄을 삭제하시겠습니까?')) return
+
+    setSaving(true)
+    try {
+      const { error } = await reservationScheduleAPI.deleteSchedule(scheduleId, activeTab)
+
+      if (error) {
+        showMessage('error', (error as any).message || '예약 스케줄 삭제에 실패했습니다.')
+        return
+      }
+
+      showMessage('success', '예약 스케줄이 삭제되었습니다.')
+      loadSchedules()
+    } catch (error) {
+      showMessage('error', '예약 스케줄 삭제 중 오류가 발생했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const getScheduleTargetLabel = (tierId: number | null) => {
+    if (tierId === null) return '전체 티어'
+    const tier = tiers.find(t => t.id === tierId)
+    return tier ? `${tier.tier_name} 회원` : `티어 ${tierId}`
   }
 
 
@@ -709,6 +838,7 @@ export default function SettingsPage() {
 
   const currentSettings = settings[activeTab] || { is_open: false, max_reservations_per_day: 2, max_days_per_month: 4 }
   const currentTierSettings = tierSettings[activeTab] || []
+  const currentSchedules = schedules[activeTab] || { pending: [], executed: [] }
 
   // 현재 선택된 월에 해당하는 데이터만 필터링
   const currentBlockedDates = (blockedDates[activeTab] || []).filter(item => {
@@ -901,6 +1031,160 @@ export default function SettingsPage() {
             {tiers.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 티어 데이터를 불러오는 중...
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 예약 자동 시작/종료 스케줄 */}
+        <div className="bg-white rounded-lg shadow mb-8">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h2 className="text-lg font-medium text-gray-900 flex items-center">
+                  <AlarmClock className="w-5 h-5 mr-2" />
+                  예약 자동 시작/종료
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  설정한 시각(한국 시간)에 전체 또는 티어별 예약이 자동으로 시작/종료됩니다
+                </p>
+              </div>
+              <div className="text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg">
+                현재 한국 시간: <span className="font-medium text-gray-900">{kstNow.replace('T', ' ')}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 스케줄 등록 폼 */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800">
+                <Info className="w-4 h-4 inline mr-1" />
+                적용 대상 월: <strong>{currentYear}년 {currentMonth}월</strong> (상단에서 선택한 월 기준) ·
+                실행 시각은 <strong>한국 시간(KST)</strong> 기준입니다. 수동 시작/종료 버튼과 동일하게 동작합니다.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  대상
+                </label>
+                <select
+                  value={newSchedule.target}
+                  onChange={(e) => setNewSchedule(prev => ({ ...prev, target: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">전체 티어</option>
+                  {tiers.map(tier => (
+                    <option key={tier.id} value={String(tier.id)}>{tier.tier_name} 회원</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  동작
+                </label>
+                <select
+                  value={newSchedule.action}
+                  onChange={(e) => setNewSchedule(prev => ({ ...prev, action: e.target.value as 'open' | 'close' }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="open">예약 시작</option>
+                  <option value="close">예약 종료</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  실행 시각 (한국 시간) *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newSchedule.scheduledAt}
+                  min={kstNow}
+                  onChange={(e) => setNewSchedule(prev => ({ ...prev, scheduledAt: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <button
+                onClick={addSchedule}
+                disabled={saving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center whitespace-nowrap h-[42px]"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                스케줄 추가
+              </button>
+            </div>
+          </div>
+
+          {/* 대기중 스케줄 목록 */}
+          <div className="p-6">
+            <h3 className="text-md font-medium text-gray-900 mb-4">대기 중인 스케줄</h3>
+            {currentSchedules.pending.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <AlarmClock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p>등록된 자동 시작/종료 스케줄이 없습니다.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {currentSchedules.pending.map((schedule) => (
+                  <div key={schedule.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        schedule.action === 'open'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {schedule.action === 'open' ? (
+                          <><Play className="w-3 h-3 mr-1" />예약 시작</>
+                        ) : (
+                          <><Pause className="w-3 h-3 mr-1" />예약 종료</>
+                        )}
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        {getScheduleTargetLabel(schedule.tier_id)}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        대상월 {schedule.year_month}
+                      </span>
+                      <span className="inline-flex items-center text-sm text-gray-700">
+                        <Clock className="w-3 h-3 mr-1" />
+                        {formatDateTimeKST(schedule.scheduled_at)} (KST)
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => removeSchedule(schedule.id)}
+                      disabled={saving}
+                      className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 최근 실행 이력 */}
+            {currentSchedules.executed.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-md font-medium text-gray-900 mb-3">최근 실행 이력</h3>
+                <div className="space-y-2">
+                  {currentSchedules.executed.map((schedule) => (
+                    <div key={schedule.id} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg text-sm">
+                      <div className="flex items-center gap-2 flex-wrap text-gray-600">
+                        <span className={schedule.execution_result === 'success' ? 'text-green-600' : 'text-red-600'}>
+                          {schedule.execution_result === 'success' ? '✅' : '⚠️'}
+                        </span>
+                        <span className="font-medium text-gray-800">{getScheduleTargetLabel(schedule.tier_id)}</span>
+                        <span>{schedule.action === 'open' ? '예약 시작' : '예약 종료'}</span>
+                        <span>· 대상월 {schedule.year_month}</span>
+                        <span>· {formatDateTimeKST(schedule.executed_at)} 실행</span>
+                        {schedule.execution_result && schedule.execution_result !== 'success' && (
+                          <span className="text-red-600">({schedule.execution_result})</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

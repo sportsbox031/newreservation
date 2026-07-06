@@ -8,6 +8,7 @@ import {
   updateTierReservationStatusOnServer,
 } from '@/lib/reservationSettingsServer'
 import { resolveReservationRegionScope } from '@/lib/reservationManagementHelpers'
+import { processDueReservationSchedules } from '@/lib/reservationScheduleServer'
 import { getErrorMessage } from '@/lib/requestUtils'
 
 async function validateAdminRequest(request: NextRequest) {
@@ -25,6 +26,9 @@ export async function GET(request: NextRequest) {
     if (!auth.ok) {
       return auth.response
     }
+
+    // 기한이 지난 예약 자동 시작/종료 스케줄을 반영 (내부 스로틀, 예외 없음)
+    await processDueReservationSchedules()
 
     const action = request.nextUrl.searchParams.get('action')
     if (action === 'tiers') {

@@ -174,6 +174,53 @@ type ExtendedPublic = Merge<
             },
           ]
         }
+        reservation_schedules: {
+          Row: {
+            id: number
+            region_code: string
+            year_month: string
+            tier_id: number | null
+            action: 'open' | 'close'
+            scheduled_at: string
+            executed_at: string | null
+            execution_result: string | null
+            created_by: string | null
+            created_at: string
+          }
+          Insert: {
+            id?: number
+            region_code: string
+            year_month: string
+            tier_id?: number | null
+            action: 'open' | 'close'
+            scheduled_at: string
+            executed_at?: string | null
+            execution_result?: string | null
+            created_by?: string | null
+            created_at?: string
+          }
+          Update: {
+            id?: number
+            region_code?: string
+            year_month?: string
+            tier_id?: number | null
+            action?: 'open' | 'close'
+            scheduled_at?: string
+            executed_at?: string | null
+            execution_result?: string | null
+            created_by?: string | null
+            created_at?: string
+          }
+          Relationships: [
+            {
+              foreignKeyName: 'reservation_schedules_tier_id_fkey'
+              columns: ['tier_id']
+              isOneToOne: false
+              referencedRelation: 'member_tiers'
+              referencedColumns: ['id']
+            },
+          ]
+        }
       }
     >
     Functions: Merge<
@@ -236,6 +283,9 @@ export type DailyReservationsLimitUpdate = Database['public']['Tables']['daily_r
 
 export type UserPenalty = Database['public']['Tables']['user_penalties']['Row']
 export type UserPenaltyInsert = Database['public']['Tables']['user_penalties']['Insert']
+
+export type ReservationSchedule = Database['public']['Tables']['reservation_schedules']['Row']
+export type ReservationScheduleInsert = Database['public']['Tables']['reservation_schedules']['Insert']
 
 export type ReservationTransaction = Database['public']['Tables']['reservation_transactions']['Row']
 export type ReservationTransactionInsert = Database['public']['Tables']['reservation_transactions']['Insert']

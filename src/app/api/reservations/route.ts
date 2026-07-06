@@ -5,6 +5,7 @@ import { validateUserApiRequest } from '@/lib/auth'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import { isReservationTimeoutError } from '@/lib/reservationError'
 import { getActiveReservationMonthForRegion } from '@/lib/reservationSettingsServer'
+import { processDueReservationSchedules } from '@/lib/reservationScheduleServer'
 import {
   getTierIdFromName,
   getTierReservationWindowKey,
@@ -247,6 +248,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // 기한이 지난 예약 자동 시작/종료 스케줄을 반영 (내부 스로틀, 예외 없음)
+    await processDueReservationSchedules()
 
     const regionCode = body.regionId === 2 ? 'north' : 'south'
     const targetYearMonth = getTierReservationWindowKey(body.date)
