@@ -22,6 +22,7 @@ import {
   getMemberSummaryCounts,
 } from '@/lib/memberAdminHelpers'
 import { buildCookieFirstJsonRequestInit } from '@/lib/clientAuthHeaders'
+import { formatDateTimeKST as formatDate } from '@/lib/formatDate'
 
 interface Member {
   id: string
@@ -298,18 +299,6 @@ export default function MembersPage() {
       default:
         return null
     }
-  }
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Seoul'
-    })
   }
 
   const getTierBadge = (tier: 'Priority' | 'Standard' | null) => {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { X, User, Mail, Phone, MapPin, Building } from 'lucide-react'
 import { memberAPI, adminAPI } from '@/lib/supabase'
+import { modalOverlayClass } from '@/components/ModalOverlay'
 
 interface AccountManagementModalProps {
   isOpen: boolean
@@ -217,7 +218,7 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className={modalOverlayClass()}>
       <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">

@@ -6,6 +6,8 @@ import { Bell, Calendar, AlertCircle } from 'lucide-react'
 import { sanitizeHtml } from '@/components/RichTextEditor'
 import AttachmentList from '@/components/AttachmentList'
 import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
+import { formatDateKR as formatDate } from '@/lib/formatDate'
+import { modalOverlayClass } from '@/components/ModalOverlay'
 
 interface Announcement {
   id: string
@@ -137,16 +139,6 @@ export default function AnnouncementsPage() {
     window.open(url, '_blank')
   }
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    })
-  }
-
   const truncateContent = (content: string, maxLength: number = 100) => {
     if (content.length <= maxLength) return content
     return content.substring(0, maxLength) + '...'
@@ -245,7 +237,7 @@ export default function AnnouncementsPage() {
 
       {/* 공지사항 상세 모달 */}
       {showModal && selectedAnnouncement && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className={modalOverlayClass()}>
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
               <div className="flex justify-between items-start gap-4">

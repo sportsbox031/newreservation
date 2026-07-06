@@ -18,7 +18,7 @@ import {
   Info,
   Sun
 } from 'lucide-react'
-import { settingsAPI, reservationConcurrencyAPI, tierAPI } from '@/lib/supabase'
+import { settingsAPI, tierAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
 import { buildReservationMonthTransitionMessage, normalizeYearMonth } from '@/lib/reservationActiveMonth'
 

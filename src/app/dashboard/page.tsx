@@ -28,6 +28,8 @@ import { useSessionCheck } from '@/hooks/useSessionCheck';
 import { shouldStartDashboardRefresh } from '@/lib/dashboardRefresh';
 import { applyReservationStatusDelta } from '@/lib/reservationStatus';
 import { getInitialDashboardMonth } from '@/lib/reservationActiveMonth';
+import Spinner from '@/components/Spinner';
+import { modalOverlayClass } from '@/components/ModalOverlay';
 import {
   EMPTY_RESERVATION_SLOT_FORM,
   getClosedReservationModalState,
@@ -1080,30 +1082,12 @@ export default function DashboardPage() {
     }
   };
 
-  const StatusBadge = ({ status }: { status: ReservationStatus }) => {
-    const statusMap = {
-      pending: { label: '승인대기', color: 'bg-yellow-100 text-yellow-800' },
-      approved: { label: '승인완료', color: 'bg-green-100 text-green-800' },
-      cancelled: { label: '취소됨', color: 'bg-gray-100 text-gray-800' },
-      admin_cancelled: { label: '관리자취소', color: 'bg-red-100 text-red-800' },
-      cancel_requested: { label: '취소요청', color: 'bg-orange-100 text-orange-800' }
-    };
-
-    const { label, color } = statusMap[status] || { label: status, color: 'bg-gray-100 text-gray-800' };
-
-    return (
-      <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${color} break-keep`}>
-        {label}
-      </span>
-    );
-  };
-
   // 세션 로딩 중일 때 로딩 화면 표시
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <Spinner className="mx-auto mb-4" />
           <p className="text-gray-600">인증 확인 중...</p>
         </div>
       </div>
@@ -1522,7 +1506,7 @@ export default function DashboardPage() {
 
       {/* 예약 모달 */}
       {activeModal === 'reservation' && selectedDate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+        <div className={modalOverlayClass('p-2 sm:p-4')}>
           <div className="bg-white rounded-lg sm:rounded-xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4 sm:mb-6">
@@ -1733,7 +1717,7 @@ export default function DashboardPage() {
 
       {/* 내 예약 목록 모달 */}
       {activeModal === 'myReservations' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+        <div className={modalOverlayClass('p-2 sm:p-4')}>
           <div className="bg-white rounded-lg sm:rounded-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4 sm:mb-6">
@@ -1786,7 +1770,7 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 {isLoadingMyReservations ? (
                   <div className="text-center py-12 text-gray-500">
-                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <Spinner className="mx-auto mb-4" />
                     <p>예약 내역을 불러오는 중...</p>
                   </div>
                 ) : (() => {

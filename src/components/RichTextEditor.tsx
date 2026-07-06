@@ -1,19 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import DOMPurify from 'dompurify'
 import {
-  Bold,
-  Italic,
-  Underline,
-  Link2,
-  List,
-  ListOrdered,
   Type,
   Code,
-  Eye,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Pencil
 } from 'lucide-react'
 
 interface RichTextEditorProps {
@@ -27,6 +21,8 @@ type EditorMode = 'text' | 'html' | 'markdown'
 /**
  * XSS 방지를 위한 HTML 새니타이징 함수
  * DOMPurify를 사용하여 안전한 HTML만 허용
+ * <style>, <script> 등은 허용 목록에 없어 제거됨 → 작성한 HTML은
+ * 해당 콘텐츠 영역에만 적용되고 페이지 전체에는 영향을 주지 않는다.
  */
 export const sanitizeHtml = (html: string): string => {
   // 브라우저 환경에서만 DOMPurify 실행
@@ -58,91 +54,95 @@ export const sanitizeHtml = (html: string): string => {
   return clean
 }
 
+// 마크다운을 HTML로 변환하는 간단한 함수 (HomepagePopup 등에서도 공용 사용)
+export const markdownToHtml = (markdown: string): string => {
+  let html = markdown
+
+  // 헤딩
+  html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>')
+  html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>')
+  html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>')
+
+  // 볼드
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/__(.*?)__/g, '<strong>$1</strong>')
+
+  // 이탤릭
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
+  html = html.replace(/_(.*?)_/g, '<em>$1</em>')
+
+  // 링크
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+
+  // 코드
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>')
+
+  // 리스트
+  html = html.replace(/^\* (.+)$/gm, '<li>$1</li>')
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
+  html = html.replace(/(<li>[\s\S]*<\/li>)/, '<ul>$1</ul>')
+
+  // 줄바꿈
+  html = html.replace(/\n/g, '<br>')
+
+  return html
+}
+
 export default function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
   const [mode, setMode] = useState<EditorMode>('text')
   const [showPreview, setShowPreview] = useState(false)
+  // 마크다운 모드에서 사용자가 입력 중인 원본(변환 전) 텍스트.
+  // 저장값(value)은 항상 변환된 HTML이므로, 원본을 따로 들고 있어야
+  // 타이핑할 때마다 재변환되어 내용이 깨지는 문제가 생기지 않는다.
+  const [markdownDraft, setMarkdownDraft] = useState<string | null>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
 
-  // Markdown을 HTML로 변환하는 간단한 함수
-  const markdownToHtml = (markdown: string): string => {
-    let html = markdown
-    
-    // 헤딩
-    html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>')
-    html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>')
-    html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>')
-    
-    // 볼드
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    html = html.replace(/__(.*?)__/g, '<strong>$1</strong>')
-    
-    // 이탤릭
-    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
-    html = html.replace(/_(.*?)_/g, '<em>$1</em>')
-    
-    // 링크
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    
-    // 코드
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>')
-    
-    // 리스트
-    html = html.replace(/^\* (.+)$/gm, '<li>$1</li>')
-    html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
-    html = html.replace(/(<li>[\s\S]*<\/li>)/, '<ul>$1</ul>')
-    
-    // 줄바꿈
-    html = html.replace(/\n/g, '<br>')
-    
-    return html
+  // 외부(텍스트 영역) 변경을 미리보기에 반영.
+  // 미리보기 자체를 편집 중일 때는 덮어쓰지 않는다(커서 위치 유지).
+  useEffect(() => {
+    const el = previewRef.current
+    if (!el) return
+    if (document.activeElement === el) return
+    const html = sanitizeHtml(value)
+    if (el.innerHTML !== html) {
+      el.innerHTML = html
+    }
+  }, [value, showPreview])
+
+  // 미리보기에서 직접 수정한 내용을 HTML 원본(value)에 즉시 반영
+  const handlePreviewInput = () => {
+    const el = previewRef.current
+    if (!el) return
+    // 미리보기를 편집한 순간부터는 변환된 HTML이 원본이 된다
+    if (markdownDraft !== null) setMarkdownDraft(null)
+    onChange(sanitizeHtml(el.innerHTML))
   }
 
-  // 텍스트 포맷팅 도구 함수들
-  const applyFormat = (tag: string) => {
-    const textarea = document.querySelector('#content-editor') as HTMLTextAreaElement
-    if (!textarea) return
-    
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const selectedText = value.substring(start, end)
-    
-    let newText = value
-    
-    switch (tag) {
-      case 'bold':
-        newText = value.substring(0, start) + `<strong>${selectedText}</strong>` + value.substring(end)
-        break
-      case 'italic':
-        newText = value.substring(0, start) + `<em>${selectedText}</em>` + value.substring(end)
-        break
-      case 'underline':
-        newText = value.substring(0, start) + `<u>${selectedText}</u>` + value.substring(end)
-        break
-      case 'link':
-        const url = prompt('링크 URL을 입력하세요:')
-        if (url) {
-          newText = value.substring(0, start) + `<a href="${url}">${selectedText || url}</a>` + value.substring(end)
-        }
-        break
-      case 'ul':
-        newText = value.substring(0, start) + `<ul><li>${selectedText}</li></ul>` + value.substring(end)
-        break
-      case 'ol':
-        newText = value.substring(0, start) + `<ol><li>${selectedText}</li></ol>` + value.substring(end)
-        break
-      case 'code':
-        newText = value.substring(0, start) + `<code>${selectedText}</code>` + value.substring(end)
-        break
+  // 편집 종료 시 새니타이징된 최종 HTML로 미리보기 내용을 정규화
+  const handlePreviewBlur = () => {
+    const el = previewRef.current
+    if (!el) return
+    const html = sanitizeHtml(el.innerHTML)
+    if (el.innerHTML !== html) {
+      el.innerHTML = html
     }
-    
-    onChange(newText)
+    onChange(html)
+  }
+
+  const switchMode = (nextMode: EditorMode) => {
+    setMode(nextMode)
+    setMarkdownDraft(null)
   }
 
   const getDisplayValue = () => {
     if (mode === 'text') {
       // 텍스트 모드에서는 <br>을 줄바꿈으로 변환하여 표시
       return value.replace(/<br\s*\/?>/gi, '\n')
+    } else if (mode === 'markdown') {
+      // 입력 중인 마크다운 원본이 있으면 그것을 표시
+      return markdownDraft ?? value
     } else {
-      // HTML, 마크다운 모드에서는 그대로 표시
+      // HTML 모드에서는 그대로 표시
       return value
     }
   }
@@ -153,9 +153,9 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
       const sanitized = sanitizeHtml(newValue)
       onChange(sanitized)
     } else if (mode === 'markdown') {
-      // 마크다운 모드에서는 HTML로 변환해서 저장
-      const htmlContent = markdownToHtml(newValue)
-      onChange(htmlContent)
+      // 마크다운 모드에서는 원본을 보관하고 HTML로 변환해서 저장
+      setMarkdownDraft(newValue)
+      onChange(markdownToHtml(newValue))
     } else if (mode === 'text') {
       // 텍스트 모드에서는 줄바꿈을 <br>로 변환하여 저장
       const htmlContent = newValue.replace(/\n/g, '<br>')
@@ -172,7 +172,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setMode('text')}
+              onClick={() => switchMode('text')}
               className={`px-3 py-1 text-sm rounded ${
                 mode === 'text'
                   ? 'bg-blue-600 text-white'
@@ -184,7 +184,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
             </button>
             <button
               type="button"
-              onClick={() => setMode('html')}
+              onClick={() => switchMode('html')}
               className={`px-3 py-1 text-sm rounded ${
                 mode === 'html'
                   ? 'bg-blue-600 text-white'
@@ -196,7 +196,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
             </button>
             <button
               type="button"
-              onClick={() => setMode('markdown')}
+              onClick={() => switchMode('markdown')}
               className={`px-3 py-1 text-sm rounded ${
                 mode === 'markdown'
                   ? 'bg-blue-600 text-white'
@@ -207,69 +207,6 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
               마크다운
             </button>
           </div>
-
-          {/* 도구 버튼들 제거 (텍스트 모드에서는 불필요) */}
-          {false && (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => applyFormat('bold')}
-                className="p-2 hover:bg-gray-200 rounded"
-                title="굵게"
-              >
-                <Bold className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat('italic')}
-                className="p-2 hover:bg-gray-200 rounded"
-                title="기울임"
-              >
-                <Italic className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat('underline')}
-                className="p-2 hover:bg-gray-200 rounded"
-                title="밑줄"
-              >
-                <Underline className="w-4 h-4" />
-              </button>
-              <div className="w-px h-6 bg-gray-300 mx-1"></div>
-              <button
-                type="button"
-                onClick={() => applyFormat('link')}
-                className="p-2 hover:bg-gray-200 rounded"
-                title="링크"
-              >
-                <Link2 className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat('ul')}
-                className="p-2 hover:bg-gray-200 rounded"
-                title="순서 없는 목록"
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat('ol')}
-                className="p-2 hover:bg-gray-200 rounded"
-                title="순서 있는 목록"
-              >
-                <ListOrdered className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyFormat('code')}
-                className="p-2 hover:bg-gray-200 rounded"
-                title="코드"
-              >
-                <Code className="w-4 h-4" />
-              </button>
-            </div>
-          )}
 
           {/* HTML 모드 경고 */}
           {mode === 'html' && (
@@ -301,17 +238,23 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
         />
       </div>
 
-      {/* 미리보기 */}
+      {/* 미리보기 (직접 편집 가능 — 수정하면 HTML 원본에 바로 반영) */}
       {showPreview && (
         <div className="border-t border-gray-300">
-          <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700">
+          <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 flex items-center gap-2">
             미리보기
+            <span className="flex items-center gap-1 text-xs font-normal text-blue-600">
+              <Pencil className="w-3 h-3" />
+              텍스트를 클릭해 바로 수정할 수 있습니다 (HTML에 자동 반영)
+            </span>
           </div>
           <div
-            className="p-4 prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{
-              __html: sanitizeHtml(mode === 'markdown' ? markdownToHtml(value) : value)
-            }}
+            ref={previewRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={handlePreviewInput}
+            onBlur={handlePreviewBlur}
+            className="p-4 prose prose-sm max-w-none min-h-[80px] cursor-text focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset"
           />
         </div>
       )}
@@ -330,7 +273,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
             {value.length} 문자
           </span>
         </div>
-        
+
         <div className="text-gray-500">
           {mode === 'text' && '텍스트 모드'}
           {mode === 'html' && 'HTML 모드 (보안 필터링 적용)'}

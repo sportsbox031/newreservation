@@ -3,10 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { popupAPI } from '@/lib/supabase'
-import { Bell, Plus, Edit, Trash2, Eye, EyeOff, Calendar, User, Type } from 'lucide-react'
-import RichTextEditor, { sanitizeHtml } from '@/components/RichTextEditor'
+import { Bell, Plus, Edit, Trash2, Eye, EyeOff, Calendar, User, Type, Image as ImageIcon } from 'lucide-react'
+import Spinner from '@/components/Spinner'
+import RichTextEditor, { sanitizeHtml, markdownToHtml } from '@/components/RichTextEditor'
 import AdminNavigation from '@/components/AdminNavigation'
 import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
+import { formatDateTimeKST as formatDate } from '@/lib/formatDate'
+import { modalOverlayClass } from '@/components/ModalOverlay'
 
 // datetime-local 입력은 한국 시간(KST) 기준으로 표시/입력한다.
 // 1) 표시: 특정 시각(instant)을 KST 벽시계 기준 YYYY-MM-DDTHH:MM 문자열로 변환
@@ -19,6 +22,24 @@ const toKSTInputValue = (date: Date) => {
 const kstInputToISO = (value: string) => {
   if (!value) return value
   return new Date(`${value}:00+09:00`).toISOString()
+}
+
+// '이미지' 팝업은 DB 스키마 변경 없이 content_type='html' + 단일 <img> 태그로 저장한다.
+// (homepage_popups.content_type의 CHECK 제약이 html/markdown/text만 허용하기 때문)
+type FormContentType = 'html' | 'markdown' | 'text' | 'image'
+
+const IMAGE_ONLY_CONTENT_REGEX = /^\s*<img\s[^>]*\/?>\s*$/i
+
+const isImageOnlyContent = (content: string) => IMAGE_ONLY_CONTENT_REGEX.test(content)
+
+const extractImageSrc = (content: string) => {
+  const match = content.match(/src="([^"]+)"/i)
+  return match ? match[1] : null
+}
+
+const buildImageContent = (url: string, title: string) => {
+  const altText = (title || '팝업 이미지').replace(/"/g, '&quot;')
+  return `<img src="${url}" alt="${altText}" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">`
 }
 
 interface HomepagePopup {
@@ -53,12 +74,13 @@ export default function PopupManagementPage() {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    content_type: 'text' as 'html' | 'markdown' | 'text',
+    content_type: 'text' as FormContentType,
     is_active: true,
     start_date: '',
     end_date: '',
     display_order: 0
   })
+  const [imageUploading, setImageUploading] = useState(false)
 
   useEffect(() => {
     checkAuth()
@@ -97,12 +119,13 @@ export default function PopupManagementPage() {
     setFormData({
       title: '',
       content: '',
-      content_type: 'text',
+      content_type: 'image', // 새 팝업 기본 타입은 이미지 (가장 눈에 잘 띄는 형식)
       is_active: true,
       start_date: '',
       end_date: '',
       display_order: 0
     })
+    setImageUploading(false)
   }
 
   const handleCreateClick = () => {
@@ -122,7 +145,10 @@ export default function PopupManagementPage() {
     setFormData({
       title: popup.title,
       content: popup.content,
-      content_type: popup.content_type,
+      // 이미지 전용 HTML 팝업은 UI에서 '이미지' 타입으로 표시
+      content_type: popup.content_type === 'html' && isImageOnlyContent(popup.content)
+        ? 'image'
+        : popup.content_type,
       is_active: popup.is_active,
       start_date: toKSTInputValue(new Date(popup.start_date)),
       end_date: popup.end_date ? toKSTInputValue(new Date(popup.end_date)) : '',
@@ -134,15 +160,27 @@ export default function PopupManagementPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
+    if (formData.content_type === 'image' && !extractImageSrc(formData.content)) {
+      alert('팝업에 표시할 이미지를 업로드해주세요.')
+      return
+    }
+
     if (!formData.title.trim() || !formData.content.trim() || !formData.start_date) {
       alert('제목, 내용, 시작 날짜는 필수 항목입니다.')
+      return
+    }
+
+    if (imageUploading) {
+      alert('이미지 업로드가 끝난 후 저장해주세요.')
       return
     }
 
     try {
       const submitData = {
         ...formData,
+        // 이미지 타입은 DB에 html로 저장 (내용은 <img> 태그)
+        content_type: formData.content_type === 'image' ? ('html' as const) : formData.content_type,
         start_date: kstInputToISO(formData.start_date),
         end_date: formData.end_date ? kstInputToISO(formData.end_date) : null,
         author_id: adminInfo?.id // 로그인한 관리자 ID 사용
@@ -210,16 +248,41 @@ export default function PopupManagementPage() {
     setShowPreviewModal(true)
   }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Seoul'
-    })
+  // 이미지 파일 선택 → 즉시 업로드 → <img> 태그로 내용 구성
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target
+    const file = input.files?.[0]
+    if (!file) return
+
+    setImageUploading(true)
+    try {
+      const uploadData = new FormData()
+      uploadData.append('file', file)
+
+      const response = await fetch('/api/admin/popups/image', {
+        method: 'POST',
+        credentials: 'include',
+        body: uploadData
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        alert(result.error || '이미지 업로드에 실패했습니다.')
+        return
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        content: buildImageContent(result.data.url, prev.title)
+      }))
+    } catch (error) {
+      console.error('팝업 이미지 업로드 오류:', error)
+      alert('이미지 업로드 중 오류가 발생했습니다.')
+    } finally {
+      setImageUploading(false)
+      input.value = ''
+    }
   }
 
   const getContentTypeLabel = (type: string) => {
@@ -227,8 +290,16 @@ export default function PopupManagementPage() {
       case 'html': return 'HTML'
       case 'markdown': return '마크다운'
       case 'text': return '일반 텍스트'
+      case 'image': return '이미지'
       default: return type
     }
+  }
+
+  // 이미지 전용 HTML 팝업은 '이미지'로 표시
+  const getPopupTypeLabel = (popup: HomepagePopup) => {
+    return popup.content_type === 'html' && isImageOnlyContent(popup.content)
+      ? '이미지'
+      : getContentTypeLabel(popup.content_type)
   }
 
   const canEditPopup = (popup: HomepagePopup) => {
@@ -320,7 +391,7 @@ export default function PopupManagementPage() {
                       </span>
                       <span className="inline-flex items-center px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                         <Type className="w-3 h-3 mr-1" />
-                        {getContentTypeLabel(popup.content_type)}
+                        {getPopupTypeLabel(popup)}
                       </span>
                       <span className="inline-flex items-center px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
                         순서: {popup.display_order}
@@ -329,10 +400,15 @@ export default function PopupManagementPage() {
                   </div>
                   
                   <div className="text-sm text-gray-600 mb-3 line-clamp-2">
-                    {popup.content_type === 'html' 
-                      ? popup.content.replace(/<[^>]*>/g, '').substring(0, 100) + '...'
-                      : popup.content.substring(0, 100) + '...'
-                    }
+                    {(() => {
+                      if (popup.content_type === 'html' && isImageOnlyContent(popup.content)) {
+                        return '[이미지 팝업]'
+                      }
+                      const plain = popup.content_type === 'html'
+                        ? popup.content.replace(/<[^>]*>/g, '')
+                        : popup.content
+                      return plain.length > 100 ? plain.substring(0, 100) + '...' : plain
+                    })()}
                   </div>
                   
                   <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -401,7 +477,7 @@ export default function PopupManagementPage() {
 
       {/* 팝업 생성/수정 모달 */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className={modalOverlayClass()}>
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
               <h2 className="text-xl font-bold text-gray-900">
@@ -431,12 +507,13 @@ export default function PopupManagementPage() {
                   </label>
                   <select
                     value={formData.content_type}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      content_type: e.target.value as 'html' | 'markdown' | 'text' 
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      content_type: e.target.value as FormContentType
                     }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
+                    <option value="image">이미지 (JPG/PNG)</option>
                     <option value="html">HTML</option>
                     <option value="markdown">마크다운</option>
                     <option value="text">일반 텍스트</option>
@@ -502,7 +579,43 @@ export default function PopupManagementPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   내용 *
                 </label>
-                {formData.content_type === 'html' ? (
+                {formData.content_type === 'image' ? (
+                  <div className="space-y-3">
+                    {extractImageSrc(formData.content) ? (
+                      <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={extractImageSrc(formData.content)!}
+                          alt="팝업 이미지 미리보기"
+                          className="max-h-64 mx-auto rounded"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        팝업에 표시할 이미지를 업로드하세요. (JPG, JPEG, PNG, GIF, WEBP · 최대 5MB)
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3">
+                      <label className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 text-sm font-medium text-gray-700 ${imageUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <ImageIcon className="w-4 h-4" />
+                        {extractImageSrc(formData.content) ? '이미지 변경' : '이미지 선택'}
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+                          className="hidden"
+                          onChange={handleImageFileChange}
+                          disabled={imageUploading}
+                        />
+                      </label>
+                      {imageUploading && (
+                        <span className="text-sm text-blue-600 flex items-center gap-2">
+                          <Spinner size="sm" />
+                          업로드 중...
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : formData.content_type === 'html' ? (
                   <RichTextEditor
                     value={formData.content}
                     onChange={(value) => setFormData(prev => ({ ...prev, content: value }))}
@@ -549,7 +662,7 @@ export default function PopupManagementPage() {
 
       {/* 미리보기 모달 */}
       {showPreviewModal && previewPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className={modalOverlayClass()}>
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
               <div className="flex justify-between items-start gap-4">
@@ -566,7 +679,7 @@ export default function PopupManagementPage() {
                       {previewPopup.is_active ? '활성' : '비활성'}
                     </span>
                     <span>·</span>
-                    <span>{getContentTypeLabel(previewPopup.content_type)}</span>
+                    <span>{getPopupTypeLabel(previewPopup)}</span>
                   </div>
                 </div>
                 <button
@@ -591,9 +704,13 @@ export default function PopupManagementPage() {
                   }}
                 />
               ) : previewPopup.content_type === 'markdown' ? (
-                <div className="prose max-w-none whitespace-pre-wrap">
-                  {previewPopup.content}
-                </div>
+                // 실제 홈페이지 팝업과 동일하게 마크다운을 변환해서 표시
+                <div
+                  className="prose max-w-none"
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeHtml(markdownToHtml(previewPopup.content))
+                  }}
+                />
               ) : (
                 <div className="prose max-w-none whitespace-pre-wrap">
                   {previewPopup.content}

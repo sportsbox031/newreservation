@@ -10,6 +10,7 @@ import { Award, Eye, EyeOff, ArrowLeft, AlertCircle, CheckCircle, Calendar } fro
 import { memberAPI, adminAPI } from '@/lib/supabase';
 import { clearLegacySessionTokens } from '@/lib/clientAuthHeaders';
 import { mapLoginErrorMessage } from '@/lib/loginErrorMessage';
+import Spinner from '@/components/Spinner';
 
 function hasErrorCode(error: unknown): error is { code: string; message?: string } {
   return typeof error === 'object' && error !== null && 'code' in error
@@ -214,7 +215,7 @@ function LoginFormComponent() {
             >
               {isSubmitting ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  <Spinner size="sm" color="white" className="mr-2" />
                   로그인 중...
                 </>
               ) : (
@@ -245,7 +246,7 @@ export default function LoginPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <Spinner className="mx-auto mb-4" />
           <p className="text-gray-600">로딩 중...</p>
         </div>
       </div>

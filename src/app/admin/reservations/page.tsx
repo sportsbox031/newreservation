@@ -36,6 +36,8 @@ import { settingsAPI, reservationAPI } from '@/lib/supabase';
 import { getAdminCalendarDayStatus } from '@/lib/adminCalendarStatus';
 import AdminNavigation from '@/components/AdminNavigation';
 import { buildCookieFirstJsonRequestInit } from '@/lib/clientAuthHeaders';
+import Spinner from '@/components/Spinner';
+import { modalOverlayClass } from '@/components/ModalOverlay';
 
 type CalendarValue = Date | null | [Date | null, Date | null];
 
@@ -929,7 +931,7 @@ function AdminReservationsContent() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <Spinner className="mx-auto mb-4" />
           <p className="text-gray-600">로딩 중...</p>
         </div>
       </div>
@@ -1209,7 +1211,7 @@ function AdminReservationsContent() {
                                     className="px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
                                   >
                                     {actionLoading === reservation.id ? (
-                                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                                      <Spinner size="sm" color="white" className="mx-auto" />
                                     ) : (
                                       '승인'
                                     )}
@@ -1220,7 +1222,7 @@ function AdminReservationsContent() {
                                     className="px-3 py-1.5 text-sm bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
                                   >
                                     {actionLoading === reservation.id ? (
-                                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                                      <Spinner size="sm" color="white" className="mx-auto" />
                                     ) : (
                                       '거절'
                                     )}
@@ -1236,7 +1238,7 @@ function AdminReservationsContent() {
                                   title="취소 승인"
                                 >
                                   {actionLoading === reservation.id ? (
-                                    <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
+                                    <Spinner size="sm" color="orange" />
                                   ) : (
                                     <CheckCircle className="w-4 h-4" />
                                   )}
@@ -1251,7 +1253,7 @@ function AdminReservationsContent() {
                                   title="강제 취소"
                                 >
                                   {actionLoading === reservation.id ? (
-                                    <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                                    <Spinner size="sm" color="red" />
                                   ) : (
                                     <Trash2 className="w-4 h-4" />
                                   )}
@@ -1413,7 +1415,7 @@ function AdminReservationsContent() {
 
       {/* 예약 목록 모달 (달력 날짜 클릭 시) */}
       {activeModal === 'reservationList' && selectedDate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className={modalOverlayClass()}>
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
@@ -1538,7 +1540,7 @@ function AdminReservationsContent() {
                                 className="px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
                               >
                                 {actionLoading === reservation.id ? (
-                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                                  <Spinner size="sm" color="white" className="mx-auto" />
                                 ) : (
                                   '승인'
                                 )}
@@ -1549,7 +1551,7 @@ function AdminReservationsContent() {
                                 className="px-3 py-1.5 text-sm bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
                               >
                                 {actionLoading === reservation.id ? (
-                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                                  <Spinner size="sm" color="white" className="mx-auto" />
                                 ) : (
                                   '거절'
                                 )}
@@ -1565,7 +1567,7 @@ function AdminReservationsContent() {
                               title="취소 승인"
                             >
                               {actionLoading === reservation.id ? (
-                                <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
+                                <Spinner size="sm" color="orange" />
                               ) : (
                                 <CheckCircle className="w-4 h-4" />
                               )}
@@ -1580,7 +1582,7 @@ function AdminReservationsContent() {
                               title="강제 취소"
                             >
                               {actionLoading === reservation.id ? (
-                                <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                                <Spinner size="sm" color="red" />
                               ) : (
                                 <Trash2 className="w-4 h-4" />
                               )}
@@ -1603,7 +1605,7 @@ function AdminReservationsContent() {
 
       {/* 예약 상세 모달 */}
       {activeModal === 'reservationDetail' && selectedReservation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className={modalOverlayClass()}>
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
@@ -1773,7 +1775,7 @@ function AdminReservationsContent() {
                         className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                       >
                         {actionLoading === selectedReservation.id ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <Spinner size="sm" color="white" />
                         ) : (
                           <UserCheck className="w-4 h-4" />
                         )}
@@ -1785,7 +1787,7 @@ function AdminReservationsContent() {
                         className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                       >
                         {actionLoading === selectedReservation.id ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <Spinner size="sm" color="white" />
                         ) : (
                           <UserX className="w-4 h-4" />
                         )}
@@ -1801,7 +1803,7 @@ function AdminReservationsContent() {
                       className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50"
                     >
                       {actionLoading === selectedReservation.id ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <Spinner size="sm" color="white" />
                       ) : (
                         <CheckCircle className="w-4 h-4" />
                       )}
@@ -1816,7 +1818,7 @@ function AdminReservationsContent() {
                       className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                     >
                       {actionLoading === selectedReservation.id ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <Spinner size="sm" color="white" />
                       ) : (
                         <Trash2 className="w-4 h-4" />
                       )}

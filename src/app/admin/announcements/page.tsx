@@ -20,6 +20,8 @@ import AdminNavigation from '@/components/AdminNavigation'
 import FileUploadManager, { FileAttachment } from '@/components/FileUploadManager'
 import { getRemovedExistingAttachments, type PersistedAttachment } from '@/lib/announcementAttachments'
 import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
+import { formatDateTimeKST as formatDate } from '@/lib/formatDate'
+import { modalOverlayClass } from '@/components/ModalOverlay'
 
 interface Announcement {
   id: string
@@ -216,6 +218,7 @@ export default function AdminAnnouncementsPage() {
 
       // 새로 업로드할 파일들 처리
       const newFiles = attachments.filter(att => att.file)
+      const failedUploads: string[] = []
 
       for (const attachment of newFiles) {
         if (!attachment.file) continue
@@ -228,17 +231,28 @@ export default function AdminAnnouncementsPage() {
 
         if (uploadError || !storagePath) {
           console.error('파일 업로드 실패:', uploadError)
+          failedUploads.push(attachment.file_name)
           continue
         }
 
         // 첨부파일 레코드 생성
-        await announcementAPI.createAttachment({
+        const { error: recordError } = await announcementAPI.createAttachment({
           announcement_id: announcementId,
           file_name: attachment.file_name,
           file_size: attachment.file_size,
           file_type: attachment.file_type,
           storage_path: storagePath
         })
+
+        if (recordError) {
+          console.error('첨부파일 레코드 생성 실패:', recordError)
+          failedUploads.push(attachment.file_name)
+        }
+      }
+
+      // 업로드에 실패한 파일이 있으면 관리자에게 알림
+      if (failedUploads.length > 0) {
+        alert(`공지사항은 저장되었지만 다음 첨부파일 업로드에 실패했습니다:\n- ${failedUploads.join('\n- ')}\n\n수정에서 다시 첨부해주세요.`)
       }
 
       setShowCreateModal(false)
@@ -274,17 +288,6 @@ export default function AdminAnnouncementsPage() {
     announcement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     announcement.content.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
 
   // 권한 확인 함수들
   const canCreateAnnouncement = () => {
@@ -461,7 +464,7 @@ export default function AdminAnnouncementsPage() {
 
       {/* 생성/수정 모달 */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className={modalOverlayClass()}>
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSubmit}>
               <div className="sticky top-0 bg-white border-b border-gray-200 p-6">

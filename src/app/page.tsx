@@ -8,6 +8,8 @@ import { sanitizeHtml } from '@/components/RichTextEditor'
 import HomepagePopup from '@/components/HomepagePopup'
 import AttachmentList from '@/components/AttachmentList'
 import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
+import { formatDateKR as formatDate } from '@/lib/formatDate'
+import { modalOverlayClass } from '@/components/ModalOverlay'
 
 interface Announcement {
   id: string
@@ -120,16 +122,6 @@ export default function Home() {
 
     // Supabase Signed URL로 직접 다운로드
     window.open(url, '_blank')
-  }
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    })
   }
 
   const stripHtml = (html: string) => {
@@ -599,7 +591,7 @@ export default function Home() {
 
       {/* 공지사항 상세 모달 */}
       {showModal && selectedAnnouncement && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50">
+        <div className={modalOverlayClass('p-3 sm:p-4')}>
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6">
               <div className="flex justify-between items-start gap-3 sm:gap-4">

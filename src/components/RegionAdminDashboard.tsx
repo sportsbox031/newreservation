@@ -8,7 +8,6 @@ import {
   Calendar,
   Bell,
   Monitor,
-  Settings,
   AlertTriangle
 } from 'lucide-react'
 import { memberAPI, reservationAPI, announcementAPI } from '@/lib/supabase'
@@ -21,7 +20,6 @@ interface DashboardStats {
   approvedMembers: number
   pendingReservations: number
   approvedReservations: number
-  cancelRequestedReservations: number
   totalAnnouncements: number
   activeAnnouncements: number
 }
@@ -34,8 +32,16 @@ interface RecentActivity {
   created_at: string
 }
 
-export default function AdminDashboard() {
+type Region = 'south' | 'north'
+
+const REGION_LABELS: Record<Region, string> = {
+  south: '경기남부',
+  north: '경기북부'
+}
+
+export default function RegionAdminDashboard({ region }: { region: Region }) {
   const router = useRouter()
+  const regionLabel = REGION_LABELS[region]
   const [loading, setLoading] = useState(true)
   const [adminInfo, setAdminInfo] = useState<any>(null)
   const [stats, setStats] = useState<DashboardStats>({
@@ -43,7 +49,6 @@ export default function AdminDashboard() {
     approvedMembers: 0,
     pendingReservations: 0,
     approvedReservations: 0,
-    cancelRequestedReservations: 0,
     totalAnnouncements: 0,
     activeAnnouncements: 0
   })
@@ -59,60 +64,60 @@ export default function AdminDashboard() {
       router.push('/auth/login')
       return
     }
-    
+
     const adminData = JSON.parse(adminAuth)
+    if (adminData.role !== region && adminData.role !== 'super') {
+      alert('접근 권한이 없습니다.')
+      router.push('/auth/login')
+      return
+    }
+
     setAdminInfo(adminData)
     loadDashboardData(adminData)
   }
 
   const loadDashboardData = async (adminData: any) => {
     try {
-      const regionCode = adminData.role === 'south' || adminData.role === 'north'
-        ? adminData.role
-        : undefined
-
-      // 통계 데이터 로드
-      const [membersResult, reservationsResult, announcementsResult, cancelRequestsResult] = await Promise.all([
-        memberAPI.getPendingMembers(regionCode),
-        reservationAPI.getPendingReservations(regionCode),
-        announcementAPI.getPublicAnnouncements(),
-        reservationAPI.getCancellationRequests(regionCode)
+      // 해당 지역 데이터만 로드
+      const [membersResult, reservationsResult, announcementsResult] = await Promise.all([
+        memberAPI.getPendingMembersForRegion(region),
+        reservationAPI.getPendingReservationsForRegion(region),
+        announcementAPI.getPublicAnnouncements()
       ])
 
       // 승인된 회원 수 조회
-      const approvedMembersResult = await memberAPI.getApprovedMembers(regionCode)
-      const approvedReservationsResult = await reservationAPI.getApprovedReservations(regionCode)
+      const approvedMembersResult = await memberAPI.getApprovedMembersForRegion(region)
+      const approvedReservationsResult = await reservationAPI.getApprovedReservationsForRegion(region)
 
       setStats({
         pendingMembers: membersResult.data?.length || 0,
         approvedMembers: approvedMembersResult.data?.length || 0,
         pendingReservations: reservationsResult.data?.length || 0,
         approvedReservations: approvedReservationsResult.data?.length || 0,
-        cancelRequestedReservations: cancelRequestsResult.data?.length || 0,
         totalAnnouncements: announcementsResult.data?.length || 0,
         activeAnnouncements: announcementsResult.data?.filter((a: any) => a.is_published).length || 0
       })
 
-      // 최근 활동 데이터 구성
+      // 최근 활동 데이터 구성 (해당 지역만)
       const activities: RecentActivity[] = [
         ...(membersResult.data || []).slice(0, 3).map((member: any) => ({
           id: member.id,
           type: 'member' as const,
-          title: `${member.organization_name} 회원가입 신청`,
+          title: `${member.organization_name} 회원가입 신청 (${regionLabel})`,
           status: 'pending' as const,
           created_at: member.created_at
         })),
         ...(reservationsResult.data || []).slice(0, 3).map((reservation: any) => ({
           id: reservation.id,
           type: 'reservation' as const,
-          title: `${reservation.users?.organization_name} 예약 신청 (${reservation.date})`,
+          title: `${reservation.users?.organization_name} 예약 신청 (${reservation.date}) - ${regionLabel}`,
           status: reservation.status as 'pending' | 'approved' | 'rejected',
           created_at: reservation.created_at
         }))
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
       setRecentActivities(activities.slice(0, 5))
-      
+
     } catch (error) {
       console.error('대시보드 데이터 로드 오류:', error)
     } finally {
@@ -128,7 +133,7 @@ export default function AdminDashboard() {
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-gray-200 rounded w-1/4"></div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map(i => (
+              {[1, 2, 3, 4].map(i => (
                 <div key={i} className="h-32 bg-gray-200 rounded"></div>
               ))}
             </div>
@@ -141,15 +146,13 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNavigation adminRole={adminInfo?.role} />
-      
+
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* 헤더 */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">관리자 대시보드</h1>
           <p className="text-gray-600 mt-2">
-            {adminInfo?.role === 'super' && '전체 시스템을 관리합니다'}
-            {adminInfo?.role === 'south' && '경기남부 지역을 관리합니다'}
-            {adminInfo?.role === 'north' && '경기북부 지역을 관리합니다'}
+            {regionLabel} 지역을 관리합니다
           </p>
         </div>
 
@@ -170,38 +173,20 @@ export default function AdminDashboard() {
             </div>
           </Link>
 
-          <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border-l-4 border-green-500">
+          <Link href="/admin/reservations" className="block">
+            <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border-l-4 border-green-500">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">예약 관리</p>
-                  <div className="flex items-center gap-4 mt-1">
-                    <Link
-                      href="/admin/reservations?status=pending&view=list"
-                      className="group"
-                      title="승인대기 예약 보기"
-                    >
-                      <span className="text-2xl font-bold text-yellow-600 group-hover:text-yellow-700 group-hover:underline cursor-pointer">
-                        {stats.pendingReservations}
-                      </span>
-                      <span className="text-xs text-gray-500 ml-1">승인대기</span>
-                    </Link>
-                    <Link
-                      href="/admin/reservations?status=cancel_requested&view=list"
-                      className="group"
-                      title="취소요청 예약 보기"
-                    >
-                      <span className="text-2xl font-bold text-red-600 group-hover:text-red-700 group-hover:underline cursor-pointer">
-                        {stats.cancelRequestedReservations}
-                      </span>
-                      <span className="text-xs text-gray-500 ml-1">취소요청</span>
-                    </Link>
-                  </div>
+                  <p className="text-sm font-medium text-gray-600">대기 중인 예약</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.pendingReservations}</p>
+                  <p className="text-xs text-gray-500 mt-1">승인된 예약: {stats.approvedReservations}건</p>
                 </div>
-                <Link href="/admin/reservations" className="p-3 bg-green-50 rounded-full hover:bg-green-100 transition-colors">
+                <div className="p-3 bg-green-50 rounded-full">
                   <Calendar className="w-6 h-6 text-green-600" />
-                </Link>
+                </div>
               </div>
             </div>
+          </Link>
 
           <Link href="/admin/announcements" className="block">
             <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border-l-4 border-purple-500">
@@ -232,31 +217,12 @@ export default function AdminDashboard() {
               </div>
             </div>
           </Link>
-
-          {adminInfo?.role === 'super' && (
-            <>
-              <Link href="/admin/settings" className="block">
-                <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border-l-4 border-gray-500">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">시스템 설정</p>
-                      <p className="text-2xl font-bold text-gray-900">설정</p>
-                      <p className="text-xs text-gray-500 mt-1">예약 규칙 및 시스템</p>
-                    </div>
-                    <div className="p-3 bg-gray-50 rounded-full">
-                      <Settings className="w-6 h-6 text-gray-600" />
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            </>
-          )}
         </div>
 
         {/* 최근 활동 */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">최근 활동</h2>
+            <h2 className="text-lg font-semibold text-gray-900">최근 활동 - {regionLabel}</h2>
           </div>
           <div className="divide-y divide-gray-200">
             {recentActivities.length === 0 ? (

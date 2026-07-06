@@ -308,17 +308,6 @@ export const memberAPI = {
       return { data: null, error: { message: getErrorMessage(error, '회원 등급 변경에 실패했습니다.') } }
     }
   },
-
-  // 회원 학생수/학급수 업데이트
-  async updateMemberCounts(userId: string, student_count: number, class_count: number) {
-    const { data, error } = await supabase
-      .from('users')
-      .update({ student_count, class_count })
-      .eq('id', userId)
-      .select()
-
-    return { data, error }
-  }
 }
 
 
@@ -390,19 +379,6 @@ export const settingsAPI = {
     } catch (error) {
       return { data: null, error: timeoutError(getErrorMessage(error, '차단 일정을 불러오는 중 오류가 발생했습니다.')) }
     }
-  },
-
-  // 모든 차단된 날짜 조회 (Super Admin용)
-  async getAllBlockedDates() {
-    const { data, error } = await supabase
-      .from('blocked_dates')
-      .select(`
-        *,
-        regions(name, code)
-      `)
-      .order('date', { ascending: false })
-
-    return { data, error }
   },
 
   // 차단된 날짜 추가 (지역별) - 시간대별 차단 지원
@@ -884,17 +860,6 @@ export const settingsAPI = {
     }
   },
 
-  // 일별 예약 제한 수 동적 설정
-  async updateDailyLimit(regionCode: string, date: string, maxReservations: number) {
-    const targetDate = new Date(date)
-    const year = targetDate.getFullYear()
-    const month = targetDate.getMonth() + 1
-
-    return await this.updateReservationSettings(regionCode, year, month, {
-      max_reservations_per_day: maxReservations
-    })
-  },
-
   // 특정 날짜 예약 제한 설정
   async setDailyReservationLimit(regionCode: string, date: string, maxReservations: number) {
     if (typeof window !== 'undefined') {
@@ -1209,35 +1174,6 @@ export const reservationAPI = {
     }
   },
 
-  // 모든 예약 조회 (관리자용)
-  async getAllReservations() {
-    const { data, error } = await supabase
-      .from('reservations')
-      .select(`
-        *,
-        users(
-          id,
-          organization_name,
-          manager_name,
-          phone,
-          email,
-          cities(name, regions(name))
-        ),
-        reservation_slots(
-          id,
-          start_time,
-          end_time,
-          grade,
-          participant_count,
-          location,
-          slot_order
-        )
-      `)
-      .order('created_at', { ascending: false })
-
-    return { data, error }
-  },
-
   // 지역별 모든 예약 조회 (관리자용)
   async getAllReservationsForRegion(regionCode: string) {
     if (typeof window !== 'undefined') {
@@ -1364,91 +1300,6 @@ export const reservationAPI = {
       .eq('id', reservationId)
       .select()
 
-    return { data, error }
-  },
-
-  // 관리자 예약 강제 취소
-  async forceCancel(reservationId: string) {
-    if (typeof window !== 'undefined') {
-      try {
-        const response = await fetch('/api/admin/reservations', {
-          method: 'PATCH',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            action: 'force_cancel',
-            reservationId,
-          }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          return { data: null, error: errorData.error || { message: '예약 강제 취소에 실패했습니다.' } }
-        }
-
-        const payload = await response.json()
-        return { data: payload.data, error: null }
-      } catch (error) {
-        return { data: null, error: { message: getErrorMessage(error, '예약 강제 취소에 실패했습니다.') } }
-      }
-    }
-
-    // 먼저 단순 업데이트만 수행
-    const { error: updateError } = await supabase
-      .from('reservations')
-      .update({ 
-        status: 'cancelled'
-      })
-      .eq('id', reservationId)
-
-    if (updateError) {
-      return { data: null, error: updateError }
-    }
-
-    // 업데이트 성공 후 데이터 조회
-    const { data, error } = await supabase
-      .from('reservations')
-      .select(`
-        *,
-        users!inner(
-          organization_name,
-          manager_name,
-          phone,
-          email,
-          cities!inner(name, regions!inner(name, code))
-        ),
-        reservation_slots(*),
-        regions!inner(name, code)
-      `)
-      .eq('id', reservationId)
-      .single()
-
-    return { data, error }
-  },
-
-  // 특정 날짜의 모든 예약 조회 (관리자용)
-  async getReservationsByDate(regionCode: string, date: string) {
-    let query = supabase
-      .from('reservations')
-      .select(`
-        *,
-        users!inner(
-          organization_name,
-          manager_name,
-          phone,
-          email,
-          cities!inner(name, regions!inner(name, code))
-        ),
-        reservation_slots(*),
-        regions!inner(name, code)
-      `)
-      .eq('date', date)
-      .in('status', ['pending', 'approved', 'cancel_requested'])
-
-    if (regionCode) {
-      query = query.eq('users.cities.regions.code', regionCode)
-    }
-
-    const { data, error } = await query.order('created_at', { ascending: true })
     return { data, error }
   },
 
@@ -1580,209 +1431,6 @@ export const reservationAPI = {
       return { data: null, error: timeoutError(getErrorMessage(error, '취소 요청 예약을 불러오는 중 오류가 발생했습니다.')) }
     }
   },
-
-  // 예약 생성 시 제한 확인
-  async createReservationWithValidation(
-    userId: string,
-    regionId: number,
-    date: string,
-    slots: Array<{
-      start_time: string;
-      end_time: string;
-      grade: string;
-      participant_count: number;
-      location: string;
-      slot_order: number;
-    }>
-  ) {
-    const regionCode = regionId === 1 ? 'south' : 'north'
-
-    const startTimes = slots.map(slot => slot.start_time)
-    const uniqueStartTimes = new Set(startTimes)
-
-    if (startTimes.length !== uniqueStartTimes.size) {
-      return {
-        data: null,
-        error: { message: '시작 시간이 중복됩니다. 각 타임의 시작 시간은 서로 달라야 합니다.' }
-      }
-    }
-    
-    // 1. 관리자 설정값 조회
-    const selectedDateObj = new Date(date)
-    const year = selectedDateObj.getFullYear()
-    const month = selectedDateObj.getMonth() + 1
-
-    const lastDayOfMonth = new Date(year, month, 0).getDate()
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`
-
-    let settings
-    let reservations
-    let blockedDates
-
-    try {
-      const [settingsResult, reservationsResult, blockedDatesResult] = await Promise.all([
-        settingsAPI.getReservationSettings(regionCode, year, month),
-        runQueryWithTimeout(
-          supabase
-            .from('reservations')
-            .select('date')
-            .eq('user_id', userId)
-            .gte('date', startDate)
-            .lte('date', endDate)
-            .in('status', ['pending', 'approved', 'cancel_requested']),
-          '월 예약 한도를 확인하는 중 시간이 초과되었습니다.'
-        ),
-        runQueryWithTimeout(
-          supabase
-            .from('blocked_dates')
-            .select('*')
-            .eq('region_id', regionId)
-            .eq('date', date),
-          '차단 시간을 확인하는 중 시간이 초과되었습니다.'
-        )
-      ])
-
-      if (settingsResult.error || !settingsResult.data) {
-        return { data: null, error: { message: settingsResult.error?.message || '예약 설정을 확인할 수 없습니다.' } }
-      }
-
-      if (reservationsResult.error) {
-        return { data: null, error: reservationsResult.error }
-      }
-
-      if (blockedDatesResult.error) {
-        return { data: null, error: blockedDatesResult.error }
-      }
-
-      settings = settingsResult.data
-      reservations = reservationsResult.data
-      blockedDates = blockedDatesResult.data
-    } catch (error) {
-      return { data: null, error: { message: getErrorMessage(error, '예약 가능 여부를 확인하는 중 오류가 발생했습니다.') } }
-    }
-
-    const maxDaysPerMonth = settings.max_days_per_month || 4
-
-    // 같은 날짜 중복 예약 검증
-    const existingReservationOnDate = reservations?.find(r => r.date === date)
-    if (existingReservationOnDate) {
-      return {
-        data: null,
-        error: { message: '이미 해당 날짜에 예약이 존재합니다. 같은 날짜에 중복 예약은 불가능합니다.' }
-      }
-    }
-
-    const uniqueDatesThisMonth = new Set(reservations?.map(r => r.date) || [])
-    if (uniqueDatesThisMonth.size >= maxDaysPerMonth) {
-      return {
-        data: null,
-        error: { message: `월 예약 한도를 초과했습니다. (${uniqueDatesThisMonth.size}/${maxDaysPerMonth}일)` }
-      }
-    }
-
-    if (blockedDates && blockedDates.length > 0) {
-      for (const blocked of blockedDates) {
-        // 하루 전체 차단인 경우 (start_time, end_time이 null)
-        if (!blocked.start_time || !blocked.end_time) {
-          return {
-            data: null,
-            error: { message: `${date}은(는) 예약이 차단된 날짜입니다. 사유: ${blocked.reason || '관리자 설정'}` }
-          }
-        }
-
-        // 시간대별 차단인 경우 - 예약 슬롯과 차단 시간대 겹침 검사
-        for (const slot of slots) {
-          const slotStart = slot.start_time
-          const slotEnd = slot.end_time
-          const blockedStart = blocked.start_time
-          const blockedEnd = blocked.end_time
-
-          // 시간대 겹침 검사: 슬롯 시작 < 차단 종료 AND 슬롯 종료 > 차단 시작
-          if (slotStart < blockedEnd && slotEnd > blockedStart) {
-            return {
-              data: null,
-              error: {
-                message: `${date} ${blockedStart}~${blockedEnd}는 예약이 차단된 시간대입니다. 사유: ${blocked.reason || '관리자 설정'}`
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // 3. 예약 생성 (DB Trigger가 정원 체크를 담당)
-    // Trigger: check_capacity_before_insert가 정원 초과 시 자동으로 에러 발생
-    try {
-      // 예약 생성
-      const { data: reservation, error: reservationError } = await runQueryWithTimeout(
-        supabase
-          .from('reservations')
-          .insert([{
-            user_id: userId,
-            region_id: regionId,
-            date,
-            status: 'pending'
-          }])
-          .select()
-          .single(),
-        '예약 신청이 지연되고 있습니다. 잠시 후 다시 시도해주세요.',
-        MUTATION_TIMEOUT_MS
-      )
-
-      if (reservationError) {
-        // Trigger에서 발생한 정원 초과 에러 처리
-        // P0001: Advisory Lock 트리거 에러 코드
-        // 23505: 레거시 unique_violation 코드 (호환성 유지)
-        if (reservationError.message?.includes('예약이 마감되었습니다') ||
-            reservationError.code === 'P0001' ||
-            reservationError.code === '23505') {
-          return {
-            data: null,
-            error: { message: '예약이 마감되었습니다. 다른 날짜를 선택해주세요.' }
-          }
-        }
-        return { data: null, error: reservationError }
-      }
-
-      // 슬롯 생성
-      const slotsWithReservationId = slots.map(slot => ({
-        ...slot,
-        reservation_id: reservation.id
-      }))
-
-      const { data: createdSlots, error: slotsError } = await runQueryWithTimeout(
-        supabase
-          .from('reservation_slots')
-          .insert(slotsWithReservationId)
-          .select(),
-        '예약 시간 저장이 지연되고 있습니다. 잠시 후 다시 시도해주세요.',
-        MUTATION_TIMEOUT_MS
-      )
-
-      if (slotsError) {
-        // 예약 롤백
-        await supabase
-          .from('reservations')
-          .delete()
-          .eq('id', reservation.id)
-        
-        return { data: null, error: slotsError }
-      }
-
-      return {
-        data: {
-          ...reservation,
-          reservation_slots: createdSlots
-        },
-        error: null
-      }
-
-    } catch (error) {
-      console.error('예약 생성 중 예외:', error)
-      return { data: null, error: { message: '예약 생성 중 오류가 발생했습니다.' } }
-    }
-  }
 }
 
 // 공통 유틸리티 함수들
@@ -1796,33 +1444,6 @@ export const utilityAPI = {
 
     return { data, error }
   },
-
-  // 지역별 시/군 조회
-  async getCitiesByRegion(regionCode: string) {
-    const { data, error } = await supabase
-      .from('cities')
-      .select(`
-        *,
-        regions!inner(name, code)
-      `)
-      .eq('regions.code', regionCode)
-      .order('name')
-
-    return { data, error }
-  },
-
-  // 모든 시/군 조회
-  async getAllCities() {
-    const { data, error } = await supabase
-      .from('cities')
-      .select(`
-        *,
-        regions!inner(name, code)
-      `)
-      .order('name')
-
-    return { data, error }
-  }
 }
 
 export const dashboardAPI = {
@@ -1894,28 +1515,6 @@ export const dashboardAPI = {
       return { data: null, error: { message: getErrorMessage(error, '대시보드 달력 정보를 불러오는 중 오류가 발생했습니다.') } }
     }
   },
-  async getMonthGate(year: number, month: number) {
-    try {
-      const response = await withTimeout(
-        fetch(`/api/dashboard/gate?year=${year}&month=${month}`, {
-          method: 'GET',
-          headers: getUserAuthHeaders()
-        }),
-        QUERY_TIMEOUT_MS,
-        '예약 오픈 상태를 불러오는 중 시간이 초과되었습니다.'
-      )
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        return { data: null, error: { message: result.error || '예약 오픈 상태를 불러오지 못했습니다.' } }
-      }
-
-      return { data: result.data, error: null }
-    } catch (error) {
-      return { data: null, error: { message: getErrorMessage(error, '예약 오픈 상태를 불러오는 중 오류가 발생했습니다.') } }
-    }
-  },
   async getMe(year: number, month: number, options?: { bypassCache?: boolean }) {
     try {
       const sessionScope = typeof window !== 'undefined' ? getCookieFirstClientSessionScope(localStorage) : 'cookie-session'
@@ -1957,32 +1556,6 @@ export const dashboardAPI = {
       return { data: result.data, error: null }
     } catch (error) {
       return { data: null, error: { message: getErrorMessage(error, '내 대시보드 정보를 불러오는 중 오류가 발생했습니다.') } }
-    }
-  },
-  async getBootstrap(year: number, month: number) {
-    try {
-      const [calendarResult, meResult] = await Promise.all([
-        this.getCalendar(year, month),
-        this.getMe(year, month)
-      ])
-
-      if (calendarResult.error) {
-        return { data: null, error: calendarResult.error }
-      }
-
-      if (meResult.error) {
-        return { data: null, error: meResult.error }
-      }
-
-      return {
-        data: {
-          ...(meResult.data || {}),
-          ...(calendarResult.data || {}),
-        },
-        error: null
-      }
-    } catch (error) {
-      return { data: null, error: { message: getErrorMessage(error, '대시보드 정보를 불러오는 중 오류가 발생했습니다.') } }
     }
   },
   clearClientCaches(year: number, month: number) {
@@ -2105,21 +1678,6 @@ export const announcementAPI = {
     }
   },
 
-  // 공지사항 상세 조회
-  async getAnnouncementById(id: string) {
-    const { data, error } = await supabase
-      .from('announcements')
-      .select(`
-        *,
-        admins(username),
-        regions(name)
-      `)
-      .eq('id', id)
-      .single()
-
-    return { data, error }
-  },
-
   // 공지사항 생성
   async createAnnouncement(announcementData: {
     title: string
@@ -2188,35 +1746,6 @@ export const announcementAPI = {
 
     const data = await response.json()
     return { data, error: null }
-  },
-
-  // 공지사항 조회수 증가
-  async incrementViewCount(announcementId: string, userId: string) {
-    // 중복 조회 방지를 위한 체크
-    const { data: existingView } = await supabase
-      .from('announcement_views')
-      .select('id')
-      .eq('announcement_id', announcementId)
-      .eq('user_id', userId)
-      .single()
-
-    if (!existingView) {
-      // 조회 기록 추가
-      await supabase
-        .from('announcement_views')
-        .insert([{
-          announcement_id: announcementId,
-          user_id: userId
-        }])
-
-      // 조회수 증가
-      const { data, error } = await supabase
-        .rpc('increment_view_count', { announcement_id: announcementId })
-
-      return { data, error }
-    }
-
-    return { data: null, error: null }
   },
 
   // 파일 첨부 관련 함수들
@@ -2518,17 +2047,6 @@ export const sessionAPI = {
     return authApiClient.logoutSession(sessionToken)
   },
 
-  // 사용자의 모든 세션 비활성화
-  async logoutAllSessions(userId: string) {
-    const { data, error } = await supabase
-      .from('user_sessions')
-      .update({ is_active: false })
-      .eq('user_id', userId)
-      .eq('is_active', true)
-
-    return { data, error }
-  },
-
   // 다중 로그인 감지
   async detectMultipleLogins(userId: string) {
     try {
@@ -2559,104 +2077,6 @@ export const sessionAPI = {
 
 function getUserAuthHeaders(): HeadersInit {
   return buildCookieFirstClientHeaders()
-}
-
-// 예약 동시성 제어 API
-export const reservationConcurrencyAPI = {
-  // 하루 최대예약개수 조회
-  async getReservationCapacity(date: string, timeSlot: string) {
-    const { data, error } = await supabase
-      .from('daily_reservation_limits')
-      .select('*')
-      .eq('date', date)
-      .single()
-
-    return { data, error }
-  },
-
-  // 하루 최대예약개수 설정 (관리자용)
-  async setDailyReservationLimit(regionId: number, date: string, maxReservations: number) {
-    const { data, error } = await supabase
-      .from('daily_reservation_limits')
-      .upsert([{
-        region_id: regionId,
-        date: date,
-        max_reservations: maxReservations
-      }], {
-        onConflict: 'region_id,date'
-      })
-
-    return { data, error }
-  },
-
-  // 하루 최대예약개수 체크 (동시성 제어)
-  async checkDailyReservationLimit(userId: string, regionId: number, date: string, maxReservationsPerDay: number = 2) {
-    const { data, error } = await supabase
-      .rpc('check_daily_reservation_limit', {
-        p_user_id: userId,
-        p_region_id: regionId,
-        p_date: date,
-        p_max_reservations_per_day: maxReservationsPerDay
-      })
-
-    return { data, error }
-  },
-
-  // 사용자 월별 예약 제한 체크
-  async checkUserMonthlyLimit(userId: string, year: number, month: number, maxDaysPerMonth: number = 4) {
-    const { data, error } = await supabase
-      .rpc('check_user_monthly_limit', {
-        p_user_id: userId,
-        p_year: year,
-        p_month: month,
-        p_max_days_per_month: maxDaysPerMonth
-      })
-
-    return { data, error }
-  },
-
-  // 예약 취소 시 하루 최대예약개수 감소는 실제 예약 삭제 시 자동 처리
-
-  // 예약 대기열 조회
-  async getReservationQueue(date: string, timeSlot: string) {
-    const { data, error } = await supabase
-      .from('reservation_transactions')
-      .select(`
-        *,
-        users(organization_name, manager_name)
-      `)
-      .eq('reservation_date', date)
-      .eq('time_slot', timeSlot)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true })
-
-    return { data, error }
-  },
-
-  // 일별 예약 현황 조회
-  async getDailyReservationStatus(date: string) {
-    const { data, error } = await supabase
-      .from('daily_reservation_limits')
-      .select('*')
-      .eq('date', date)
-
-    return { data, error }
-  },
-
-  // 월별 예약 현황 조회 (관리자용)
-  async getMonthlyReservationStats(yearMonth: string) {
-    const startDate = `${yearMonth}-01`
-    const endDate = `${yearMonth}-31`
-
-    const { data, error } = await supabase
-      .from('daily_reservation_limits')
-      .select('*')
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .order('date')
-
-    return { data, error }
-  }
 }
 
 // ==========================================
@@ -2691,76 +2111,6 @@ export const tierAPI = {
 
     return { data, error }
   },
-
-  // Get user's tier information with details
-  async getUserTier(userId: string) {
-    let user
-    let error
-    try {
-      const response = await runQueryWithTimeout(
-        supabase
-          .from('users')
-          .select('tier')
-          .eq('id', userId)
-          .single(),
-        '사용자 등급을 불러오는 중 시간이 초과되었습니다.'
-      )
-      user = response.data
-      error = response.error
-    } catch (requestError) {
-      return { data: null, error: timeoutError(getErrorMessage(requestError, '사용자 등급을 불러오는 중 오류가 발생했습니다.')) }
-    }
-
-    if (error || !user) {
-      return { data: null, error }
-    }
-
-    // Map simple tier to expected structure
-    const tierName = user.tier || 'Standard'
-    const tierId = tierName === 'Priority' ? 1 : 2
-
-    const data = {
-      tier_id: tierId,
-      member_tiers: {
-        id: tierId,
-        tier_name: tierName,
-        tier_level: tierId,
-        description: tierName === 'Priority'
-          ? 'Priority 회원 (학생수 ≤240 OR 학급수 ≤11)'
-          : 'Standard 회원',
-        advance_reservation_days: tierName === 'Priority' ? 1 : 0,
-        monthly_reservation_limit: 4,
-        daily_slot_limit: 2
-      }
-    }
-
-    return { data, error: null }
-  },
-
-  // Update member tier (Admin only)
-  async updateMemberTier(userId: string, tierId: number) {
-    const { data, error } = await supabase
-      .from('users')
-      .update({ tier_id: tierId })
-      .eq('id', userId)
-      .select(`
-        *,
-        member_tiers!inner(tier_name, tier_level)
-      `)
-
-    return { data, error }
-  },
-
-  // Bulk update member tiers (Admin only)
-  async bulkUpdateMemberTiers(userIds: string[], tierId: number) {
-    const { data, error } = await supabase
-      .from('users')
-      .update({ tier_id: tierId })
-      .in('id', userIds)
-
-    return { data, error }
-  },
-
   // Get tier reservation settings for specific region/month
   async getActiveReservationMonth(regionCode: string) {
     if (typeof window !== 'undefined') {
@@ -2889,107 +2239,6 @@ export const tierAPI = {
 
     return { data, error }
   },
-
-  // Helper: Get tier by ID
-  async getTierById(tierId: number) {
-    const { data, error } = await supabase
-      .from('member_tiers')
-      .select('*')
-      .eq('id', tierId)
-      .single()
-
-    return { data, error }
-  },
-
-  // Check if user can make reservation based on tier
-  async canUserReserveByTier(userId: string, regionCode: string, targetDate: string) {
-    // Get user's tier information
-    const userTier = await this.getUserTier(userId)
-    if (!userTier.data) {
-      return {
-        canReserve: false,
-        reason: '사용자 티어 정보를 찾을 수 없습니다.'
-      }
-    }
-
-    const yearMonth = targetDate.substring(0, 7) // Extract YYYY-MM from YYYY-MM-DD
-
-    const { data: activeMonthData, error: activeMonthError } = await this.getActiveReservationMonth(regionCode)
-    if (activeMonthError) {
-      return {
-        canReserve: false,
-        reason: activeMonthError.message || '예약 신청 가능 여부를 확인하는 중 오류가 발생했습니다.'
-      }
-    }
-
-    if (activeMonthData?.yearMonth !== yearMonth) {
-      return {
-        canReserve: false,
-        reason: '신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.'
-      }
-    }
-
-    // Get tier reservation settings for the region and month
-    let settings
-    let error
-    try {
-      const response = await runQueryWithTimeout(
-        supabase
-          .from('tier_reservation_settings')
-          .select('*')
-          .eq('region_code', regionCode)
-          .eq('year_month', yearMonth)
-          .eq('tier_id', userTier.data.tier_id)
-          .single(),
-        '예약 신청 가능 여부를 확인하는 중 시간이 초과되었습니다.'
-      )
-      settings = response.data
-      error = response.error
-    } catch (requestError) {
-      return {
-        canReserve: false,
-        reason: getErrorMessage(requestError, '예약 신청 가능 여부를 확인하는 중 오류가 발생했습니다.')
-      }
-    }
-
-    // 설정이 없으면 기본적으로 예약 종료 상태
-    if (error || !settings) {
-      const tierName = userTier.data.member_tiers?.tier_name || 'Standard'
-      const startDate = tierName === 'Priority' ? '20일' : '21일'
-      return {
-        canReserve: false,
-        reason: `신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.`
-      }
-    }
-
-    // Check if tier reservation is open (admin must have started it)
-    if (!settings.is_open) {
-      const tierName = userTier.data.member_tiers?.tier_name || 'Standard'
-      const startDate = tierName === 'Priority' ? '20일' : '21일'
-      return {
-        canReserve: false,
-        reason: `신청기간이 아닙니다. 공지사항의 신청기간을 확인해주세요.`
-      }
-    }
-
-    // 관리자가 티어별 예약을 시작한 경우 예약 가능
-    return { canReserve: true }
-  },
-
-  // Get tier settings for all tiers in a region/month (Admin use)
-  async getAllTierSettingsForMonth(regionCode: string, yearMonth: string) {
-    const { data, error } = await supabase
-      .from('tier_reservation_settings')
-      .select(`
-        *,
-        member_tiers!inner(*)
-      `)
-      .eq('region_code', regionCode)
-      .eq('year_month', yearMonth)
-      .order('tier_id')
-
-    return { data, error }
-  }
 }
 
 // 관리자 계정 관리 API
@@ -3053,15 +2302,4 @@ export const adminAPI = {
       return { data: null, error: { message: getErrorMessage(error, '관리자 비밀번호 변경에 실패했습니다.') } }
     }
   },
-
-  // 관리자 ID로 조회
-  async getAdminById(adminId: string) {
-    const { data, error } = await supabase
-      .from('admins')
-      .select('*')
-      .eq('id', adminId)
-      .single()
-
-    return { data, error }
-  }
 }

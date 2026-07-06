@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { popupAPI } from '@/lib/supabase'
-import { sanitizeHtml } from '@/components/RichTextEditor'
+import { sanitizeHtml, markdownToHtml } from '@/components/RichTextEditor'
 
 interface HomepagePopup {
   id: string
@@ -21,40 +21,6 @@ interface HomepagePopup {
 
 const HOMEPAGE_POPUP_CACHE_KEY = 'homepagePopupCache'
 const HOMEPAGE_POPUP_CACHE_TTL_MS = 60 * 1000
-
-// 마크다운을 HTML로 변환하는 간단한 함수
-const markdownToHtml = (markdown: string): string => {
-  let html = markdown
-
-  // 헤딩
-  html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>')
-  html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>')
-  html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>')
-
-  // 볼드
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-  html = html.replace(/__(.*?)__/g, '<strong>$1</strong>')
-
-  // 이탤릭
-  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
-  html = html.replace(/_(.*?)_/g, '<em>$1</em>')
-
-  // 링크
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-
-  // 코드
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>')
-
-  // 리스트
-  html = html.replace(/^\* (.+)$/gm, '<li>$1</li>')
-  html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
-  html = html.replace(/(<li>[\s\S]*<\/li>)/, '<ul>$1</ul>')
-
-  // 줄바꿈
-  html = html.replace(/\n/g, '<br>')
-
-  return html
-}
 
 const renderContent = (popup: HomepagePopup) => {
   if (popup.content_type === 'html') {
