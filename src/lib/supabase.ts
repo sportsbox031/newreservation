@@ -2241,6 +2241,77 @@ export const tierAPI = {
   },
 }
 
+// 예약 자동 시작/종료 스케줄 API (관리자 전용, 한국 시간 기준)
+export const reservationScheduleAPI = {
+  // 스케줄 목록 조회 (대기중 + 최근 실행 이력)
+  async getSchedules(regionCode: string) {
+    try {
+      const query = new URLSearchParams({ regionCode })
+      const response = await fetch(`/api/admin/reservation-schedules?${query.toString()}`, {
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '예약 스케줄을 불러오지 못했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '예약 스케줄을 불러오지 못했습니다.') } }
+    }
+  },
+
+  // 스케줄 등록 (scheduledAtKst: "YYYY-MM-DDTHH:mm" 한국 시간, tierId null이면 전체 티어)
+  async createSchedule(input: {
+    regionCode: string
+    yearMonth: string
+    tierId: number | null
+    action: 'open' | 'close'
+    scheduledAtKst: string
+  }) {
+    try {
+      const response = await fetch('/api/admin/reservation-schedules', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(input),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '예약 스케줄 등록에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '예약 스케줄 등록에 실패했습니다.') } }
+    }
+  },
+
+  // 대기중 스케줄 삭제
+  async deleteSchedule(scheduleId: number, regionCode: string) {
+    try {
+      const query = new URLSearchParams({ id: String(scheduleId), regionCode })
+      const response = await fetch(`/api/admin/reservation-schedules?${query.toString()}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { data: null, error: errorData.error || { message: '예약 스케줄 삭제에 실패했습니다.' } }
+      }
+
+      const payload = await response.json()
+      return { data: payload.data, error: null }
+    } catch (error) {
+      return { data: null, error: { message: getErrorMessage(error, '예약 스케줄 삭제에 실패했습니다.') } }
+    }
+  },
+}
+
 // 관리자 계정 관리 API
 export const adminAPI = {
   // 관리자 로그인 (하이브리드: bcrypt + 레거시 btoa 지원)

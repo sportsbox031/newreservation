@@ -6,6 +6,7 @@ import {
   getDashboardUserMetaContext,
 } from '@/lib/dashboardServer'
 import { getErrorMessage } from '@/lib/requestUtils'
+import { processDueReservationSchedules } from '@/lib/reservationScheduleServer'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +14,9 @@ export async function GET(request: NextRequest) {
     if (!authResult.authenticated || !authResult.user) {
       return NextResponse.json({ error: authResult.error || 'Unauthorized' }, { status: 401 })
     }
+
+    // 기한이 지난 예약 자동 시작/종료 스케줄을 반영 (내부 스로틀, 예외 없음)
+    await processDueReservationSchedules()
 
     const searchParams = request.nextUrl.searchParams
     const year = Number(searchParams.get('year'))
