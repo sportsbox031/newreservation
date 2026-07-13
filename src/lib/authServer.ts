@@ -163,6 +163,9 @@ export async function registerMemberOnServer(userData: {
           student_count: userData.student_count,
           class_count: userData.class_count,
           privacy_consent: userData.privacy_consent,
+          // 학교가 아닌 단체(아동복지시설 등)는 학교알리미 조회 대상이 아니므로 Standard 고정.
+          // tier를 명시하면 DB 트리거가 재계산하지 않는다.
+          ...(userData.organization_type === 'welfare' ? { tier: 'Standard' as const } : {}),
           status: 'pending',
         }])
         .select(),

@@ -11,7 +11,9 @@ import {
   Filter,
   AlertTriangle,
   Key,
-  Download
+  Download,
+  RefreshCw,
+  X
 } from 'lucide-react'
 import { memberAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
@@ -26,6 +28,31 @@ import {
 } from '@/lib/memberAdminHelpers'
 import { buildCookieFirstJsonRequestInit } from '@/lib/clientAuthHeaders'
 import { formatDateTimeKST as formatDate } from '@/lib/formatDate'
+import { modalOverlayClass } from '@/components/ModalOverlay'
+
+interface AutoTierChange {
+  memberId: string
+  organizationName: string
+  cityName: string
+  organizationType: 'school' | 'welfare'
+  matchedSchoolName: string | null
+  currentTier: 'Priority' | 'Standard'
+  newTier: 'Priority' | 'Standard'
+  currentStudentCount: number | null
+  newStudentCount: number | null
+  currentClassCount: number | null
+  newClassCount: number | null
+}
+
+interface AutoTierSummary {
+  mode: 'preview' | 'apply'
+  totalChecked: number
+  changes: AutoTierChange[]
+  unchanged: number
+  skipped: number
+  matchFailed: { organizationName: string; reason: string }[]
+  failedCities: string[]
+}
 
 interface Member {
   id: string
@@ -68,6 +95,11 @@ export default function MembersPage() {
   const [isPenaltyProcessing, setIsPenaltyProcessing] = useState(false)
   // 경고 누적 없이 퇴장 버튼을 눌렀을 때 안내 모달 대상
   const [ejectionBlockedTarget, setEjectionBlockedTarget] = useState<Member | null>(null)
+  const [autoTierRunning, setAutoTierRunning] = useState(false)
+  const [autoTierApplying, setAutoTierApplying] = useState(false)
+  const [autoTierResult, setAutoTierResult] = useState<AutoTierSummary | null>(null)
+  // 미리보기에서 체크된 회원 ID (기본: 전체 선택)
+  const [autoTierSelected, setAutoTierSelected] = useState<Set<string>>(new Set())
   const summaryCounts = getMemberSummaryCounts(members, { searchTerm, regionFilter })
 
   useEffect(() => {
@@ -267,6 +299,85 @@ export default function MembersPage() {
       statusFilter,
       regionFilter,
     }))
+  }
+
+  // 학교알리미 기준 등급 자동조정 1단계(미리보기): DB 변경 없이 변경 예정 내역만 조회한다.
+  const handleAutoTierPreview = async () => {
+    setAutoTierRunning(true)
+    try {
+      const response = await fetch(
+        '/api/admin/members/auto-tier',
+        buildCookieFirstJsonRequestInit({ mode: 'preview' })
+      )
+      const json = await response.json()
+
+      if (!response.ok) {
+        alert(json?.error?.message || '등급 자동조정 미리보기에 실패했습니다.')
+        return
+      }
+
+      setAutoTierResult(json.data)
+      // 기본은 전체 선택 상태로 시작하고, 관리자가 제외할 회원만 체크 해제한다.
+      setAutoTierSelected(new Set((json.data as AutoTierSummary).changes.map((c) => c.memberId)))
+    } catch (error) {
+      console.error('등급 자동조정 미리보기 오류:', error)
+      alert('등급 자동조정 미리보기 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setAutoTierRunning(false)
+    }
+  }
+
+  const toggleAutoTierSelect = (memberId: string) => {
+    setAutoTierSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(memberId)) {
+        next.delete(memberId)
+      } else {
+        next.add(memberId)
+      }
+      return next
+    })
+  }
+
+  const toggleAutoTierSelectAll = (memberIds: string[], selectAll: boolean) => {
+    setAutoTierSelected((prev) => {
+      const next = new Set(prev)
+      for (const id of memberIds) {
+        if (selectAll) {
+          next.add(id)
+        } else {
+          next.delete(id)
+        }
+      }
+      return next
+    })
+  }
+
+  // 2단계(적용): 미리보기에서 체크된 회원만 실제 DB에 반영한다.
+  const handleAutoTierApply = async () => {
+    setAutoTierApplying(true)
+    try {
+      const response = await fetch(
+        '/api/admin/members/auto-tier',
+        buildCookieFirstJsonRequestInit({ mode: 'apply', memberIds: Array.from(autoTierSelected) })
+      )
+      const json = await response.json()
+
+      if (!response.ok) {
+        alert(json?.error?.message || '등급 자동조정 적용에 실패했습니다.')
+        return
+      }
+
+      setAutoTierResult(json.data)
+      if (adminInfo) {
+        await loadMembers(adminInfo)
+      }
+    } catch (error) {
+      console.error('등급 자동조정 적용 오류:', error)
+      alert('등급 자동조정 적용 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setAutoTierApplying(false)
+    }
   }
 
   const handleStatusChange = async (memberId: string, status: 'approved' | 'rejected') => {
@@ -807,6 +918,14 @@ export default function MembersPage() {
                   <option value="approved">승인됨</option>
                 </select>
                 <button
+                  onClick={handleAutoTierPreview}
+                  disabled={autoTierRunning}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-colors"
+                >
+                  <RefreshCw className={`w-4 h-4 ${autoTierRunning ? 'animate-spin' : ''}`} />
+                  {autoTierRunning ? '조회 중...' : '등급 자동조정'}
+                </button>
+                <button
                   onClick={handleDownloadSmsExcel}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
@@ -1172,6 +1291,270 @@ export default function MembersPage() {
           </div>
         </ModalOverlay>
       )}
+      {/* 등급 자동조정 미리보기/결과 모달 */}
+      {autoTierResult && (() => {
+        const isPreview = autoTierResult.mode === 'preview'
+        const tierChanges = autoTierResult.changes.filter((c) => c.currentTier !== c.newTier)
+        const countOnlyChanges = autoTierResult.changes.filter((c) => c.currentTier === c.newTier)
+        const selectedCount = autoTierResult.changes.filter((c) => autoTierSelected.has(c.memberId)).length
+        const isAllSelected = (list: AutoTierChange[]) => list.every((c) => autoTierSelected.has(c.memberId))
+        const formatCount = (before: number | null, after: number | null, unit: string) => {
+          if (before === after) return <span className="text-gray-700">{after ?? '-'}{unit}</span>
+          return (
+            <span>
+              <span className="text-gray-400 line-through">{before ?? '-'}</span>
+              <span className="text-gray-400 mx-1">→</span>
+              <span className="font-semibold text-gray-900">{after ?? '-'}{unit}</span>
+            </span>
+          )
+        }
+        return (
+        <div className={modalOverlayClass()}>
+          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[88vh] flex flex-col">
+            <div className="p-6 pb-4 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {isPreview ? '등급 자동조정 미리보기' : '등급 자동조정 완료'}
+                </h3>
+                <button
+                  onClick={() => setAutoTierResult(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              {isPreview ? (
+                <p className="mt-1 text-sm text-amber-600 font-medium">
+                  아직 적용되지 않았습니다. 적용할 회원만 체크한 뒤 하단의 적용 버튼을 눌러주세요.
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-green-600 font-medium">
+                  아래 변경 내역이 DB에 반영되었습니다.
+                  {autoTierResult.skipped > 0 && ` (체크 해제된 ${autoTierResult.skipped}건은 제외)`}
+                </p>
+              )}
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* 요약 */}
+              <div className="grid grid-cols-4 gap-3 mb-5">
+                <div className="p-3 bg-gray-50 rounded-lg text-center">
+                  <p className="text-xs text-gray-600">검사 대상</p>
+                  <p className="text-xl font-bold text-gray-900">{autoTierResult.totalChecked}</p>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-lg text-center">
+                  <p className="text-xs text-purple-700">{isPreview ? '변경 예정' : '변경됨'}</p>
+                  <p className="text-xl font-bold text-purple-700">{autoTierResult.changes.length}</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg text-center">
+                  <p className="text-xs text-gray-600">변경 없음</p>
+                  <p className="text-xl font-bold text-gray-900">{autoTierResult.unchanged}</p>
+                </div>
+                <div className={`p-3 rounded-lg text-center ${autoTierResult.matchFailed.length > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
+                  <p className={`text-xs ${autoTierResult.matchFailed.length > 0 ? 'text-red-700' : 'text-gray-600'}`}>조정 불가</p>
+                  <p className={`text-xl font-bold ${autoTierResult.matchFailed.length > 0 ? 'text-red-700' : 'text-gray-900'}`}>{autoTierResult.matchFailed.length}</p>
+                </div>
+              </div>
+
+              {autoTierResult.failedCities.length > 0 && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm font-medium text-red-700">
+                    학교알리미 조회에 실패한 지역: {autoTierResult.failedCities.join(', ')}
+                  </p>
+                  <p className="text-xs text-red-600 mt-1">해당 지역 학교 회원은 등급이 변경되지 않습니다.</p>
+                </div>
+              )}
+
+              {/* 등급 변경 목록 */}
+              {tierChanges.length > 0 && (
+                <div className="mb-5">
+                  <p className="text-sm font-semibold text-gray-900 mb-2">
+                    등급 {isPreview ? '변경 예정' : '변경'} ({tierChanges.length}명)
+                  </p>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr className="text-left text-xs text-gray-500">
+                          {isPreview && (
+                            <th className="pl-3 py-2 w-8">
+                              <input
+                                type="checkbox"
+                                checked={isAllSelected(tierChanges)}
+                                onChange={(e) => toggleAutoTierSelectAll(tierChanges.map((c) => c.memberId), e.target.checked)}
+                                className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                              />
+                            </th>
+                          )}
+                          <th className="px-3 py-2 font-medium">단체명</th>
+                          <th className="px-3 py-2 font-medium">학생수</th>
+                          <th className="px-3 py-2 font-medium">학급수</th>
+                          <th className="px-3 py-2 font-medium">등급</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {tierChanges.map((change) => (
+                          <tr
+                            key={change.memberId}
+                            className={isPreview && !autoTierSelected.has(change.memberId) ? 'opacity-40' : ''}
+                          >
+                            {isPreview && (
+                              <td className="pl-3 py-2 w-8">
+                                <input
+                                  type="checkbox"
+                                  checked={autoTierSelected.has(change.memberId)}
+                                  onChange={() => toggleAutoTierSelect(change.memberId)}
+                                  className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                                />
+                              </td>
+                            )}
+                            <td className="px-3 py-2">
+                              <p className="font-medium text-gray-900">{change.organizationName}</p>
+                              <p className="text-xs text-gray-500">
+                                {change.cityName}
+                                {change.organizationType === 'welfare' && ' · 학교 외 단체'}
+                                {change.matchedSchoolName && change.matchedSchoolName !== change.organizationName &&
+                                  ` · 매칭: ${change.matchedSchoolName}`}
+                              </p>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              {change.organizationType === 'school'
+                                ? formatCount(change.currentStudentCount, change.newStudentCount, '명')
+                                : <span className="text-gray-400">-</span>}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              {change.organizationType === 'school'
+                                ? formatCount(change.currentClassCount, change.newClassCount, '학급')
+                                : <span className="text-gray-400">-</span>}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1">
+                                {getTierBadge(change.currentTier)}
+                                <span className="text-gray-400">→</span>
+                                {getTierBadge(change.newTier)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 수치만 갱신되는 목록 (등급 유지) */}
+              {countOnlyChanges.length > 0 && (
+                <div className="mb-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    {isPreview && (
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected(countOnlyChanges)}
+                        onChange={(e) => toggleAutoTierSelectAll(countOnlyChanges.map((c) => c.memberId), e.target.checked)}
+                        className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                      />
+                    )}
+                    <p className="text-sm font-semibold text-gray-900">
+                      학생수/학급수만 {isPreview ? '갱신 예정' : '갱신'} — 등급 유지 ({countOnlyChanges.length}명)
+                    </p>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <tbody className="divide-y divide-gray-100">
+                        {countOnlyChanges.map((change) => (
+                          <tr
+                            key={change.memberId}
+                            className={isPreview && !autoTierSelected.has(change.memberId) ? 'opacity-40' : ''}
+                          >
+                            {isPreview && (
+                              <td className="pl-3 py-2 w-8">
+                                <input
+                                  type="checkbox"
+                                  checked={autoTierSelected.has(change.memberId)}
+                                  onChange={() => toggleAutoTierSelect(change.memberId)}
+                                  className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                                />
+                              </td>
+                            )}
+                            <td className="px-3 py-2">
+                              <span className="font-medium text-gray-900">{change.organizationName}</span>
+                              <span className="text-xs text-gray-500 ml-2">{change.cityName}</span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              {formatCount(change.currentStudentCount, change.newStudentCount, '명')}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              {formatCount(change.currentClassCount, change.newClassCount, '학급')}
+                            </td>
+                            <td className="px-3 py-2">{getTierBadge(change.currentTier)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {autoTierResult.changes.length === 0 && autoTierResult.matchFailed.length === 0 && (
+                <div className="mb-5 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+                  <p className="text-sm text-green-700 font-medium">모든 회원의 등급이 이미 최신 상태입니다.</p>
+                </div>
+              )}
+
+              {/* 조정 불가 목록 */}
+              {autoTierResult.matchFailed.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 mb-2">
+                    조정 불가 — 기존 등급 유지 ({autoTierResult.matchFailed.length}명)
+                  </p>
+                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                    {autoTierResult.matchFailed.map((item, index) => (
+                      <div key={index} className="px-3 py-2 flex justify-between gap-3 text-sm">
+                        <span className="font-medium text-gray-900">{item.organizationName}</span>
+                        <span className="text-gray-500 text-right">{item.reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">필요 시 회원 목록에서 수동으로 조정해주세요.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+              {isPreview ? (
+                <>
+                  <button
+                    onClick={() => setAutoTierResult(null)}
+                    disabled={autoTierApplying}
+                    className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleAutoTierApply}
+                    disabled={autoTierApplying || selectedCount === 0}
+                    className="flex items-center gap-2 px-5 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white rounded-lg font-medium transition-colors"
+                  >
+                    {autoTierApplying && <RefreshCw className="w-4 h-4 animate-spin" />}
+                    {autoTierApplying
+                      ? '적용 중...'
+                      : autoTierResult.changes.length === 0
+                        ? '적용할 변경 없음'
+                        : `${selectedCount}건 적용하기`}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setAutoTierResult(null)}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  확인
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        )
+      })()}
     </div>
   )
 }

@@ -83,7 +83,12 @@ export default function RegisterPage() {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const router = useRouter();
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<RegisterForm>({
+  const [schoolLookup, setSchoolLookup] = useState<{
+    status: 'idle' | 'loading' | 'found' | 'failed';
+    message: string;
+  }>({ status: 'idle', message: '' });
+
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema) as any,
     defaultValues: {
       privacy_consent: false
@@ -92,6 +97,58 @@ export default function RegisterPage() {
 
   const selectedCity = watch('city');
   const organizationType = watch('organization_type');
+  const organizationName = watch('organization_name');
+
+  // 학교알리미에서 학생수/학급수를 조회해 자동 기입한다. 실패하면 수동 입력을 안내한다.
+  const handleSchoolLookup = async () => {
+    if (!selectedCity || !organizationName || organizationName.trim().length < 2) {
+      setSchoolLookup({
+        status: 'failed',
+        message: '단체명(학교명)과 시/군을 먼저 입력해주세요.'
+      });
+      return;
+    }
+
+    setSchoolLookup({ status: 'loading', message: '' });
+    try {
+      const params = new URLSearchParams({ city: selectedCity, name: organizationName.trim() });
+      const response = await fetch(`/api/public/school-info?${params.toString()}`);
+      const json = await response.json();
+
+      if (!response.ok) {
+        setSchoolLookup({
+          status: 'failed',
+          message: json?.error?.message || '학교 정보 조회에 실패했습니다. 직접 입력해주세요.'
+        });
+        return;
+      }
+
+      const result = json.data;
+      if (result.status === 'found') {
+        setValue('student_count', result.studentCount, { shouldValidate: true });
+        setValue('class_count', result.classCount, { shouldValidate: true });
+        setSchoolLookup({
+          status: 'found',
+          message: `${result.schoolName}: 학생수 ${result.studentCount}명, 학급수 ${result.classCount}학급이 자동 입력되었습니다.`
+        });
+      } else if (result.status === 'multiple') {
+        setSchoolLookup({
+          status: 'failed',
+          message: '동일한 이름의 학교가 여러 개 조회되었습니다. 학생수/학급수를 직접 입력해주세요.'
+        });
+      } else {
+        setSchoolLookup({
+          status: 'failed',
+          message: '학교알리미에서 학교를 찾지 못했습니다. 학교명을 확인하거나 직접 입력해주세요.'
+        });
+      }
+    } catch {
+      setSchoolLookup({
+        status: 'failed',
+        message: '학교 정보 조회 중 오류가 발생했습니다. 직접 입력해주세요.'
+      });
+    }
+  };
 
   const getRegion = () => {
     if (cities.south.includes(selectedCity)) return 'south';
@@ -404,6 +461,28 @@ export default function RegisterPage() {
               )}
             </div>
 
+
+            {/* 학교알리미 자동 조회 - 학교만 표시 */}
+            {organizationType === 'school' && (
+              <div>
+                <button
+                  type="button"
+                  onClick={handleSchoolLookup}
+                  disabled={schoolLookup.status === 'loading'}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200"
+                >
+                  {schoolLookup.status === 'loading' ? '학교알리미 조회 중...' : '학교알리미로 학생수/학급수 조회'}
+                </button>
+                <p className="mt-1 text-xs text-gray-500">
+                  단체명과 시/군을 입력한 뒤 누르면 학생수/학급수가 자동으로 입력됩니다.
+                </p>
+                {schoolLookup.message && (
+                  <p className={`mt-1 text-sm ${schoolLookup.status === 'found' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {schoolLookup.message}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* 학생 수 - 항상 표시 */}
             <div>
