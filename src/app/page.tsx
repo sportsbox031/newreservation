@@ -390,7 +390,7 @@ export default function Home() {
                   <h3 className="text-xl font-bold mb-3">스포츠이벤트</h3>
                   <p className="text-gray-600 mb-4">수상레저스포츠, 스키교실 등 특별 프로그램 운영</p>
                   <a
-                    href="https://www.youtube.com/watch?v=4nyB-iATP5k"
+                    href="https://event.ggsportsbox.or.kr"
                     target="_blank"
                     className="inline-block bg-[#0066CC] text-white px-4 py-2 rounded-lg hover:bg-[#0066CC]/90"
                   >

@@ -1643,6 +1643,11 @@ export default function DashboardPage() {
                             <option key={grade} value={grade}>{grade}</option>
                           ))}
                         </select>
+                        {slot.grade === '기타' && (
+                          <p className="mt-1 text-xs sm:text-sm text-orange-600 font-medium">
+                            톡으로 학년을 남겨주세요.
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
