@@ -19,6 +19,8 @@ import {
   RESERVATION_MAX_START_TIME,
   RESERVATION_MIN_START_TIME,
 } from '@/lib/reservationTimePolicy'
+import { formatYearMonthLabel } from '@/lib/penalty'
+import { getUserPenaltyStatus } from '@/lib/penaltyServer'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -204,6 +206,17 @@ export async function POST(request: NextRequest) {
 
     if (body.regionId !== 1 && body.regionId !== 2) {
       return NextResponse.json({ error: '잘못된 지역 정보입니다.' }, { status: 400 })
+    }
+
+    // 퇴장(신청 제한) 회원 차단 — 제한월(KST 기준 현재 월) 동안 모든 신청 불가
+    const penaltyResult = await getUserPenaltyStatus(authResult.user.id)
+    if (penaltyResult.data?.restricted) {
+      const restrictedLabel = formatYearMonthLabel(penaltyResult.data.restrictedMonth || '')
+      const resumeLabel = formatYearMonthLabel(penaltyResult.data.resumeMonth || '')
+      return NextResponse.json(
+        { error: `퇴장 조치로 인해 ${restrictedLabel} 신청이 제한되었습니다. ${resumeLabel}부터 신청이 가능합니다.` },
+        { status: 403 }
+      )
     }
 
     const startTimes = slots.map(slot => slot.start_time)

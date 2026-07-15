@@ -215,6 +215,74 @@ export async function sendReservationRejectionNotification(
   })
 }
 
+// 경고 부여 알림톡
+export async function sendPenaltyWarningNotification(
+  phone: string,
+  organizationName: string,
+  reason: string,
+  tplCode: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const subject = '[경기도체육회 스포츠박스] 경고 안내'
+
+  const message = `[경기도체육회 스포츠박스]
+경고 안내
+
+안녕하세요, #{단체명} 담당자님.
+#{사유}(으)로 인하여 경고 1회가 부여되었음을 안내드립니다.
+
+경고는 해당 연도 말까지 유지되며, 경고 2회 누적 시 퇴장 조치되어 프로그램 신청이 제한됩니다.
+
+문의사항은
+남부지역 031-250-0474~7
+북부지역 031-872-6520~4으로 연락 바랍니다.`
+    .replace(/#{단체명}/g, organizationName)
+    .replace(/#{사유}/g, reason)
+
+  return sendAligoKakaoTalk({
+    tplCode,
+    receiver: phone,
+    subject,
+    message,
+    failover: true
+  })
+}
+
+// 퇴장(신청 제한) 안내 알림톡
+export async function sendPenaltyEjectionNotification(
+  phone: string,
+  organizationName: string,
+  reason: string,
+  restrictedMonthLabel: string,
+  resumeMonthLabel: string,
+  tplCode: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const subject = '[경기도체육회 스포츠박스] 퇴장(이용 제한) 안내'
+
+  const message = `[경기도체육회 스포츠박스]
+퇴장(이용 제한) 안내
+
+안녕하세요, #{단체명} 담당자님.
+#{사유}(으)로 인하여 퇴장 조치되었음을 안내드립니다.
+
+#{제한월} 프로그램 신청이 제한되며, #{재개월}부터 신청이 가능합니다.
+
+문의사항은
+남부지역 031-250-0474~7
+북부지역 031-872-6520~4으로 연락 바랍니다.`
+    .replace(/#{단체명}/g, organizationName)
+    .replace(/#{사유}/g, reason)
+    .replace(/#{제한월}/g, restrictedMonthLabel)
+    .replace(/#{재개월}/g, resumeMonthLabel)
+
+  return sendAligoKakaoTalk({
+    tplCode,
+    receiver: phone,
+    subject,
+    message,
+    failover: true
+  })
+}
+
 // 프로그램 이용 당일 안내 알림톡
 export async function sendProgramDayNotification(
   phone: string,

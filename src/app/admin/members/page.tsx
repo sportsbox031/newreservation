@@ -15,6 +15,9 @@ import {
 } from 'lucide-react'
 import { memberAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
+import ModalOverlay from '@/components/ModalOverlay'
+import { PENALTY_REASONS, type PenaltyStatus } from '@/lib/penalty'
+import type { UserPenalty } from '@/types/database'
 import ExcelJS from 'exceljs'
 import * as XLSX from 'xlsx'
 import {
@@ -56,6 +59,13 @@ export default function MembersPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all')
   const [regionFilter, setRegionFilter] = useState<'all' | '경기남부' | '경기북부'>('all')
   const [processing, setProcessing] = useState<string | null>(null)
+  // 패널티(경고/퇴장) 상태
+  const [penaltySummaries, setPenaltySummaries] = useState<Record<string, PenaltyStatus>>({})
+  const [penaltyTarget, setPenaltyTarget] = useState<{ member: Member; type: 'warning' | 'ejection' } | null>(null)
+  const [penaltyReason, setPenaltyReason] = useState<string>(PENALTY_REASONS[0])
+  const [penaltyHistoryTarget, setPenaltyHistoryTarget] = useState<Member | null>(null)
+  const [penaltyHistory, setPenaltyHistory] = useState<UserPenalty[]>([])
+  const [isPenaltyProcessing, setIsPenaltyProcessing] = useState(false)
   const summaryCounts = getMemberSummaryCounts(members, { searchTerm, regionFilter })
 
   useEffect(() => {
@@ -76,6 +86,145 @@ export default function MembersPage() {
     const adminData = JSON.parse(adminAuth)
     setAdminInfo(adminData)
     loadMembers(adminData)
+    loadPenaltySummaries()
+  }
+
+  const loadPenaltySummaries = async () => {
+    try {
+      const response = await fetch('/api/admin/penalties', { credentials: 'include' })
+      const result = await response.json()
+      if (!response.ok) {
+        console.error('패널티 요약 로드 오류:', result.error)
+        return
+      }
+      setPenaltySummaries(result.data || {})
+    } catch (error) {
+      console.error('패널티 요약 로드 예외:', error)
+    }
+  }
+
+  const openPenaltyModal = (member: Member, type: 'warning' | 'ejection') => {
+    setPenaltyReason(PENALTY_REASONS[0])
+    setPenaltyTarget({ member, type })
+  }
+
+  const handleIssuePenalty = async () => {
+    if (!penaltyTarget) return
+    const { member, type } = penaltyTarget
+    const status = penaltySummaries[member.id]
+    const willAutoEject = type === 'warning' &&
+      (status?.warningCount ?? 0) + 1 >= (status?.warningThreshold ?? 2)
+
+    const confirmMessage = type === 'warning'
+      ? `${member.organization_name}에 경고(${penaltyReason})를 부여하시겠습니까?${
+          willAutoEject ? '\n\n⚠️ 이 경고로 누적 기준에 도달하여 자동으로 퇴장 처리되고 퇴장 알림톡이 발송됩니다.' : '\n\n경고 알림톡이 발송됩니다.'
+        }`
+      : `${member.organization_name}을(를) 퇴장(${penaltyReason}) 조치하시겠습니까?\n\n이번 달 신청이 제한되며 퇴장 알림톡이 발송됩니다.`
+
+    if (!confirm(confirmMessage)) return
+
+    setIsPenaltyProcessing(true)
+    try {
+      const response = await fetch('/api/admin/penalties', buildCookieFirstJsonRequestInit({
+        userId: member.id,
+        type,
+        reason: penaltyReason,
+      }))
+      const result = await response.json()
+
+      if (!response.ok) {
+        alert(result.error || '패널티 부여에 실패했습니다.')
+        return
+      }
+
+      const ejected = result.data?.ejected === true
+      const notificationError = result.data?.notificationError
+      let message = ejected
+        ? `${member.organization_name}이(가) 퇴장 처리되었습니다. 이번 달 신청이 제한됩니다.`
+        : `${member.organization_name}에 경고가 부여되었습니다.`
+      if (notificationError) {
+        message += `\n\n(알림톡: ${notificationError})`
+      }
+      alert(message)
+
+      setPenaltyTarget(null)
+      await loadPenaltySummaries()
+    } catch (error) {
+      console.error('패널티 부여 예외:', error)
+      alert('패널티 부여 중 오류가 발생했습니다.')
+    } finally {
+      setIsPenaltyProcessing(false)
+    }
+  }
+
+  const openPenaltyHistory = async (member: Member) => {
+    setPenaltyHistoryTarget(member)
+    setPenaltyHistory([])
+    try {
+      const response = await fetch(`/api/admin/penalties?userId=${member.id}`, { credentials: 'include' })
+      const result = await response.json()
+      if (!response.ok) {
+        alert(result.error || '패널티 내역을 불러오지 못했습니다.')
+        return
+      }
+      setPenaltyHistory(result.data || [])
+    } catch (error) {
+      console.error('패널티 내역 로드 예외:', error)
+      alert('패널티 내역을 불러오는 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleCancelPenalty = async (penalty: UserPenalty) => {
+    const typeLabel = penalty.type === 'warning' ? '경고' : '퇴장'
+    if (!confirm(`이 ${typeLabel} 기록을 취소(삭제)하시겠습니까?\n\n취소 알림톡은 발송되지 않습니다.`)) return
+
+    setIsPenaltyProcessing(true)
+    try {
+      const response = await fetch(`/api/admin/penalties?id=${penalty.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const result = await response.json()
+      if (!response.ok) {
+        alert(result.error || '패널티 취소에 실패했습니다.')
+        return
+      }
+
+      setPenaltyHistory(prev => prev.filter(item => item.id !== penalty.id))
+      await loadPenaltySummaries()
+    } catch (error) {
+      console.error('패널티 취소 예외:', error)
+      alert('패널티 취소 중 오류가 발생했습니다.')
+    } finally {
+      setIsPenaltyProcessing(false)
+    }
+  }
+
+  const getPenaltyBadges = (memberId: string) => {
+    const status = penaltySummaries[memberId]
+    if (!status || (status.warningCount === 0 && status.ejectionCount === 0)) {
+      return <span className="text-xs text-gray-400">-</span>
+    }
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {status.restricted && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            🟥 제한중
+          </span>
+        )}
+        {status.probation && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+            보호관찰
+          </span>
+        )}
+        {status.warningCount > 0 && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            ⚠️ 경고 {status.warningCount}회
+          </span>
+        )}
+      </div>
+    )
   }
 
   const loadMembers = async (adminData: any) => {
@@ -652,6 +801,9 @@ export default function MembersPage() {
                       티어
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      패널티
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       최근 로그인
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -713,6 +865,15 @@ export default function MembersPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => openPenaltyHistory(member)}
+                          className="text-left hover:opacity-75 transition-opacity"
+                          title="패널티 내역 보기"
+                        >
+                          {getPenaltyBadges(member.id)}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {member.last_login_at ? formatDate(member.last_login_at) : '기록 없음'}
                         </div>
@@ -734,6 +895,26 @@ export default function MembersPage() {
                                 className="text-red-600 hover:text-red-900 disabled:opacity-50"
                               >
                                 거절
+                              </button>
+                            </>
+                          )}
+                          {member.status === 'approved' && (
+                            <>
+                              <button
+                                onClick={() => openPenaltyModal(member, 'warning')}
+                                disabled={processing === member.id || penaltySummaries[member.id]?.restricted}
+                                className="text-yellow-600 hover:text-yellow-800 disabled:opacity-50"
+                                title="경고 부여"
+                              >
+                                경고
+                              </button>
+                              <button
+                                onClick={() => openPenaltyModal(member, 'ejection')}
+                                disabled={processing === member.id || penaltySummaries[member.id]?.restricted}
+                                className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                                title="퇴장 조치"
+                              >
+                                퇴장
                               </button>
                             </>
                           )}
@@ -765,6 +946,133 @@ export default function MembersPage() {
           )}
         </div>
       </div>
+
+      {/* 패널티 사유 선택 모달 */}
+      {penaltyTarget && (
+        <ModalOverlay onClose={() => setPenaltyTarget(null)} closeOnBackdrop={false}>
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">
+                {penaltyTarget.type === 'warning' ? '⚠️ 경고 부여' : '🟥 퇴장 조치'}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">{penaltyTarget.member.organization_name}</p>
+
+              <div className="mb-4">
+                <div className="text-sm font-medium text-gray-700 mb-2">사유 선택</div>
+                <div className="space-y-2">
+                  {PENALTY_REASONS.map((reason) => (
+                    <label key={reason} className="flex items-center gap-2 p-2.5 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                      <input
+                        type="radio"
+                        name="penaltyReason"
+                        value={reason}
+                        checked={penaltyReason === reason}
+                        onChange={() => setPenaltyReason(reason)}
+                        className="text-blue-600"
+                      />
+                      <span className="text-sm text-gray-800">{reason}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {penaltyTarget.type === 'warning' &&
+                (penaltySummaries[penaltyTarget.member.id]?.warningCount ?? 0) + 1 >=
+                  (penaltySummaries[penaltyTarget.member.id]?.warningThreshold ?? 2) && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 break-keep">
+                  {penaltySummaries[penaltyTarget.member.id]?.probation
+                    ? '보호관찰 중인 회원입니다. 이 경고 부여 시 즉시 자동 퇴장 처리됩니다.'
+                    : '이 경고로 경고 2회가 누적되어 자동 퇴장 처리됩니다.'}
+                </div>
+              )}
+
+              {penaltyTarget.type === 'ejection' && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 break-keep">
+                  퇴장 시 이번 달 신청이 제한되며, 다음달 1일부터 신청 가능합니다. 기존 예약은 예약 관리에서 별도로 취소해주세요.
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPenaltyTarget(null)}
+                  disabled={isPenaltyProcessing}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleIssuePenalty}
+                  disabled={isPenaltyProcessing}
+                  className={`flex-1 px-4 py-2.5 text-white rounded-lg font-medium disabled:opacity-50 ${
+                    penaltyTarget.type === 'warning'
+                      ? 'bg-yellow-500 hover:bg-yellow-600'
+                      : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {isPenaltyProcessing ? '처리 중...' : penaltyTarget.type === 'warning' ? '경고하기' : '퇴장하기'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* 패널티 내역 모달 */}
+      {penaltyHistoryTarget && (
+        <ModalOverlay onClose={() => setPenaltyHistoryTarget(null)}>
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">패널티 내역 (올해)</h3>
+                  <p className="text-sm text-gray-600">{penaltyHistoryTarget.organization_name}</p>
+                </div>
+                <button
+                  onClick={() => setPenaltyHistoryTarget(null)}
+                  className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {penaltyHistory.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500">올해 패널티 내역이 없습니다.</p>
+              ) : (
+                <div className="space-y-2">
+                  {penaltyHistory.map((penalty) => (
+                    <div key={penalty.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            penalty.type === 'warning'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {penalty.type === 'warning' ? '⚠️ 경고' : '🟥 퇴장'}
+                          </span>
+                          <span className="text-sm text-gray-800">{penalty.reason}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {formatDate(penalty.created_at)}
+                          {penalty.issued_by && ` · ${penalty.issued_by}`}
+                          {penalty.type === 'ejection' && penalty.restricted_month && ` · 제한월 ${penalty.restricted_month}`}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleCancelPenalty(penalty)}
+                        disabled={isPenaltyProcessing}
+                        className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50 shrink-0 ml-3"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
     </div>
   )
 }

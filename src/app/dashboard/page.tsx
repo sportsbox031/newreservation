@@ -28,6 +28,7 @@ import { useSessionCheck } from '@/hooks/useSessionCheck';
 import { shouldStartDashboardRefresh } from '@/lib/dashboardRefresh';
 import { applyReservationStatusDelta } from '@/lib/reservationStatus';
 import { getInitialDashboardMonth } from '@/lib/reservationActiveMonth';
+import { formatYearMonthLabel } from '@/lib/penalty';
 import Spinner from '@/components/Spinner';
 import ModalOverlay from '@/components/ModalOverlay';
 import {
@@ -121,6 +122,13 @@ export default function DashboardPage() {
   }[]>([]);
   const [userRegion, setUserRegion] = useState<'south' | 'north' | null>(null);
   const [isMonthClosed, setIsMonthClosed] = useState(true); // 예약 종료가 기본값 (각 월마다 관리자가 수동으로 열어야 함)
+  // 퇴장(신청 제한) 상태 — 제한월 동안 달력을 가리고 안내 모달을 띄운다
+  const [penaltyRestriction, setPenaltyRestriction] = useState<{
+    restrictedMonth: string | null;
+    resumeMonth: string | null;
+    triggeredByWarning: boolean;
+  } | null>(null);
+  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
   const [hasResolvedActiveMonth, setHasResolvedActiveMonth] = useState(false);
   const [userTier, setUserTier] = useState<UserTier | null>(null);
   const [currentUserInfo, setCurrentUserInfo] = useState<{
@@ -320,6 +328,17 @@ export default function DashboardPage() {
   };
 
   const applyDashboardCalendarData = (calendarData: any) => {
+    if (calendarData?.penalty?.restricted) {
+      // 주기적 새로고침 시 모달이 반복해서 뜨지 않도록 기존 상태를 유지한다
+      setPenaltyRestriction(prev => prev ?? {
+        restrictedMonth: calendarData.penalty.restricted_month ?? null,
+        resumeMonth: calendarData.penalty.resume_month ?? null,
+        triggeredByWarning: calendarData.penalty.triggered_by_warning === true
+      });
+    } else {
+      setPenaltyRestriction(null);
+    }
+
     const monthGateIsOpen = calendarData?.monthGate?.is_open === true;
 
     if (calendarData?.reservationStatus) {
@@ -425,6 +444,13 @@ export default function DashboardPage() {
       refreshDashboardData(true);
     }
   }, [currentMonth, hasResolvedActiveMonth, isAuthenticated, user, userRegion]);
+
+  // 퇴장 상태가 처음 감지되면 안내 모달을 띄운다
+  useEffect(() => {
+    if (penaltyRestriction) {
+      setShowPenaltyModal(true);
+    }
+  }, [penaltyRestriction]);
 
   // 실시간 설정 변경 감지를 위한 주기적 새로고침 (취소 승인 반영 포함)
   useEffect(() => {
@@ -1306,8 +1332,32 @@ export default function DashboardPage() {
                   showNeighboringMonth={false}
                 />
                 
+                {/* 퇴장(신청 제한) 오버레이 — 달력을 가린다 */}
+                {penaltyRestriction && !isLoadingCalendar && (
+                  <div className="absolute bg-white bg-opacity-95 backdrop-blur-sm flex items-center justify-center z-10"
+                       style={{
+                         top: '0',
+                         left: '0',
+                         right: '0',
+                         bottom: '0',
+                         borderRadius: '1rem'
+                       }}>
+                    <div className="text-center px-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+                        <span className="text-3xl">🟥</span>
+                      </div>
+                      <h3 className="text-xl font-bold text-red-700 mb-2">퇴장 조치로 신청이 제한되었습니다.</h3>
+                      <p className="text-sm text-gray-600 break-keep">
+                        {penaltyRestriction.resumeMonth
+                          ? `${formatYearMonthLabel(penaltyRestriction.resumeMonth)}부터 신청이 가능합니다.`
+                          : '다음달부터 신청이 가능합니다.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* 월 전체 예약 종료 오버레이 */}
-                {isMonthClosed && !isLoadingCalendar && (
+                {isMonthClosed && !isLoadingCalendar && !penaltyRestriction && (
                   <div className="absolute bg-white bg-opacity-95 backdrop-blur-sm flex items-center justify-center z-10"
                        style={{
                          top: '0',
@@ -1503,6 +1553,36 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* 퇴장(신청 제한) 안내 모달 */}
+      {showPenaltyModal && penaltyRestriction && (
+        <ModalOverlay onClose={() => setShowPenaltyModal(false)}>
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+                <span className="text-3xl">🟥</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">퇴장 조치 안내</h3>
+              <p className="text-sm text-gray-700 mb-2 break-keep">
+                {penaltyRestriction.triggeredByWarning
+                  ? '경고 2회 누적으로 인해 퇴장 조치되었습니다.'
+                  : '운영 규정 위반으로 인해 퇴장 조치되었습니다.'}
+              </p>
+              <p className="text-sm text-gray-700 mb-6 break-keep">
+                {penaltyRestriction.restrictedMonth && penaltyRestriction.resumeMonth
+                  ? `해당 월(${formatYearMonthLabel(penaltyRestriction.restrictedMonth)})은 신청이 제한되며 ${formatYearMonthLabel(penaltyRestriction.resumeMonth)}부터 신청이 가능합니다.`
+                  : '해당 월은 신청이 제한됩니다.'}
+              </p>
+              <button
+                onClick={() => setShowPenaltyModal(false)}
+                className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
 
       {/* 예약 모달 */}
       {activeModal === 'reservation' && selectedDate && (

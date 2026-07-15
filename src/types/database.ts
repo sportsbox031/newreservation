@@ -89,6 +89,47 @@ type ExtendedPublic = Merge<
             >
           }
         >
+        user_penalties: {
+          Row: {
+            id: string
+            user_id: string
+            type: 'warning' | 'ejection'
+            reason: string
+            restricted_month: string | null
+            triggered_by_warning: boolean
+            issued_by: string | null
+            created_at: string
+          }
+          Insert: {
+            id?: string
+            user_id: string
+            type: 'warning' | 'ejection'
+            reason: string
+            restricted_month?: string | null
+            triggered_by_warning?: boolean
+            issued_by?: string | null
+            created_at?: string
+          }
+          Update: {
+            id?: string
+            user_id?: string
+            type?: 'warning' | 'ejection'
+            reason?: string
+            restricted_month?: string | null
+            triggered_by_warning?: boolean
+            issued_by?: string | null
+            created_at?: string
+          }
+          Relationships: [
+            {
+              foreignKeyName: 'user_penalties_user_id_fkey'
+              columns: ['user_id']
+              isOneToOne: false
+              referencedRelation: 'users'
+              referencedColumns: ['id']
+            },
+          ]
+        }
         admin_sessions: {
           Row: {
             id: number
@@ -192,6 +233,9 @@ export type UserSessionUpdate = Database['public']['Tables']['user_sessions']['U
 export type DailyReservationsLimit = Database['public']['Tables']['daily_reservation_limits']['Row']
 export type DailyReservationsLimitInsert = Database['public']['Tables']['daily_reservation_limits']['Insert']
 export type DailyReservationsLimitUpdate = Database['public']['Tables']['daily_reservation_limits']['Update']
+
+export type UserPenalty = Database['public']['Tables']['user_penalties']['Row']
+export type UserPenaltyInsert = Database['public']['Tables']['user_penalties']['Insert']
 
 export type ReservationTransaction = Database['public']['Tables']['reservation_transactions']['Row']
 export type ReservationTransactionInsert = Database['public']['Tables']['reservation_transactions']['Insert']

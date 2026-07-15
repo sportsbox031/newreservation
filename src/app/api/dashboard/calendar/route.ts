@@ -9,6 +9,7 @@ import {
   getDashboardTierOpenState,
   getDashboardUserMetaContext,
 } from '@/lib/dashboardServer'
+import { getUserPenaltyStatus } from '@/lib/penaltyServer'
 import { getErrorMessage } from '@/lib/requestUtils'
 
 export async function GET(request: NextRequest) {
@@ -25,6 +26,23 @@ export async function GET(request: NextRequest) {
 
     if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
       return NextResponse.json({ error: '잘못된 연도 또는 월입니다.' }, { status: 400 })
+    }
+
+    // 퇴장(신청 제한) 상태면 달력을 닫힌 상태로 내려준다.
+    // 조회 실패 시에는 대시보드 가용성을 위해 제한 없이 진행한다. (예약 API에서 최종 차단)
+    const penaltyResult = await getUserPenaltyStatus(authResult.user.id)
+    if (penaltyResult.data?.restricted) {
+      return NextResponse.json({
+        data: {
+          ...buildDashboardCalendarData({}, [], false),
+          penalty: {
+            restricted: true,
+            restricted_month: penaltyResult.data.restrictedMonth,
+            resume_month: penaltyResult.data.resumeMonth,
+            triggered_by_warning: penaltyResult.data.lastEjectionTriggeredByWarning
+          }
+        }
+      })
     }
 
     const userMetaResult = await getDashboardUserMetaContext(authResult.user.id, year, month, authResult.user)
