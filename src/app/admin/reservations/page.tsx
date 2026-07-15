@@ -37,7 +37,7 @@ import { getAdminCalendarDayStatus } from '@/lib/adminCalendarStatus';
 import AdminNavigation from '@/components/AdminNavigation';
 import { buildCookieFirstJsonRequestInit } from '@/lib/clientAuthHeaders';
 import Spinner from '@/components/Spinner';
-import { modalOverlayClass } from '@/components/ModalOverlay';
+import ModalOverlay from '@/components/ModalOverlay';
 
 type CalendarValue = Date | null | [Date | null, Date | null];
 
@@ -1415,7 +1415,7 @@ function AdminReservationsContent() {
 
       {/* 예약 목록 모달 (달력 날짜 클릭 시) */}
       {activeModal === 'reservationList' && selectedDate && (
-        <div className={modalOverlayClass()}>
+        <ModalOverlay onClose={() => setActiveModal(null)}>
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
@@ -1600,12 +1600,17 @@ function AdminReservationsContent() {
               </div>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* 예약 상세 모달 */}
       {activeModal === 'reservationDetail' && selectedReservation && (
-        <div className={modalOverlayClass()}>
+        <ModalOverlay
+          onClose={() => {
+            setActiveModal(null);
+            setSelectedReservation(null);
+          }}
+        >
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
@@ -1829,7 +1834,7 @@ function AdminReservationsContent() {
               </div>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* 사용자 대시보드와 완전히 동일한 달력 스타일 */}

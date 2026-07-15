@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Award, Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { memberAPI } from '@/lib/supabase';
-import { modalOverlayClass } from '@/components/ModalOverlay';
+import ModalOverlay from '@/components/ModalOverlay';
 
 function hasErrorCode(error: unknown): error is { code: string; message?: string } {
   return typeof error === 'object' && error !== null && 'code' in error
@@ -487,7 +487,7 @@ export default function RegisterPage() {
 
       {/* 개인정보 수집 동의서 모달 */}
       {showPrivacyModal && (
-        <div className={modalOverlayClass()}>
+        <ModalOverlay onClose={() => setShowPrivacyModal(false)}>
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
@@ -563,7 +563,7 @@ export default function RegisterPage() {
               </div>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

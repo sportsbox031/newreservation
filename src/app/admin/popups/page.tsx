@@ -9,7 +9,7 @@ import RichTextEditor, { sanitizeHtml, markdownToHtml } from '@/components/RichT
 import AdminNavigation from '@/components/AdminNavigation'
 import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
 import { formatDateTimeKST as formatDate } from '@/lib/formatDate'
-import { modalOverlayClass } from '@/components/ModalOverlay'
+import ModalOverlay from '@/components/ModalOverlay'
 
 // datetime-local 입력은 한국 시간(KST) 기준으로 표시/입력한다.
 // 1) 표시: 특정 시각(instant)을 KST 벽시계 기준 YYYY-MM-DDTHH:MM 문자열로 변환
@@ -477,7 +477,13 @@ export default function PopupManagementPage() {
 
       {/* 팝업 생성/수정 모달 */}
       {showCreateModal && (
-        <div className={modalOverlayClass()}>
+        <ModalOverlay
+          onClose={() => {
+            setShowCreateModal(false)
+            setEditingPopup(null)
+          }}
+          closeOnBackdrop={false}
+        >
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
               <h2 className="text-xl font-bold text-gray-900">
@@ -657,12 +663,12 @@ export default function PopupManagementPage() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* 미리보기 모달 */}
       {showPreviewModal && previewPopup && (
-        <div className={modalOverlayClass()}>
+        <ModalOverlay onClose={() => setShowPreviewModal(false)}>
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
               <div className="flex justify-between items-start gap-4">
@@ -718,7 +724,7 @@ export default function PopupManagementPage() {
               )}
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
       </div>
     </div>

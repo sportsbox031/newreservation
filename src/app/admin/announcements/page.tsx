@@ -21,7 +21,7 @@ import FileUploadManager, { FileAttachment } from '@/components/FileUploadManage
 import { getRemovedExistingAttachments, type PersistedAttachment } from '@/lib/announcementAttachments'
 import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
 import { formatDateTimeKST as formatDate } from '@/lib/formatDate'
-import { modalOverlayClass } from '@/components/ModalOverlay'
+import ModalOverlay from '@/components/ModalOverlay'
 
 interface Announcement {
   id: string
@@ -464,7 +464,15 @@ export default function AdminAnnouncementsPage() {
 
       {/* 생성/수정 모달 */}
       {showCreateModal && (
-        <div className={modalOverlayClass()}>
+        <ModalOverlay
+          onClose={() => {
+            setShowCreateModal(false)
+            setEditingAnnouncement(null)
+            setOriginalAttachments([])
+            setAttachments([])
+          }}
+          closeOnBackdrop={false}
+        >
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSubmit}>
               <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
@@ -627,7 +635,7 @@ export default function AdminAnnouncementsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
       </div>
     </div>

@@ -7,7 +7,7 @@ import { sanitizeHtml } from '@/components/RichTextEditor'
 import AttachmentList from '@/components/AttachmentList'
 import { getAnnouncementAuthorName } from '@/lib/announcementAuthors'
 import { formatDateKR as formatDate } from '@/lib/formatDate'
-import { modalOverlayClass } from '@/components/ModalOverlay'
+import ModalOverlay from '@/components/ModalOverlay'
 
 interface Announcement {
   id: string
@@ -237,7 +237,7 @@ export default function AnnouncementsPage() {
 
       {/* 공지사항 상세 모달 */}
       {showModal && selectedAnnouncement && (
-        <div className={modalOverlayClass()}>
+        <ModalOverlay onClose={() => setShowModal(false)}>
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
               <div className="flex justify-between items-start gap-4">
@@ -293,7 +293,7 @@ export default function AnnouncementsPage() {
               />
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   )

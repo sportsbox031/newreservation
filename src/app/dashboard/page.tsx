@@ -29,7 +29,7 @@ import { shouldStartDashboardRefresh } from '@/lib/dashboardRefresh';
 import { applyReservationStatusDelta } from '@/lib/reservationStatus';
 import { getInitialDashboardMonth } from '@/lib/reservationActiveMonth';
 import Spinner from '@/components/Spinner';
-import { modalOverlayClass } from '@/components/ModalOverlay';
+import ModalOverlay from '@/components/ModalOverlay';
 import {
   EMPTY_RESERVATION_SLOT_FORM,
   getClosedReservationModalState,
@@ -1506,7 +1506,11 @@ export default function DashboardPage() {
 
       {/* 예약 모달 */}
       {activeModal === 'reservation' && selectedDate && (
-        <div className={modalOverlayClass('p-2 sm:p-4')}>
+        <ModalOverlay
+          padding="p-2 sm:p-4"
+          onClose={() => setActiveModal(null)}
+          closeOnBackdrop={false}
+        >
           <div className="bg-white rounded-lg sm:rounded-xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4 sm:mb-6">
@@ -1712,12 +1716,12 @@ export default function DashboardPage() {
               </form>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* 내 예약 목록 모달 */}
       {activeModal === 'myReservations' && (
-        <div className={modalOverlayClass('p-2 sm:p-4')}>
+        <ModalOverlay padding="p-2 sm:p-4" onClose={() => setActiveModal(null)}>
           <div className="bg-white rounded-lg sm:rounded-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4 sm:mb-6">
@@ -1859,7 +1863,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* 참조 이미지 기반 개선된 달력 스타일 */}
