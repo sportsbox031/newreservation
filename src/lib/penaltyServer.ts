@@ -174,6 +174,11 @@ export async function issuePenaltyOnServer(input: {
     return { data: null, error: '이미 신청 제한 중인 회원입니다.' }
   }
 
+  // 경고 누적 없이 바로 퇴장하는 것은 허용하지 않는다
+  if (input.type === 'ejection' && status.warningCount === 0) {
+    return { data: null, error: '누적된 경고가 없어 퇴장할 수 없습니다. 경고를 먼저 부여해주세요.' }
+  }
+
   const currentYearMonth = getKstYearMonth()
   const resumeYearMonth = getNextYearMonth(currentYearMonth)
   const restrictedMonthLabel = formatYearMonthLabel(currentYearMonth)

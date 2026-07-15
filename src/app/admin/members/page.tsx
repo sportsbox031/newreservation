@@ -66,6 +66,8 @@ export default function MembersPage() {
   const [penaltyHistoryTarget, setPenaltyHistoryTarget] = useState<Member | null>(null)
   const [penaltyHistory, setPenaltyHistory] = useState<UserPenalty[]>([])
   const [isPenaltyProcessing, setIsPenaltyProcessing] = useState(false)
+  // 경고 누적 없이 퇴장 버튼을 눌렀을 때 안내 모달 대상
+  const [ejectionBlockedTarget, setEjectionBlockedTarget] = useState<Member | null>(null)
   const summaryCounts = getMemberSummaryCounts(members, { searchTerm, regionFilter })
 
   useEffect(() => {
@@ -104,6 +106,12 @@ export default function MembersPage() {
   }
 
   const openPenaltyModal = (member: Member, type: 'warning' | 'ejection') => {
+    // 경고 누적 없이 바로 퇴장은 허용하지 않는다
+    if (type === 'ejection' && (penaltySummaries[member.id]?.warningCount ?? 0) === 0) {
+      setEjectionBlockedTarget(member)
+      return
+    }
+
     setPenaltyReason(PENALTY_REASONS[0])
     setPenaltyTarget({ member, type })
   }
@@ -1008,6 +1016,35 @@ export default function MembersPage() {
           )}
         </div>
       </div>
+
+      {/* 경고 누적 없이 퇴장 시도 시 안내 모달 */}
+      {ejectionBlockedTarget && (
+        <ModalOverlay onClose={() => setEjectionBlockedTarget(null)}>
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="p-6 text-center">
+              <div className="w-14 h-14 bg-yellow-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <AlertTriangle className="w-7 h-7 text-yellow-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">퇴장 조치 불가</h3>
+              <p className="text-sm text-gray-700 mb-2 break-keep">
+                <span className="font-semibold">{ejectionBlockedTarget.organization_name}</span>은(는) 현재 누적된 경고가 없습니다.
+              </p>
+              <p className="text-sm text-gray-600 mb-6 break-keep">
+                경고를 먼저 부여한 후 퇴장 조치가 가능합니다.
+                {penaltySummaries[ejectionBlockedTarget.id]?.probation
+                  ? ' (보호관찰 회원은 경고 1회 부여 시 자동으로 퇴장 처리됩니다)'
+                  : ' (경고 2회 누적 시 자동으로 퇴장 처리됩니다)'}
+              </p>
+              <button
+                onClick={() => setEjectionBlockedTarget(null)}
+                className="w-full px-4 py-2.5 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-900 transition-colors"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
 
       {/* 패널티 사유 선택 모달 */}
       {penaltyTarget && (
