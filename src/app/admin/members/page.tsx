@@ -463,6 +463,103 @@ export default function MembersPage() {
     )
   }
 
+  // 로그인 이력 뱃지 — 마우스를 올리면 실제 시각 표시
+  const renderLoginBadge = (member: Member) => (
+    member.last_login_at ? (
+      <span
+        title={`최근 로그인: ${formatDate(member.last_login_at)}`}
+        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 cursor-help"
+      >
+        있음
+      </span>
+    ) : (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+        없음
+      </span>
+    )
+  )
+
+  const renderTierControl = (member: Member) => (
+    member.status === 'approved' ? (
+      <select
+        value={member.tier ?? 'Standard'}
+        onChange={(e) => handleTierChange(member.id, e.target.value as 'Priority' | 'Standard', member.organization_name)}
+        disabled={processing === member.id}
+        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed ${
+          member.tier === 'Priority'
+            ? 'bg-yellow-100 text-yellow-800'
+            : 'bg-gray-100 text-gray-800'
+        }`}
+      >
+        <option value="Priority">🟡 Priority</option>
+        <option value="Standard">⚪ Standard</option>
+      </select>
+    ) : (
+      getTierBadge(member.tier)
+    )
+  )
+
+  const renderActionButtons = (member: Member) => (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium">
+      {member.status === 'pending' && (
+        <>
+          <button
+            onClick={() => handleStatusChange(member.id, 'approved')}
+            disabled={processing === member.id}
+            className="text-green-600 hover:text-green-900 disabled:opacity-50"
+          >
+            승인
+          </button>
+          <button
+            onClick={() => handleStatusChange(member.id, 'rejected')}
+            disabled={processing === member.id}
+            className="text-red-600 hover:text-red-900 disabled:opacity-50"
+          >
+            거절
+          </button>
+        </>
+      )}
+      {member.status === 'approved' && (
+        <>
+          <button
+            onClick={() => openPenaltyModal(member, 'warning')}
+            disabled={processing === member.id || penaltySummaries[member.id]?.restricted}
+            className="text-yellow-600 hover:text-yellow-800 disabled:opacity-50"
+            title="경고 부여"
+          >
+            경고
+          </button>
+          <button
+            onClick={() => openPenaltyModal(member, 'ejection')}
+            disabled={processing === member.id || penaltySummaries[member.id]?.restricted}
+            className="text-red-600 hover:text-red-900 disabled:opacity-50"
+            title="퇴장 조치"
+          >
+            퇴장
+          </button>
+        </>
+      )}
+      <button
+        onClick={() => handlePasswordReset(member.id, member.organization_name)}
+        disabled={processing === member.id}
+        className="flex items-center gap-0.5 text-blue-600 hover:text-blue-900 disabled:opacity-50"
+        title="비밀번호를 0000으로 초기화"
+      >
+        <Key className="w-3 h-3" />
+        초기화
+      </button>
+      <button
+        onClick={() => handleDeleteMember(member.id, member.organization_name)}
+        disabled={processing === member.id}
+        className="flex items-center gap-0.5 text-red-600 hover:text-red-900 disabled:opacity-50"
+        title="회원 삭제"
+      >
+        <XCircle className="w-3 h-3" />
+        삭제
+      </button>
+    </div>
+  )
+
   const handleDownloadSmsExcel = async () => {
     try {
       // 문자전송용 파일은 Excel 97-2003(.xls/BIFF8) 형식으로 생성한다.
@@ -679,7 +776,7 @@ export default function MembersPage() {
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Filter className="w-5 h-5 text-gray-400" />
                 {adminInfo?.role === 'super' && (
                   <select
@@ -775,174 +872,139 @@ export default function MembersPage() {
               <p className="text-gray-500">조건에 맞는 회원이 없습니다.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      단체/대표자
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      연락처
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      지역
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      학생수
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      학급수
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      상태
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      티어
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      패널티
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      최근 로그인
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      액션
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredMembers.map((member) => (
-                    <tr key={member.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
+            <>
+              {/* 데스크톱: 압축 테이블 (가로 스크롤 없이 표시) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                        단체/대표자
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                        연락처
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                        지역
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 tracking-wider">
+                        학생/학급
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                        상태
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                        티어
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                        패널티
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                        로그인
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                        액션
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredMembers.map((member) => (
+                      <tr key={member.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-3">
+                          <div
+                            className="text-sm font-medium text-gray-900 truncate max-w-[150px]"
+                            title={member.organization_name}
+                          >
                             {member.organization_name}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-xs text-gray-500 truncate max-w-[150px]">
                             {member.manager_name}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{member.phone}</div>
-                        <div className="text-sm text-gray-500">{member.email}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {member.cities?.regions?.name || member.region}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {member.cities?.name || member.city}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {member.student_count || 0}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {member.class_count || 0}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(member.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {member.status === 'approved' ? (
-                          <select
-                            value={member.tier ?? 'Standard'}
-                            onChange={(e) => handleTierChange(member.id, e.target.value as 'Priority' | 'Standard', member.organization_name)}
-                            disabled={processing === member.id}
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-all hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed ${
-                              member.tier === 'Priority'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            <option value="Priority">🟡 Priority</option>
-                            <option value="Standard">⚪ Standard</option>
-                          </select>
-                        ) : (
-                          getTierBadge(member.tier)
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => openPenaltyHistory(member)}
-                          className="text-left hover:opacity-75 transition-opacity"
-                          title="패널티 내역 보기"
-                        >
-                          {getPenaltyBadges(member.id)}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {member.last_login_at ? formatDate(member.last_login_at) : '기록 없음'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
-                          {member.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleStatusChange(member.id, 'approved')}
-                                disabled={processing === member.id}
-                                className="text-green-600 hover:text-green-900 disabled:opacity-50"
-                              >
-                                승인
-                              </button>
-                              <button
-                                onClick={() => handleStatusChange(member.id, 'rejected')}
-                                disabled={processing === member.id}
-                                className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                              >
-                                거절
-                              </button>
-                            </>
-                          )}
-                          {member.status === 'approved' && (
-                            <>
-                              <button
-                                onClick={() => openPenaltyModal(member, 'warning')}
-                                disabled={processing === member.id || penaltySummaries[member.id]?.restricted}
-                                className="text-yellow-600 hover:text-yellow-800 disabled:opacity-50"
-                                title="경고 부여"
-                              >
-                                경고
-                              </button>
-                              <button
-                                onClick={() => openPenaltyModal(member, 'ejection')}
-                                disabled={processing === member.id || penaltySummaries[member.id]?.restricted}
-                                className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                                title="퇴장 조치"
-                              >
-                                퇴장
-                              </button>
-                            </>
-                          )}
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{member.phone}</div>
+                          <div className="text-xs text-gray-500 truncate max-w-[150px]" title={member.email}>
+                            {member.email}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {member.cities?.regions?.name || member.region}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {member.cities?.name || member.city}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900 text-center">
+                          {member.student_count || 0} / {member.class_count || 0}
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          {getStatusBadge(member.status)}
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          {renderTierControl(member)}
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <button
-                            onClick={() => handlePasswordReset(member.id, member.organization_name)}
-                            disabled={processing === member.id}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-900 disabled:opacity-50"
-                            title="비밀번호를 0000으로 초기화"
+                            onClick={() => openPenaltyHistory(member)}
+                            className="text-left hover:opacity-75 transition-opacity"
+                            title="패널티 내역 보기"
                           >
-                            <Key className="w-3 h-3" />
-                            초기화
+                            {getPenaltyBadges(member.id)}
                           </button>
-                          <button
-                            onClick={() => handleDeleteMember(member.id, member.organization_name)}
-                            disabled={processing === member.id}
-                            className="flex items-center gap-1 text-red-600 hover:text-red-900 disabled:opacity-50"
-                            title="회원 삭제"
-                          >
-                            <XCircle className="w-3 h-3" />
-                            삭제
-                          </button>
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          {renderLoginBadge(member)}
+                        </td>
+                        <td className="px-3 py-3">
+                          {renderActionButtons(member)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 모바일: 카드 목록 */}
+              <div className="md:hidden divide-y divide-gray-200">
+                {filteredMembers.map((member) => (
+                  <div key={member.id} className="p-4 space-y-2">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-gray-900 truncate">
+                          {member.organization_name}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <div className="text-xs text-gray-500">
+                          {member.manager_name} · {member.cities?.regions?.name || member.region} {member.cities?.name || member.city}
+                        </div>
+                      </div>
+                      <div className="shrink-0">{getStatusBadge(member.status)}</div>
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {member.phone} · 학생 {member.student_count || 0} / 학급 {member.class_count || 0}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">{member.email}</div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {renderTierControl(member)}
+                      <button
+                        onClick={() => openPenaltyHistory(member)}
+                        className="text-left hover:opacity-75 transition-opacity"
+                        title="패널티 내역 보기"
+                      >
+                        {getPenaltyBadges(member.id)}
+                      </button>
+                      {renderLoginBadge(member)}
+                      {member.last_login_at && (
+                        <span className="text-xs text-gray-400">{formatDate(member.last_login_at)}</span>
+                      )}
+                    </div>
+                    <div className="pt-1">
+                      {renderActionButtons(member)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
