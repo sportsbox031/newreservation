@@ -708,7 +708,7 @@ function AdminReservationsContent() {
         // 알림톡 발송 (실패해도 승인 프로세스는 계속 진행)
         fetch('/api/notifications/aligo', buildCookieFirstJsonRequestInit({
             type: 'reservation_approval',
-            phone: reservation.phone,
+            reservationId,
             organizationName: reservation.organization_name,
             reservationDate,
             timeSlot,
@@ -768,7 +768,7 @@ function AdminReservationsContent() {
     try {
       setActionLoading(reservationId);
 
-      // 알림톡 발송 (삭제 전에 먼저 발송)
+      // 알림톡 발송 (삭제하면 서버에서 연락처를 조회할 수 없으므로 삭제 전에 반드시 완료해야 함)
       const reservation = allReservations.find(r => r.id === reservationId)
       if (reservation) {
         // 예약 날짜 포맷팅
@@ -779,22 +779,21 @@ function AdminReservationsContent() {
           weekday: 'long'
         })
 
-        fetch('/api/notifications/aligo', buildCookieFirstJsonRequestInit({
+        try {
+          const notifyRes = await fetch('/api/notifications/aligo', buildCookieFirstJsonRequestInit({
             type: 'reservation_rejection',
-            phone: reservation.phone,
+            reservationId,
             organizationName: reservation.organization_name,
             reservationDate,
             tplCode: process.env.NEXT_PUBLIC_ALIGO_RESERVATION_REJECTION_TPL_CODE || ''
           }))
-          .then(res => res.json())
-          .then(result => {
-            if (!result.success) {
-              console.error('알림톡 발송 실패:', result.error)
-            }
-          })
-          .catch(err => {
-            console.error('알림톡 API 호출 오류:', err)
-          })
+          const notifyResult = await notifyRes.json()
+          if (!notifyResult.success) {
+            console.error('알림톡 발송 실패:', notifyResult.error)
+          }
+        } catch (err) {
+          console.error('알림톡 API 호출 오류:', err)
+        }
       }
 
       const { data, error } = await reservationAPI.deleteReservation(reservationId);
