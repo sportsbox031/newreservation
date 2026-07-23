@@ -488,6 +488,31 @@ export async function deleteMemberOnServer(adminRole: string, memberId: string) 
   }
 }
 
+// 알림톡 발송 직전 최신 연락처를 조회 (클라이언트에 캐시된 값을 신뢰하지 않기 위함)
+export async function getMemberContactPhoneOnServer(memberId: string): Promise<{
+  phone: string | null
+  error: { message: string } | null
+}> {
+  try {
+    const { data, error } = await runQueryWithTimeout(
+      supabaseAdmin
+        .from('users')
+        .select('phone')
+        .eq('id', memberId)
+        .single(),
+      '회원 연락처를 불러오는 중 시간이 초과되었습니다.'
+    )
+
+    if (error || !data) {
+      return { phone: null, error: timeoutError(getErrorMessage(error, '회원 연락처를 찾을 수 없습니다.')) }
+    }
+
+    return { phone: data.phone ?? null, error: null }
+  } catch (error) {
+    return { phone: null, error: timeoutError(getErrorMessage(error, '회원 연락처를 불러오는 중 오류가 발생했습니다.')) }
+  }
+}
+
 export async function updateUserProfileOnServer(
   userId: string,
   updateData: {
