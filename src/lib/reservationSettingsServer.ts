@@ -767,6 +767,32 @@ export async function updateReservationStatusOnServer(
   return { data, error }
 }
 
+// 알림톡 발송 직전 최신 연락처를 조회 (클라이언트에 캐시된 값을 신뢰하지 않기 위함)
+export async function getReservationContactPhoneOnServer(reservationId: string): Promise<{
+  phone: string | null
+  error: { message: string } | null
+}> {
+  try {
+    const { data, error } = await runQueryWithTimeout(
+      supabaseAdmin
+        .from('reservations')
+        .select('users!inner(phone)')
+        .eq('id', reservationId)
+        .single(),
+      '예약자 연락처를 불러오는 중 시간이 초과되었습니다.'
+    )
+
+    if (error || !data) {
+      return { phone: null, error: timeoutError(getErrorMessage(error, '예약자 연락처를 찾을 수 없습니다.')) }
+    }
+
+    const phone = (data.users as { phone: string | null } | null)?.phone ?? null
+    return { phone, error: null }
+  } catch (error) {
+    return { phone: null, error: timeoutError(getErrorMessage(error, '예약자 연락처를 불러오는 중 오류가 발생했습니다.')) }
+  }
+}
+
 export async function deleteReservationOnServer(adminRole: string, reservationId: string) {
   const reservation = await getReservationRegionScope(reservationId)
   if (reservation.error || !reservation.data) {

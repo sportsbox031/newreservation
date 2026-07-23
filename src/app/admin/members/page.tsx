@@ -122,24 +122,23 @@ export default function MembersPage() {
           return
         }
 
-        // 알림톡 발송 (삭제 전에 먼저 발송)
+        // 알림톡 발송 (삭제하면 서버에서 연락처를 조회할 수 없으므로 삭제 전에 반드시 완료해야 함)
         const member = members.find(m => m.id === memberId)
         if (member) {
-          fetch('/api/notifications/aligo', buildCookieFirstJsonRequestInit({
+          try {
+            const notifyRes = await fetch('/api/notifications/aligo', buildCookieFirstJsonRequestInit({
               type: 'member_rejection',
-              phone: member.phone,
+              memberId,
               organizationName: member.organization_name,
               tplCode: process.env.NEXT_PUBLIC_ALIGO_MEMBER_REJECTION_TPL_CODE || ''
             }))
-            .then(res => res.json())
-            .then(result => {
-              if (!result.success) {
-                console.error('알림톡 발송 실패:', result.error)
-              }
-            })
-            .catch(err => {
-              console.error('알림톡 API 호출 오류:', err)
-            })
+            const notifyResult = await notifyRes.json()
+            if (!notifyResult.success) {
+              console.error('알림톡 발송 실패:', notifyResult.error)
+            }
+          } catch (err) {
+            console.error('알림톡 API 호출 오류:', err)
+          }
         }
 
         const { error } = await memberAPI.deleteMember(memberId)
@@ -167,7 +166,7 @@ export default function MembersPage() {
           // 알림톡 발송 (실패해도 승인 프로세스는 계속 진행)
           fetch('/api/notifications/aligo', buildCookieFirstJsonRequestInit({
               type: 'member_approval',
-              phone: member.phone,
+              memberId,
               organizationName: member.organization_name,
               tplCode: process.env.NEXT_PUBLIC_ALIGO_MEMBER_APPROVAL_TPL_CODE || ''
             }))
