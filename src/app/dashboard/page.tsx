@@ -704,6 +704,14 @@ export default function DashboardPage() {
     setReservationSlots(updatedSlots);
   };
 
+  // 두번째 타임 시작시간이 첫번째 타임 종료시간보다 이른지 확인 (두번째 타임에만 적용)
+  const isBeforeFirstSlotEnd = (index: number, startTime: string): boolean => {
+    if (index !== 1) return false;
+    const firstEndTime = reservationSlots[0].endTime;
+    if (!firstEndTime) return false;
+    return startTime < firstEndTime;
+  };
+
   // 2번째 슬롯이 입력되었는지 확인
   const isSlotFilled = (slot: ReservationSlotFormState) =>
     slot.startTime !== '' || slot.grade !== '' || slot.participantCount !== '' || slot.location !== '';
@@ -943,6 +951,14 @@ export default function DashboardPage() {
 
       if (startTimes.length !== uniqueStartTimes.size) {
         alert('시작 시간이 중복됩니다. 각 타임의 시작 시간은 서로 달라야 합니다.');
+        setIsSubmitting(false);
+        setSubmitStatusMessage('');
+        return;
+      }
+
+      // 타임 순서 검증 (두번째 타임 시작 시간은 첫번째 타임 종료 시간보다 빠를 수 없음)
+      if (filteredSlots.length === 2 && filteredSlots[1].startTime < filteredSlots[0].endTime) {
+        alert('두번째 타임의 시작 시간은 첫번째 타임의 종료 시간보다 빠를 수 없습니다.');
         setIsSubmitting(false);
         setSubmitStatusMessage('');
         return;
@@ -1536,7 +1552,7 @@ export default function DashboardPage() {
                   >
                     <div className="flex justify-between items-center">
                       <h4 className="text-sm sm:text-base font-semibold text-gray-900">
-                        {index + 1}번째 타임
+                        {index === 0 ? '첫번째 타임' : '두번째 타임'}
                         {isOptional && (
                           <span className="ml-2 text-xs font-normal text-gray-400">(선택)</span>
                         )}
@@ -1592,14 +1608,16 @@ export default function DashboardPage() {
                           <option value="">선택하세요</option>
                           {timeOptions.map(time => {
                             const blocked = isTimeBlocked(time);
+                            const beforeFirstSlotEnd = isBeforeFirstSlotEnd(index, time);
+                            const disabled = blocked || beforeFirstSlotEnd;
                             return (
                               <option
                                 key={time}
                                 value={time}
-                                disabled={blocked}
-                                className={blocked ? 'text-gray-400 bg-gray-100' : ''}
+                                disabled={disabled}
+                                className={disabled ? 'text-gray-400 bg-gray-100' : ''}
                               >
-                                {time}{blocked ? ' (차단됨)' : ''}
+                                {time}{blocked ? ' (차단됨)' : beforeFirstSlotEnd ? ' (첫번째 타임 시간)' : ''}
                               </option>
                             );
                           })}
