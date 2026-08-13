@@ -11,6 +11,16 @@ import {
 } from '@/lib/eventServer'
 import { getErrorMessage } from '@/lib/requestUtils'
 
+// 요청 본문의 thumbnail_path를 3-state로 해석한다.
+// - 문자열: 명시적으로 새 값을 설정
+// - null: 명시적으로 제거
+// - 그 외(키 없음 등): undefined (수정 시 기존 값 유지, 생성 시 값 없음과 동일)
+function extractThumbnailPath(body: Record<string, unknown>): string | null | undefined {
+  if (typeof body.thumbnail_path === 'string') return body.thumbnail_path
+  if (body.thumbnail_path === null) return null
+  return undefined
+}
+
 type AdminUser = NonNullable<AuthResult['user']>
 
 async function requireAdmin(
@@ -93,7 +103,8 @@ export async function POST(request: NextRequest) {
     const effective = resolveEffectiveEventInput(admin.user, parsed.value)
     if (!effective.ok) return effective.response
 
-    const result = await createEventOnServer(effective.value, admin.user.id)
+    const thumbnailPath = extractThumbnailPath(body)
+    const result = await createEventOnServer(effective.value, admin.user.id, thumbnailPath)
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status ?? 400 })
     }
@@ -126,10 +137,13 @@ export async function PUT(request: NextRequest) {
     const effective = resolveEffectiveEventInput(admin.user, parsed.value)
     if (!effective.ok) return effective.response
 
-    const result = await updateEventOnServer(id, effective.value, {
-      id: admin.user.id,
-      role: admin.user.role,
-    })
+    const thumbnailPath = extractThumbnailPath(body)
+    const result = await updateEventOnServer(
+      id,
+      effective.value,
+      { id: admin.user.id, role: admin.user.role },
+      thumbnailPath
+    )
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status ?? 400 })
     }

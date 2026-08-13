@@ -84,9 +84,11 @@ async function replaceEventDates(
 
 // 이벤트 생성. target_region_id는 input.target_region_code로부터 서버에서 직접 조회한다.
 // (호출측인 라우트에서 지역 스코프 강제를 이미 마친 뒤 effective code를 넘겨준다)
+// thumbnailPath: 대표이미지 업로드 결과 storage path (선택). validateEventInput의 핵심 필드 검증 대상이 아니므로 별도 인자로 받는다.
 export async function createEventOnServer(
   input: NormalizedEventInput,
-  authorId: string
+  authorId: string,
+  thumbnailPath?: string | null
 ): Promise<ServerResult<SportsEvent>> {
   try {
     const target_region_id = await regionIdForCode(input.target_region_code)
@@ -98,6 +100,7 @@ export async function createEventOnServer(
           title: input.title,
           description: input.description,
           content_type: input.content_type,
+          thumbnail_path: thumbnailPath ?? null,
           video_url: input.video_url,
           target_type: input.target_type,
           target_region_id,
@@ -147,10 +150,13 @@ export async function createEventOnServer(
 }
 
 // 이벤트 수정. 소유권 확인(super가 아니면 본인 작성 이벤트만) 후 events + event_dates 통째 교체.
+// thumbnailPath: 대표이미지 storage path 갱신값 (선택). undefined면 기존 값을 그대로 유지하고,
+// string 또는 null이면 명시적으로 덮어쓴다 (호출측에서 body에 키가 있었는지로 구분해 넘겨준다).
 export async function updateEventOnServer(
   id: string,
   input: NormalizedEventInput,
-  requester: EventRequester
+  requester: EventRequester,
+  thumbnailPath?: string | null
 ): Promise<ServerResult<SportsEvent>> {
   try {
     const { data: existing, error: fetchError } = await runQueryWithTimeout(
@@ -172,18 +178,23 @@ export async function updateEventOnServer(
 
     const target_region_id = await regionIdForCode(input.target_region_code)
 
+    const updatePayload: Database['public']['Tables']['events']['Update'] = {
+      title: input.title,
+      description: input.description,
+      content_type: input.content_type,
+      video_url: input.video_url,
+      target_type: input.target_type,
+      target_region_id,
+      updated_at: new Date().toISOString(),
+    }
+    if (thumbnailPath !== undefined) {
+      updatePayload.thumbnail_path = thumbnailPath
+    }
+
     const { data: updated, error } = await runQueryWithTimeout(
       supabaseAdmin
         .from('events')
-        .update({
-          title: input.title,
-          description: input.description,
-          content_type: input.content_type,
-          video_url: input.video_url,
-          target_type: input.target_type,
-          target_region_id,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', id)
         .select()
         .single(),
