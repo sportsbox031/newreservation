@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { Database, SportsEvent, EventDate } from '@/types/database'
+import { Database, SportsEvent, EventDate, EventFormFile } from '@/types/database'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import type { NormalizedEventInput } from '@/lib/eventAdminHelpers'
 
@@ -29,7 +29,10 @@ export interface EventListScope {
   regionId: number | null
 }
 
-export type EventWithDates = SportsEvent & { event_dates: EventDate[] }
+export type EventWithDates = SportsEvent & {
+  event_dates: EventDate[]
+  event_form_files: EventFormFile[]
+}
 
 type ServerResult<T> = { data: T | null; error: { message: string } | null; status?: number }
 
@@ -275,7 +278,7 @@ export async function listEventsOnServer(
   scope: EventListScope
 ): Promise<ServerResult<EventWithDates[]>> {
   try {
-    let query = supabaseAdmin.from('events').select('*, event_dates(*)')
+    let query = supabaseAdmin.from('events').select('*, event_dates(*), event_form_files(*)')
 
     if (scope.role !== 'super') {
       if (scope.regionId !== null) {

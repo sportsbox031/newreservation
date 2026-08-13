@@ -23,6 +23,7 @@ import ModalOverlay from '@/components/ModalOverlay'
 import { utilityAPI } from '@/lib/supabase'
 import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'
 import { computeEffectiveOpen } from '@/lib/eventReservationStatus'
+import { getRemovedExistingAttachments, type PersistedAttachment } from '@/lib/announcementAttachments'
 
 interface EventDateRow {
   id?: string
@@ -30,6 +31,16 @@ interface EventDateRow {
   event_date: string
   label: string | null
   sort_order: number
+}
+
+interface EventFormFileRow {
+  id: string
+  event_id: string
+  file_name: string
+  file_size: number
+  file_type: string
+  storage_path: string
+  uploaded_at?: string
 }
 
 interface EventRow {
@@ -48,6 +59,7 @@ interface EventRow {
   created_at: string
   updated_at: string
   event_dates: EventDateRow[]
+  event_form_files?: EventFormFileRow[]
 }
 
 interface Region {
@@ -105,6 +117,7 @@ export default function AdminEventsPage() {
   const [removeThumbnail, setRemoveThumbnail] = useState(false)
 
   const [formFiles, setFormFiles] = useState<FileAttachment[]>([])
+  const [originalFormFiles, setOriginalFormFiles] = useState<PersistedAttachment[]>([])
 
   useEffect(() => {
     checkAuth()
@@ -170,6 +183,7 @@ export default function AdminEventsPage() {
     setEditingEvent(null)
     resetThumbnailState()
     setFormFiles([])
+    setOriginalFormFiles([])
   }
 
   const handleCreate = () => {
@@ -184,21 +198,30 @@ export default function AdminEventsPage() {
     setDates([{ event_date: '', label: '' }])
     resetThumbnailState()
     setFormFiles([])
+    setOriginalFormFiles([])
     setEditingEvent(null)
     setShowModal(true)
   }
 
   const handleEdit = (event: EventRow) => {
-    const regionCode = event.target_region_id
+    const isRegionalAdmin = adminInfo?.role === 'south' || adminInfo?.role === 'north'
+    // 지역관리자는 대상 지역을 본인 지역으로 강제(handleCreate와 동일). 파생값이 비어 저장이 막히는 상황을 방지.
+    // super는 이벤트의 실제 대상 지역을 그대로 유지.
+    const derivedRegionCode = event.target_region_id
       ? regions.find(r => r.id === event.target_region_id)?.code
       : null
+    const target_region_code: '' | 'south' | 'north' = isRegionalAdmin
+      ? adminInfo.role
+      : derivedRegionCode === 'south' || derivedRegionCode === 'north'
+      ? derivedRegionCode
+      : ''
 
     setFormData({
       title: event.title,
       description: event.description || '',
       video_url: event.video_url || '',
-      target_type: event.target_type,
-      target_region_code: regionCode === 'south' || regionCode === 'north' ? regionCode : ''
+      target_type: isRegionalAdmin ? 'region' : event.target_type,
+      target_region_code
     })
 
     const sortedDates = [...(event.event_dates || [])].sort((a, b) => a.sort_order - b.sort_order)
@@ -211,7 +234,18 @@ export default function AdminEventsPage() {
     resetThumbnailState()
     setThumbnailPreview(eventImagePublicUrl(event.thumbnail_path))
     setThumbnailPath(event.thumbnail_path)
-    setFormFiles([])
+
+    // 기존 서류양식파일을 편집 UI에 표시하고, 저장 시 제거분을 계산할 수 있도록 원본 목록을 보관.
+    const existingFiles = (event.event_form_files || []).map(f => ({
+      id: f.id,
+      file_name: f.file_name,
+      file_size: f.file_size,
+      file_type: f.file_type,
+      storage_path: f.storage_path
+    }))
+    setFormFiles(existingFiles)
+    setOriginalFormFiles(existingFiles.map(f => ({ id: f.id!, storage_path: f.storage_path! })))
+
     setEditingEvent(event)
     setShowModal(true)
   }
@@ -319,6 +353,25 @@ export default function AdminEventsPage() {
       const savedEvent = json?.data
       const newFiles = formFiles.filter(f => f.file)
       const failedUploads: string[] = []
+
+      // 편집 중 사용자가 목록에서 제거한 기존 서류양식파일을 실제로 삭제(원본 대비 차집합).
+      const removedFiles = getRemovedExistingAttachments(originalFormFiles, formFiles)
+      for (const removed of removedFiles) {
+        const deleteResponse = await fetch(
+          `/api/admin/events/files?id=${encodeURIComponent(removed.id)}&path=${encodeURIComponent(removed.storage_path)}`,
+          {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: buildCookieFirstClientHeaders()
+          }
+        )
+        if (!deleteResponse.ok) {
+          const deleteJson = await readJsonSafely(deleteResponse)
+          console.error('서류양식파일 삭제 실패:', deleteJson?.error)
+          alert('기존 서류양식파일 삭제 중 오류가 발생했습니다.')
+          return
+        }
+      }
 
       if (savedEvent?.id) {
         for (const attachment of newFiles) {
