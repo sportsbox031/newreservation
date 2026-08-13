@@ -1,0 +1,108 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { Database } from '@/types/database'
+import { validateApiRequest, isAdmin, type AuthResult } from '@/lib/auth'
+import { withTimeout, getErrorMessage } from '@/lib/requestUtils'
+
+type AdminUser = NonNullable<AuthResult['user']>
+
+// 서버측에서 서비스 롤 키 사용 (src/lib/eventServer.ts 패턴과 동일)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+  auth: { persistSession: false }
+})
+
+const QUERY_TIMEOUT_MS = 8000
+
+async function requireAdmin(
+  request: NextRequest
+): Promise<{ ok: true; user: AdminUser } | { ok: false; response: NextResponse }> {
+  const auth = await validateApiRequest(request)
+  if (!auth.authenticated || !auth.user || !isAdmin(auth.user)) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: auth.error || '권한이 없습니다.' }, { status: 401 }),
+    }
+  }
+  return { ok: true, user: auth.user }
+}
+
+// PATCH - 이벤트 예약 오픈/마감 수동 토글 (?id=) body: { is_open: boolean }
+export async function PATCH(request: NextRequest) {
+  const admin = await requireAdmin(request)
+  if (!admin.ok) return admin.response
+
+  try {
+    const url = new URL(request.url)
+    const id = url.searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: { message: 'ID가 필요합니다.' } }, { status: 400 })
+    }
+
+    const body = await request.json()
+    if (typeof body?.is_open !== 'boolean') {
+      return NextResponse.json({ error: { message: 'is_open 값이 필요합니다.' } }, { status: 400 })
+    }
+
+    const { data: event, error: fetchError } = await withTimeout(
+      supabaseAdmin
+        .from('events')
+        .select('id, author_id, reservation_start_at, reservation_end_at')
+        .eq('id', id)
+        .single(),
+      QUERY_TIMEOUT_MS,
+      '이벤트 정보를 불러오는 중 시간이 초과되었습니다.'
+    )
+
+    if (fetchError || !event) {
+      return NextResponse.json({ error: { message: '이벤트를 찾을 수 없습니다.' } }, { status: 404 })
+    }
+
+    // 소유권 확인 (super가 아니면 본인이 등록한 이벤트만 변경 가능)
+    if (admin.user.role !== 'super' && event.author_id !== admin.user.id) {
+      return NextResponse.json(
+        { error: { message: '본인이 등록한 이벤트만 변경할 수 있습니다.' } },
+        { status: 403 }
+      )
+    }
+
+    // 자동 스케줄(예약 시작/종료 시각)이 모두 설정된 이벤트는 수동 토글과 혼동될 수 있으므로 차단
+    if (event.reservation_start_at && event.reservation_end_at) {
+      return NextResponse.json(
+        {
+          error: {
+            message: '자동 스케줄이 설정된 이벤트는 수동 토글할 수 없습니다. 스케줄을 먼저 해제하세요.'
+          }
+        },
+        { status: 403 }
+      )
+    }
+
+    const { data: updated, error } = await withTimeout(
+      supabaseAdmin
+        .from('events')
+        .update({ is_open: body.is_open, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single(),
+      QUERY_TIMEOUT_MS,
+      '이벤트 상태 변경 중 시간이 초과되었습니다.'
+    )
+
+    if (error || !updated) {
+      return NextResponse.json(
+        { error: { message: getErrorMessage(error, '이벤트 상태를 변경할 수 없습니다.') } },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json({ data: updated })
+  } catch (e) {
+    return NextResponse.json(
+      { error: { message: getErrorMessage(e, '이벤트 상태 변경 중 오류가 발생했습니다.') } },
+      { status: 500 }
+    )
+  }
+}

@@ -222,13 +222,17 @@ export function sanitizeFileName(filename: string): string {
 /**
  * 첨부파일 개수 제한 확인
  * @param currentCount 현재 첨부파일 개수
+ * @param maxCount 허용되는 최대 개수 (기본값: 공지사항 첨부파일 제한 3개)
  * @returns 검증 결과
  */
-export function validateAttachmentCount(currentCount: number): FileValidationResult {
-  if (currentCount >= MAX_FILES_PER_ANNOUNCEMENT) {
+export function validateAttachmentCount(
+  currentCount: number,
+  maxCount: number = MAX_FILES_PER_ANNOUNCEMENT
+): FileValidationResult {
+  if (currentCount >= maxCount) {
     return {
       valid: false,
-      error: `첨부파일은 최대 ${MAX_FILES_PER_ANNOUNCEMENT}개까지만 업로드할 수 있습니다.`
+      error: `첨부파일은 최대 ${maxCount}개까지만 업로드할 수 있습니다.`
     }
   }
 
