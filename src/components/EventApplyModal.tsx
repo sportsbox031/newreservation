@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Calendar from 'react-calendar'
+import 'react-calendar/dist/Calendar.css'
 import { X } from 'lucide-react'
 import ModalOverlay from '@/components/ModalOverlay'
 import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'

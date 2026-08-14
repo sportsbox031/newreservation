@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import { computeEffectiveOpen } from '@/lib/eventReservationStatus'
-import { canCancelApplication, computeTotalCount, type NormalizedApplicationInput } from '@/lib/eventApplicationHelpers'
+import { canCancelApplication, type NormalizedApplicationInput } from '@/lib/eventApplicationHelpers'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -55,16 +55,17 @@ export async function createApplicationOnServer(
     }
 
     // 2) 선택 날짜가 이벤트 소속인지
-    const { data: date } = await withTimeout(
+    const { data: date, error: dateErr } = await withTimeout(
       supabaseAdmin
         .from('event_dates')
         .select('id')
         .eq('id', input.event_date_id)
         .eq('event_id', input.event_id)
-        .single(),
+        .maybeSingle(),
       T,
       '일정 정보를 확인하는 중 시간이 초과되었습니다.'
     )
+    if (dateErr) return { data: null, error: { message: getErrorMessage(dateErr, '일정 정보를 확인하는데 실패했습니다.') }, status: 500 }
     if (!date) return { data: null, error: { message: '선택한 일정이 올바르지 않습니다.' }, status: 400 }
 
     // 3) 스냅샷: users 행에서 단체/담당/연락처/지역
@@ -107,8 +108,6 @@ export async function createApplicationOnServer(
         : getErrorMessage(insErr, '신청에 실패했습니다.')
       return { data: null, error: { message: msg }, status: 400 }
     }
-    // total_count는 DB generated 컬럼이므로 클라이언트 계산은 표시용
-    void computeTotalCount(input.student_count, input.leader_count)
     return { data: { id: inserted.id }, error: null }
   } catch (e) {
     return { data: null, error: { message: getErrorMessage(e, '신청 처리 중 오류가 발생했습니다.') }, status: 500 }
