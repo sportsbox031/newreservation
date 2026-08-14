@@ -155,3 +155,11 @@ Phase 1(관리자 이벤트 CRUD)에 이어, 사용자가 이벤트를 조회·�
 5. 관리자 신청관리 API(`/api/admin/events/applications`, `/submissions`) + `/admin/events/[id]` 페이지 + 목록 신청수·링크.
 6. Phase 4: 관리자 폼 스케줄 입력 + `validateEventInput` 확장 + `/api/cron/event-scheduler` + `vercel.json`.
 7. 전체 실제 앱 검증.
+
+## 13. Phase 3 확정 결정 (2026-08-14 브레인스토밍)
+
+Phase 2 완료 후 Phase 3 착수 시 확정한 결정:
+- **서류 제출/삭제 허용 시점**: 신청건 상태가 **`cancelled`가 아니면 항상 허용**(applied·selected·rejected 모두 업로드·삭제 가능). 헬퍼 `canSubmit(status) = status !== 'cancelled'`.
+- **선정/탈락 되돌리기**: 관리자는 상태를 **자유롭게 변경 가능**(applied↔selected↔rejected, reversible). 허용값 헬퍼 `isValidSelectionStatus(s) = ['applied','selected','rejected'].includes(s)`.
+- **관리자 다운로드**: 신청자별 **개별 서명URL 다운로드**만(zip 일괄 다운로드는 범위 밖, YAGNI).
+- **서버 파일 구성**: 사용자 신청 서버(`eventApplicationServer.ts`, Phase 2)와 분리해 관리자 신청관리는 `eventAdminApplicationServer.ts`, 서류 제출(사용자+관리자)은 `eventSubmissionServer.ts`로 둔다.
