@@ -12,7 +12,8 @@ import {
   CalendarDays,
   PlayCircle,
   PauseCircle,
-  Search
+  Search,
+  ClipboardList
 } from 'lucide-react'
 import RichTextEditor from '@/components/RichTextEditor'
 import AdminNavigation from '@/components/AdminNavigation'
@@ -550,6 +551,13 @@ export default function AdminEventsPage() {
                               }
                             >
                               {effectiveOpen ? <PauseCircle className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
+                            </button>
+                            <button
+                              onClick={() => router.push(`/admin/events/${event.id}`)}
+                              className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="신청관리"
+                            >
+                              <ClipboardList className="w-4 h-4" />
                             </button>
                           </div>
                         </td>

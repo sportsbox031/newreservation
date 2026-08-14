@@ -15,7 +15,7 @@ interface EventDetail {
   thumbnail_path: string | null
   video_url: string | null
   event_dates: { id: string; event_date: string; label: string | null; sort_order: number }[]
-  event_form_files?: { id: string; file_name: string; storage_path: string }[]
+  event_form_files?: { id: string; file_name: string }[]
 }
 
 function eventImagePublicUrl(path: string | null): string | null {
@@ -93,6 +93,29 @@ export default function EventDetailPage() {
             ))}
           </ul>
         </div>
+
+        {event.event_form_files && event.event_form_files.length > 0 && (
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-2">서류양식</h3>
+            <ul className="space-y-1 text-sm">
+              {event.event_form_files.map(f => (
+                <li key={f.id}>
+                  <button
+                    onClick={async () => {
+                      const res = await fetch(`/api/events/files/download?id=${f.id}`, { credentials: 'include', headers: buildCookieFirstClientHeaders() })
+                      const json = await res.json().catch(() => null)
+                      if (!res.ok || !json?.data?.url) { alert(json?.error?.message || '다운로드 링크를 생성할 수 없습니다.'); return }
+                      window.open(json.data.url, '_blank')
+                    }}
+                    className="text-blue-600 hover:underline"
+                  >
+                    {f.file_name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="pt-2">
           <button
