@@ -59,7 +59,7 @@ export default function MyApplicationsModal({ onClose }: { onClose: () => void }
       <div className="bg-white rounded-lg max-w-lg w-full max-h-[85vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b p-5 flex justify-between items-center">
           <h2 className="text-lg font-bold text-gray-900">내 신청내역</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          <button aria-label="닫기" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-3">
           {loading ? (
