@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   if (!u.ok) return u.response
   try {
     const result = await listMyApplicationsOnServer(u.user.id)
-    if (result.error) return NextResponse.json({ error: result.error }, { status: 400 })
+    if (result.error) return NextResponse.json({ error: result.error }, { status: result.status ?? 400 })
     return NextResponse.json({ data: result.data ?? [] })
   } catch (e) {
     return NextResponse.json({ error: { message: getErrorMessage(e, '신청 내역을 불러오는 중 오류가 발생했습니다.') } }, { status: 500 })
