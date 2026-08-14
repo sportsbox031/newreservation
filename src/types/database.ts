@@ -182,8 +182,6 @@ type ExtendedPublic = Merge<
             content_type: 'html' | 'text'
             thumbnail_path: string | null
             video_url: string | null
-            target_type: 'all' | 'region'
-            target_region_id: number | null
             is_open: boolean
             reservation_start_at: string | null
             reservation_end_at: string | null
@@ -198,8 +196,6 @@ type ExtendedPublic = Merge<
             content_type?: 'html' | 'text'
             thumbnail_path?: string | null
             video_url?: string | null
-            target_type?: 'all' | 'region'
-            target_region_id?: number | null
             is_open?: boolean
             reservation_start_at?: string | null
             reservation_end_at?: string | null
@@ -214,8 +210,6 @@ type ExtendedPublic = Merge<
             content_type?: 'html' | 'text'
             thumbnail_path?: string | null
             video_url?: string | null
-            target_type?: 'all' | 'region'
-            target_region_id?: number | null
             is_open?: boolean
             reservation_start_at?: string | null
             reservation_end_at?: string | null
@@ -224,13 +218,6 @@ type ExtendedPublic = Merge<
             updated_at?: string
           }
           Relationships: [
-            {
-              foreignKeyName: 'events_target_region_id_fkey'
-              columns: ['target_region_id']
-              isOneToOne: false
-              referencedRelation: 'regions'
-              referencedColumns: ['id']
-            },
             {
               foreignKeyName: 'events_author_id_fkey'
               columns: ['author_id']

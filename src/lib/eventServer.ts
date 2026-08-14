@@ -24,32 +24,12 @@ export interface EventRequester {
   role: string
 }
 
-export interface EventListScope {
-  role: string
-  regionId: number | null
-}
-
 export type EventWithDates = SportsEvent & {
   event_dates: EventDate[]
   event_form_files: EventFormFile[]
 }
 
 type ServerResult<T> = { data: T | null; error: { message: string } | null; status?: number }
-
-// target_region_code(south/north) -> regions.id 조회
-async function regionIdForCode(code: 'south' | 'north' | null): Promise<number | null> {
-  if (!code) return null
-  const { data } = await runQueryWithTimeout(
-    supabaseAdmin.from('regions').select('id').eq('code', code).single(),
-    '지역 정보를 불러오는 중 시간이 초과되었습니다.'
-  )
-  return data?.id ?? null
-}
-
-// 지역관리자 role(south/north) -> 본인 지역의 regions.id 조회 (목록 조회 스코프 계산용)
-export async function regionIdForAdminRole(role: 'south' | 'north'): Promise<number | null> {
-  return regionIdForCode(role)
-}
 
 // event_dates를 통째로 교체 (기존 삭제 후 재삽입)
 async function replaceEventDates(
@@ -85,8 +65,7 @@ async function replaceEventDates(
   return null
 }
 
-// 이벤트 생성. target_region_id는 input.target_region_code로부터 서버에서 직접 조회한다.
-// (호출측인 라우트에서 지역 스코프 강제를 이미 마친 뒤 effective code를 넘겨준다)
+// 이벤트 생성. 이벤트는 지역과 무관한 전역 대상이다(지역 컬럼 없음).
 // thumbnailPath: 대표이미지 업로드 결과 storage path (선택). validateEventInput의 핵심 필드 검증 대상이 아니므로 별도 인자로 받는다.
 export async function createEventOnServer(
   input: NormalizedEventInput,
@@ -94,8 +73,6 @@ export async function createEventOnServer(
   thumbnailPath?: string | null
 ): Promise<ServerResult<SportsEvent>> {
   try {
-    const target_region_id = await regionIdForCode(input.target_region_code)
-
     const { data: event, error } = await runQueryWithTimeout(
       supabaseAdmin
         .from('events')
@@ -105,8 +82,6 @@ export async function createEventOnServer(
           content_type: input.content_type,
           thumbnail_path: thumbnailPath ?? null,
           video_url: input.video_url,
-          target_type: input.target_type,
-          target_region_id,
           author_id: authorId,
         }])
         .select()
@@ -152,7 +127,8 @@ export async function createEventOnServer(
   }
 }
 
-// 이벤트 수정. 소유권 확인(super가 아니면 본인 작성 이벤트만) 후 events + event_dates 통째 교체.
+// 이벤트 수정. 이벤트는 지역관리자도 전체관리자와 동일하게 모든 이벤트를 수정할 수 있으므로
+// 소유권/지역 확인 없이 존재 여부만 확인한 뒤 events + event_dates를 통째 교체한다.
 // thumbnailPath: 대표이미지 storage path 갱신값 (선택). undefined면 기존 값을 그대로 유지하고,
 // string 또는 null이면 명시적으로 덮어쓴다 (호출측에서 body에 키가 있었는지로 구분해 넘겨준다).
 export async function updateEventOnServer(
@@ -161,9 +137,10 @@ export async function updateEventOnServer(
   requester: EventRequester,
   thumbnailPath?: string | null
 ): Promise<ServerResult<SportsEvent>> {
+  void requester // 이벤트는 관리자 간 권한 구분이 없으므로 사용하지 않음 (감사/시그니처 호환 위해 유지)
   try {
     const { data: existing, error: fetchError } = await runQueryWithTimeout(
-      supabaseAdmin.from('events').select('id, author_id').eq('id', id).single(),
+      supabaseAdmin.from('events').select('id').eq('id', id).single(),
       '이벤트 정보를 불러오는 중 시간이 초과되었습니다.'
     )
 
@@ -171,23 +148,11 @@ export async function updateEventOnServer(
       return { data: null, error: { message: '이벤트를 찾을 수 없습니다.' }, status: 404 }
     }
 
-    if (requester.role !== 'super' && existing.author_id !== requester.id) {
-      return {
-        data: null,
-        error: { message: '본인이 등록한 이벤트만 수정/삭제할 수 있습니다.' },
-        status: 403,
-      }
-    }
-
-    const target_region_id = await regionIdForCode(input.target_region_code)
-
     const updatePayload: Database['public']['Tables']['events']['Update'] = {
       title: input.title,
       description: input.description,
       content_type: input.content_type,
       video_url: input.video_url,
-      target_type: input.target_type,
-      target_region_id,
       updated_at: new Date().toISOString(),
     }
     if (thumbnailPath !== undefined) {
@@ -227,27 +192,21 @@ export async function updateEventOnServer(
   }
 }
 
-// 이벤트 삭제. 소유권 확인(super가 아니면 본인 작성 이벤트만) 후 삭제 (하위 event_dates 등은 CASCADE).
+// 이벤트 삭제. 이벤트는 지역관리자도 전체관리자와 동일하게 모든 이벤트를 삭제할 수 있으므로
+// 소유권/지역 확인 없이 존재 여부만 확인한 뒤 삭제한다 (하위 event_dates 등은 CASCADE).
 export async function deleteEventOnServer(
   id: string,
   requester: EventRequester
 ): Promise<ServerResult<{ id: string }>> {
+  void requester // 이벤트는 관리자 간 권한 구분이 없으므로 사용하지 않음 (감사/시그니처 호환 위해 유지)
   try {
     const { data: existing, error: fetchError } = await runQueryWithTimeout(
-      supabaseAdmin.from('events').select('id, author_id').eq('id', id).single(),
+      supabaseAdmin.from('events').select('id').eq('id', id).single(),
       '이벤트 정보를 불러오는 중 시간이 초과되었습니다.'
     )
 
     if (fetchError || !existing) {
       return { data: null, error: { message: '이벤트를 찾을 수 없습니다.' }, status: 404 }
-    }
-
-    if (requester.role !== 'super' && existing.author_id !== requester.id) {
-      return {
-        data: null,
-        error: { message: '본인이 등록한 이벤트만 수정/삭제할 수 있습니다.' },
-        status: 403,
-      }
     }
 
     const { error } = await runQueryWithTimeout(
@@ -273,20 +232,10 @@ export async function deleteEventOnServer(
   }
 }
 
-// 이벤트 목록 조회. super는 전체, 지역관리자는 target_type='all' 이거나 본인 지역 이벤트만.
-export async function listEventsOnServer(
-  scope: EventListScope
-): Promise<ServerResult<EventWithDates[]>> {
+// 이벤트 목록 조회. 이벤트는 지역 구분이 없으므로 모든 관리자가 전체 목록을 조회한다.
+export async function listEventsOnServer(): Promise<ServerResult<EventWithDates[]>> {
   try {
-    let query = supabaseAdmin.from('events').select('*, event_dates(*), event_form_files(*)')
-
-    if (scope.role !== 'super') {
-      if (scope.regionId !== null) {
-        query = query.or(`target_type.eq.all,target_region_id.eq.${scope.regionId}`)
-      } else {
-        query = query.eq('target_type', 'all')
-      }
-    }
+    const query = supabaseAdmin.from('events').select('*, event_dates(*), event_form_files(*)')
 
     const { data, error } = await runQueryWithTimeout(
       query.order('created_at', { ascending: false }),

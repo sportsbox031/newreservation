@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateApiRequest, isAdmin, type AuthResult } from '@/lib/auth'
-import { validateEventInput, type NormalizedEventInput } from '@/lib/eventAdminHelpers'
-import { resolveReservationRegionScope } from '@/lib/reservationManagementHelpers'
+import { validateEventInput } from '@/lib/eventAdminHelpers'
 import {
   createEventOnServer,
   updateEventOnServer,
   deleteEventOnServer,
   listEventsOnServer,
-  regionIdForAdminRole,
 } from '@/lib/eventServer'
 import { getErrorMessage } from '@/lib/requestUtils'
 
@@ -36,47 +34,13 @@ async function requireAdmin(
   return { ok: true, user: auth.user }
 }
 
-// 지역관리자는 전체 대상 이벤트를 만들 수 없고, region 대상은 본인 지역으로 강제된다.
-// 반환값: 강제된(effective) 대상 지역 코드가 적용된 입력값, 실패 시 에러 응답.
-function resolveEffectiveEventInput(
-  user: AdminUser,
-  value: NormalizedEventInput
-): { ok: true; value: NormalizedEventInput } | { ok: false; response: NextResponse } {
-  if (user.role !== 'super' && value.target_type === 'all') {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: { message: '지역관리자는 전체 대상 이벤트를 생성할 수 없습니다.' } },
-        { status: 403 }
-      ),
-    }
-  }
-
-  if (value.target_type === 'region') {
-    const scope = resolveReservationRegionScope(user.role, value.target_region_code)
-    if (scope.error) {
-      return {
-        ok: false,
-        response: NextResponse.json({ error: scope.error }, { status: 403 }),
-      }
-    }
-    return { ok: true, value: { ...value, target_region_code: scope.regionCode } }
-  }
-
-  return { ok: true, value }
-}
-
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin(request)
   if (!admin.ok) return admin.response
 
   try {
-    const regionId =
-      admin.user.role === 'south' || admin.user.role === 'north'
-        ? await regionIdForAdminRole(admin.user.role)
-        : null
-
-    const result = await listEventsOnServer({ role: admin.user.role, regionId })
+    // 이벤트는 지역 구분이 없으므로 모든 관리자가 전체 이벤트를 조회한다.
+    const result = await listEventsOnServer()
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status ?? 400 })
     }
@@ -100,11 +64,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: { message: parsed.message } }, { status: 400 })
     }
 
-    const effective = resolveEffectiveEventInput(admin.user, parsed.value)
-    if (!effective.ok) return effective.response
-
     const thumbnailPath = extractThumbnailPath(body)
-    const result = await createEventOnServer(effective.value, admin.user.id, thumbnailPath)
+    const result = await createEventOnServer(parsed.value, admin.user.id, thumbnailPath)
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status ?? 400 })
     }
@@ -134,13 +95,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: { message: parsed.message } }, { status: 400 })
     }
 
-    const effective = resolveEffectiveEventInput(admin.user, parsed.value)
-    if (!effective.ok) return effective.response
-
     const thumbnailPath = extractThumbnailPath(body)
     const result = await updateEventOnServer(
       id,
-      effective.value,
+      parsed.value,
       { id: admin.user.id, role: admin.user.role },
       thumbnailPath
     )

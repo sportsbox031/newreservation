@@ -49,7 +49,7 @@ export async function PATCH(request: NextRequest) {
     const { data: event, error: fetchError } = await withTimeout(
       supabaseAdmin
         .from('events')
-        .select('id, author_id, reservation_start_at, reservation_end_at')
+        .select('id, reservation_start_at, reservation_end_at')
         .eq('id', id)
         .single(),
       QUERY_TIMEOUT_MS,
@@ -60,13 +60,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: { message: '이벤트를 찾을 수 없습니다.' } }, { status: 404 })
     }
 
-    // 소유권 확인 (super가 아니면 본인이 등록한 이벤트만 변경 가능)
-    if (admin.user.role !== 'super' && event.author_id !== admin.user.id) {
-      return NextResponse.json(
-        { error: { message: '본인이 등록한 이벤트만 변경할 수 있습니다.' } },
-        { status: 403 }
-      )
-    }
+    // 이벤트는 지역관리자도 전체관리자와 동일하게 모든 이벤트의 예약 상태를 토글할 수 있으므로 소유권 확인을 하지 않는다.
 
     // 자동 스케줄(예약 시작/종료 시각)이 모두 설정된 이벤트는 수동 토글과 혼동될 수 있으므로 차단
     if (event.reservation_start_at && event.reservation_end_at) {

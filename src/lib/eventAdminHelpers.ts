@@ -5,8 +5,6 @@ export type NormalizedEventInput = {
   description: string
   content_type: 'html' | 'text'
   video_url: string | null
-  target_type: 'all' | 'region'
-  target_region_code: 'south' | 'north' | null
   dates: NormalizedEventDate[]
 }
 
@@ -25,15 +23,6 @@ export function validateEventInput(input: unknown): ValidateResult {
   }
 
   const content_type = raw.content_type === 'text' ? 'text' : 'html'
-  const target_type = raw.target_type === 'region' ? 'region' : 'all'
-
-  let target_region_code: 'south' | 'north' | null = null
-  if (target_type === 'region') {
-    if (raw.target_region_code !== 'south' && raw.target_region_code !== 'north') {
-      return { ok: false, message: '대상 지역을 선택해주세요.' }
-    }
-    target_region_code = raw.target_region_code
-  }
 
   const rawDates = Array.isArray(raw.dates) ? raw.dates : []
   if (rawDates.length === 0) {
@@ -59,6 +48,6 @@ export function validateEventInput(input: unknown): ValidateResult {
 
   return {
     ok: true,
-    value: { title, description, content_type, video_url: videoRaw || null, target_type, target_region_code, dates },
+    value: { title, description, content_type, video_url: videoRaw || null, dates },
   }
 }

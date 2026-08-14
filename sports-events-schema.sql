@@ -6,8 +6,6 @@ create table if not exists public.events (
   content_type text not null default 'html' check (content_type in ('html','text')),
   thumbnail_path text,
   video_url text,
-  target_type text not null default 'all' check (target_type in ('all','region')),
-  target_region_id integer references public.regions(id),
   is_open boolean not null default false,
   reservation_start_at timestamptz,
   reservation_end_at timestamptz,

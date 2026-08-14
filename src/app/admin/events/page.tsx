@@ -9,8 +9,6 @@ import {
   Trash2,
   Image as ImageIcon,
   X,
-  MapPin,
-  Users,
   CalendarDays,
   PlayCircle,
   PauseCircle,
@@ -20,7 +18,6 @@ import RichTextEditor from '@/components/RichTextEditor'
 import AdminNavigation from '@/components/AdminNavigation'
 import FileUploadManager, { FileAttachment } from '@/components/FileUploadManager'
 import ModalOverlay from '@/components/ModalOverlay'
-import { utilityAPI } from '@/lib/supabase'
 import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'
 import { computeEffectiveOpen } from '@/lib/eventReservationStatus'
 import { getRemovedExistingAttachments, type PersistedAttachment } from '@/lib/announcementAttachments'
@@ -50,8 +47,6 @@ interface EventRow {
   content_type: 'html' | 'text'
   thumbnail_path: string | null
   video_url: string | null
-  target_type: 'all' | 'region'
-  target_region_id: number | null
   is_open: boolean
   reservation_start_at: string | null
   reservation_end_at: string | null
@@ -60,12 +55,6 @@ interface EventRow {
   updated_at: string
   event_dates: EventDateRow[]
   event_form_files?: EventFormFileRow[]
-}
-
-interface Region {
-  id: number
-  name: string
-  code: string
 }
 
 interface DateInputRow {
@@ -94,7 +83,6 @@ export default function AdminEventsPage() {
   const router = useRouter()
   const [adminInfo, setAdminInfo] = useState<any>(null)
   const [events, setEvents] = useState<EventRow[]>([])
-  const [regions, setRegions] = useState<Region[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -105,9 +93,7 @@ export default function AdminEventsPage() {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    video_url: '',
-    target_type: 'all' as 'all' | 'region',
-    target_region_code: '' as '' | 'south' | 'north'
+    video_url: ''
   })
   const [dates, setDates] = useState<DateInputRow[]>([{ event_date: '', label: '' }])
 
@@ -138,13 +124,10 @@ export default function AdminEventsPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [eventsResponse, regionsResult] = await Promise.all([
-        fetch('/api/admin/events', {
-          credentials: 'include',
-          headers: buildCookieFirstClientHeaders()
-        }),
-        utilityAPI.getRegions()
-      ])
+      const eventsResponse = await fetch('/api/admin/events', {
+        credentials: 'include',
+        headers: buildCookieFirstClientHeaders()
+      })
 
       const eventsJson = await readJsonSafely(eventsResponse)
       if (!eventsResponse.ok) {
@@ -153,12 +136,6 @@ export default function AdminEventsPage() {
         setEvents([])
       } else {
         setEvents(eventsJson?.data || [])
-      }
-
-      if (regionsResult.error) {
-        console.error('지역 정보 로드 오류:', regionsResult.error)
-      } else {
-        setRegions(regionsResult.data || [])
       }
     } catch (error) {
       console.error('이벤트 데이터 로드 예외:', error)
@@ -187,13 +164,10 @@ export default function AdminEventsPage() {
   }
 
   const handleCreate = () => {
-    const isRegionalAdmin = adminInfo?.role === 'south' || adminInfo?.role === 'north'
     setFormData({
       title: '',
       description: '',
-      video_url: '',
-      target_type: isRegionalAdmin ? 'region' : 'all',
-      target_region_code: isRegionalAdmin ? adminInfo.role : ''
+      video_url: ''
     })
     setDates([{ event_date: '', label: '' }])
     resetThumbnailState()
@@ -204,24 +178,10 @@ export default function AdminEventsPage() {
   }
 
   const handleEdit = (event: EventRow) => {
-    const isRegionalAdmin = adminInfo?.role === 'south' || adminInfo?.role === 'north'
-    // 지역관리자는 대상 지역을 본인 지역으로 강제(handleCreate와 동일). 파생값이 비어 저장이 막히는 상황을 방지.
-    // super는 이벤트의 실제 대상 지역을 그대로 유지.
-    const derivedRegionCode = event.target_region_id
-      ? regions.find(r => r.id === event.target_region_id)?.code
-      : null
-    const target_region_code: '' | 'south' | 'north' = isRegionalAdmin
-      ? adminInfo.role
-      : derivedRegionCode === 'south' || derivedRegionCode === 'north'
-      ? derivedRegionCode
-      : ''
-
     setFormData({
       title: event.title,
       description: event.description || '',
-      video_url: event.video_url || '',
-      target_type: isRegionalAdmin ? 'region' : event.target_type,
-      target_region_code
+      video_url: event.video_url || ''
     })
 
     const sortedDates = [...(event.event_dates || [])].sort((a, b) => a.sort_order - b.sort_order)
@@ -288,10 +248,6 @@ export default function AdminEventsPage() {
       alert('일정 날짜를 최소 1개 이상 추가해주세요.')
       return
     }
-    if (formData.target_type === 'region' && !formData.target_region_code) {
-      alert('대상 지역을 선택해주세요.')
-      return
-    }
 
     setSaving(true)
     try {
@@ -324,8 +280,6 @@ export default function AdminEventsPage() {
         description: formData.description,
         content_type: 'html',
         video_url: formData.video_url.trim() || null,
-        target_type: formData.target_type,
-        target_region_code: formData.target_type === 'region' ? formData.target_region_code : null,
         dates: validDates.map((d, i) => ({
           event_date: d.event_date,
           label: d.label.trim() || undefined,
@@ -448,18 +402,8 @@ export default function AdminEventsPage() {
     }
   }
 
-  const canManageEvent = (event: EventRow) => {
-    if (adminInfo?.role === 'super') return true
-    return event.author_id === adminInfo?.id
-  }
-
-  const regionLabel = (event: EventRow) => {
-    if (event.target_type === 'all') return '전체'
-    const code = regions.find(r => r.id === event.target_region_id)?.code
-    if (code === 'south') return '남부'
-    if (code === 'north') return '북부'
-    return '지역'
-  }
+  // 이벤트는 지역 구분이 없으므로 모든 관리자가 모든 이벤트를 수정/삭제/토글할 수 있다.
+  const canManageEvent = () => true
 
   const filteredEvents = events.filter(event =>
     event.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -535,9 +479,6 @@ export default function AdminEventsPage() {
                       이벤트명
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
-                      대상지역
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                       모집상태
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 tracking-wider">
@@ -552,7 +493,7 @@ export default function AdminEventsPage() {
                   {filteredEvents.map((event) => {
                     const effectiveOpen = computeEffectiveOpen(event, new Date().toISOString())
                     const hasSchedule = Boolean(event.reservation_start_at) && Boolean(event.reservation_end_at)
-                    const manageable = canManageEvent(event)
+                    const manageable = canManageEvent()
 
                     return (
                       <tr key={event.id} className="hover:bg-gray-50">
@@ -560,19 +501,6 @@ export default function AdminEventsPage() {
                           <div className="text-sm font-medium text-gray-900 truncate max-w-[220px]" title={event.title}>
                             {event.title}
                           </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {event.target_type === 'all' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                              <Users className="w-3 h-3" />
-                              전체
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                              <MapPin className="w-3 h-3" />
-                              {regionLabel(event)}
-                            </span>
-                          )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           {effectiveOpen ? (
@@ -776,55 +704,6 @@ export default function AdminEventsPage() {
                     maxFiles={5}
                     maxFileSize={5 * 1024 * 1024}
                   />
-
-                  {/* 대상 지역 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      대상 지역 <span className="text-red-500">*</span>
-                    </label>
-                    {adminInfo?.role === 'super' ? (
-                      <>
-                        <div className="space-y-3">
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              checked={formData.target_type === 'all'}
-                              onChange={() => setFormData(prev => ({ ...prev, target_type: 'all', target_region_code: '' }))}
-                              className="text-blue-600 focus:ring-blue-500"
-                            />
-                            <span>전체</span>
-                          </label>
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              checked={formData.target_type === 'region'}
-                              onChange={() => setFormData(prev => ({ ...prev, target_type: 'region' }))}
-                              className="text-blue-600 focus:ring-blue-500"
-                            />
-                            <span>특정 지역</span>
-                          </label>
-                        </div>
-                        {formData.target_type === 'region' && (
-                          <div className="mt-3">
-                            <select
-                              value={formData.target_region_code}
-                              onChange={(e) => setFormData(prev => ({ ...prev, target_region_code: e.target.value as 'south' | 'north' }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              required
-                            >
-                              <option value="">지역을 선택하세요</option>
-                              <option value="south">남부</option>
-                              <option value="north">북부</option>
-                            </select>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                        {adminInfo?.role === 'south' ? '경기남부' : '경기북부'} 지역으로 고정됩니다.
-                      </p>
-                    )}
-                  </div>
                 </div>
 
                 <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
