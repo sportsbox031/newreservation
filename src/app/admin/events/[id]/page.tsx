@@ -184,9 +184,9 @@ export default function AdminEventApplicationsPage() {
                   </p>
                   <ul className="space-y-1">
                     {g.submissions.map(s => (
-                      <li key={s.id}>
-                        <button onClick={() => download(s.id)} className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
-                          <Download className="w-3.5 h-3.5" />{s.file_name}
+                      <li key={s.id} className="min-w-0">
+                        <button onClick={() => download(s.id)} className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline max-w-full">
+                          <Download className="w-3.5 h-3.5 shrink-0" /><span className="break-all text-left">{s.file_name}</span>
                         </button>
                       </li>
                     ))}
