@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Download } from 'lucide-react'
 import AdminNavigation from '@/components/AdminNavigation'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { eventStatusView } from '@/lib/eventStatusView'
 import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'
 
 interface AppRow { id: string; org_name: string; manager_name: string | null; phone: string | null; event_date: string | null; total_count: number; status: string; submission_count: number }
 interface SubGroup { application_id: string; org_name: string; status: string; submissions: { id: string; file_name: string }[] }
-
-const STATUS_LABEL: Record<string, string> = { applied: '신청', selected: '선정', rejected: '탈락', cancelled: '취소' }
 
 export default function AdminEventApplicationsPage() {
   const router = useRouter()
@@ -49,6 +50,10 @@ export default function AdminEventApplicationsPage() {
     if (!res.ok) { alert(json?.error?.message || '상태 변경에 실패했습니다.'); return }
     load()
   }
+
+  // 같은 상태 버튼을 다시 누르면 선택을 취소(applied로 복귀)한다 — 오클릭 방지.
+  const toggleStatus = (id: string, current: string, target: string) =>
+    setStatus(id, current === target ? 'applied' : target)
 
   const download = async (submissionId: string) => {
     const res = await fetch(`/api/admin/events/submissions?download_id=${submissionId}`, { credentials: 'include', headers: buildCookieFirstClientHeaders() })
@@ -91,19 +96,19 @@ export default function AdminEventApplicationsPage() {
                       <td className="px-4 py-3 text-sm text-gray-700">{a.total_count}명</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{a.submission_count}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="inline-flex px-2.5 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">{STATUS_LABEL[a.status] || a.status}</span>
+                        <Badge variant={eventStatusView(a.status).variant}>{eventStatusView(a.status).label}</Badge>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         {a.status === 'cancelled' ? (
                           <span className="text-xs text-gray-400">취소됨</span>
                         ) : (
-                          <div className="flex gap-1">
-                            <button onClick={() => setStatus(a.id, 'selected')} disabled={a.status === 'selected'}
-                              className="px-2 py-1 text-xs rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40">선정</button>
-                            <button onClick={() => setStatus(a.id, 'rejected')} disabled={a.status === 'rejected'}
-                              className="px-2 py-1 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-40">탈락</button>
-                            <button onClick={() => setStatus(a.id, 'applied')} disabled={a.status === 'applied'}
-                              className="px-2 py-1 text-xs rounded bg-gray-50 text-gray-700 hover:bg-gray-100 disabled:opacity-40">미정</button>
+                          <div className="flex gap-1.5">
+                            <Button variant="successToggle" size="xs" data-active={a.status === 'selected'}
+                              title={a.status === 'selected' ? '다시 누르면 선정 취소' : '선정'}
+                              onClick={() => toggleStatus(a.id, a.status, 'selected')}>선정</Button>
+                            <Button variant="dangerToggle" size="xs" data-active={a.status === 'rejected'}
+                              title={a.status === 'rejected' ? '다시 누르면 탈락 취소' : '탈락'}
+                              onClick={() => toggleStatus(a.id, a.status, 'rejected')}>탈락</Button>
                           </div>
                         )}
                       </td>
@@ -119,7 +124,7 @@ export default function AdminEventApplicationsPage() {
                 <p className="text-gray-500">제출된 서류가 없습니다.</p>
               ) : groups.filter(g => g.submissions.length > 0).map(g => (
                 <div key={g.application_id} className="bg-white rounded-lg border border-gray-200 p-4">
-                  <p className="font-medium text-gray-900 mb-2">{g.org_name} <span className="text-xs text-gray-500">({STATUS_LABEL[g.status] || g.status})</span></p>
+                  <p className="font-medium text-gray-900 mb-2 flex items-center gap-2">{g.org_name} <Badge variant={eventStatusView(g.status).variant}>{eventStatusView(g.status).label}</Badge></p>
                   <ul className="space-y-1">
                     {g.submissions.map(s => (
                       <li key={s.id}>
