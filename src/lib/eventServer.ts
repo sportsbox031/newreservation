@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Database, SportsEvent, EventDate, EventFormFile } from '@/types/database'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import type { NormalizedEventInput } from '@/lib/eventAdminHelpers'
+import { reconcileEventDates, type ExistingEventDate } from '@/lib/eventDateReconcile'
 
 // 서버측에서 서비스 롤 키 사용 (src/lib/authServer.ts 패턴과 동일)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -31,37 +32,68 @@ export type EventWithDates = SportsEvent & {
 
 type ServerResult<T> = { data: T | null; error: { message: string } | null; status?: number }
 
-// event_dates를 통째로 교체 (기존 삭제 후 재삽입)
+// event_dates를 재조정한다(blanket delete 금지).
+// 신청자가 참조 중인 일정 행(FK)을 보존하기 위해, 기존/희망을 event_date 기준으로 대조해
+// 신규 삽입 / label·sort_order 갱신 / 제거된 일정만 삭제한다.
 async function replaceEventDates(
   eventId: string,
   dates: NormalizedEventInput['dates']
 ): Promise<{ message: string } | null> {
-  const { error: deleteError } = await runQueryWithTimeout(
-    supabaseAdmin.from('event_dates').delete().eq('event_id', eventId),
-    '기존 일정을 삭제하는 중 시간이 초과되었습니다.'
+  const { data: existing, error: loadError } = await runQueryWithTimeout(
+    supabaseAdmin.from('event_dates').select('id, event_date, label, sort_order').eq('event_id', eventId),
+    '기존 일정을 불러오는 중 시간이 초과되었습니다.'
   )
-  if (deleteError) {
-    return { message: getErrorMessage(deleteError, '기존 일정을 삭제하는데 실패했습니다.') }
+  if (loadError) {
+    return { message: getErrorMessage(loadError, '기존 일정을 불러오는데 실패했습니다.') }
   }
 
-  if (dates.length === 0) {
-    return null
-  }
-
-  const rows = dates.map((d) => ({
-    event_id: eventId,
-    event_date: d.event_date,
-    label: d.label,
-    sort_order: d.sort_order,
-  }))
-
-  const { error: insertError } = await runQueryWithTimeout(
-    supabaseAdmin.from('event_dates').insert(rows),
-    '일정 저장 중 시간이 초과되었습니다.'
+  const { toInsert, toUpdate, toDeleteIds } = reconcileEventDates(
+    (existing ?? []) as ExistingEventDate[],
+    dates
   )
-  if (insertError) {
-    return { message: getErrorMessage(insertError, '일정 저장에 실패했습니다.') }
+
+  // 삭제: 신청자가 참조 중인 일정이면 FK 위반(23503)으로 실패 → 친절한 안내로 변환
+  if (toDeleteIds.length > 0) {
+    const { error: deleteError } = await runQueryWithTimeout(
+      supabaseAdmin.from('event_dates').delete().in('id', toDeleteIds),
+      '기존 일정을 삭제하는 중 시간이 초과되었습니다.'
+    )
+    if (deleteError) {
+      if ((deleteError as { code?: string }).code === '23503') {
+        return { message: '이미 신청자가 있는 일정은 삭제할 수 없습니다. 해당 일정은 유지한 채 수정해주세요.' }
+      }
+      return { message: getErrorMessage(deleteError, '기존 일정을 삭제하는데 실패했습니다.') }
+    }
   }
+
+  // 갱신: 같은 날짜의 label/sort_order 변경(id 유지 → 신청 참조 보존)
+  for (const u of toUpdate) {
+    const { error: updateError } = await runQueryWithTimeout(
+      supabaseAdmin.from('event_dates').update({ label: u.label, sort_order: u.sort_order }).eq('id', u.id),
+      '일정 수정 중 시간이 초과되었습니다.'
+    )
+    if (updateError) {
+      return { message: getErrorMessage(updateError, '일정 수정에 실패했습니다.') }
+    }
+  }
+
+  // 삽입: 신규 날짜
+  if (toInsert.length > 0) {
+    const rows = toInsert.map((d) => ({
+      event_id: eventId,
+      event_date: d.event_date,
+      label: d.label,
+      sort_order: d.sort_order,
+    }))
+    const { error: insertError } = await runQueryWithTimeout(
+      supabaseAdmin.from('event_dates').insert(rows),
+      '일정 저장 중 시간이 초과되었습니다.'
+    )
+    if (insertError) {
+      return { message: getErrorMessage(insertError, '일정 저장에 실패했습니다.') }
+    }
+  }
+
   return null
 }
 
