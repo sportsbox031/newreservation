@@ -33,3 +33,39 @@ test('잘못된 날짜 형식은 거부', () => {
   const r = validateEventInput({ title: 'x', dates: [{ event_date: '2026/09/01' }] })
   assert.equal(r.ok, false)
 })
+
+test('스케줄 미지정 시 null로 정규화', () => {
+  const r = validateEventInput({ title: 'x', dates: [{ event_date: '2026-09-01' }] })
+  assert.equal(r.ok, true)
+  if (r.ok) {
+    assert.equal(r.value.reservation_start_at, null)
+    assert.equal(r.value.reservation_end_at, null)
+  }
+})
+
+test('스케줄 시작/종역 ISO는 그대로 통과', () => {
+  const r = validateEventInput({
+    title: 'x', dates: [{ event_date: '2026-09-01' }],
+    reservation_start_at: '2026-08-01T00:00:00.000Z',
+    reservation_end_at: '2026-08-31T23:59:00.000Z',
+  })
+  assert.equal(r.ok, true)
+  if (r.ok) assert.equal(r.value.reservation_start_at, '2026-08-01T00:00:00.000Z')
+})
+
+test('종료가 시작보다 앞서면 거부', () => {
+  const r = validateEventInput({
+    title: 'x', dates: [{ event_date: '2026-09-01' }],
+    reservation_start_at: '2026-08-31T00:00:00.000Z',
+    reservation_end_at: '2026-08-01T00:00:00.000Z',
+  })
+  assert.equal(r.ok, false)
+})
+
+test('잘못된 스케줄 형식은 거부', () => {
+  const r = validateEventInput({
+    title: 'x', dates: [{ event_date: '2026-09-01' }],
+    reservation_start_at: 'not-a-date',
+  })
+  assert.equal(r.ok, false)
+})

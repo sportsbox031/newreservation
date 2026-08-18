@@ -115,6 +115,8 @@ export async function createEventOnServer(
           thumbnail_path: thumbnailPath ?? null,
           video_url: input.video_url,
           author_id: authorId,
+          reservation_start_at: input.reservation_start_at,
+          reservation_end_at: input.reservation_end_at,
         }])
         .select()
         .single(),
@@ -185,6 +187,8 @@ export async function updateEventOnServer(
       description: input.description,
       content_type: input.content_type,
       video_url: input.video_url,
+      reservation_start_at: input.reservation_start_at,
+      reservation_end_at: input.reservation_end_at,
       updated_at: new Date().toISOString(),
     }
     if (thumbnailPath !== undefined) {

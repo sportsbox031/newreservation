@@ -13,7 +13,8 @@ import {
   PlayCircle,
   PauseCircle,
   Search,
-  ClipboardList
+  ClipboardList,
+  Clock
 } from 'lucide-react'
 import RichTextEditor from '@/components/RichTextEditor'
 import AdminNavigation from '@/components/AdminNavigation'
@@ -72,6 +73,22 @@ function eventImagePublicUrl(path: string | null): string | null {
   return `${base}/storage/v1/object/public/event-images/${path}`
 }
 
+// 저장된 ISO(UTC) → datetime-local 입력용 로컬 문자열('YYYY-MM-DDTHH:mm')
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// datetime-local 로컬 문자열 → ISO(UTC) 또는 null
+function localInputToIso(local: string): string | null {
+  if (!local) return null
+  const d = new Date(local)
+  return Number.isNaN(d.getTime()) ? null : d.toISOString()
+}
+
 async function readJsonSafely(response: Response) {
   try {
     return await response.json()
@@ -94,7 +111,9 @@ export default function AdminEventsPage() {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    video_url: ''
+    video_url: '',
+    reservation_start_at: '', // datetime-local
+    reservation_end_at: '',   // datetime-local
   })
   const [dates, setDates] = useState<DateInputRow[]>([{ event_date: '', label: '' }])
 
@@ -168,7 +187,9 @@ export default function AdminEventsPage() {
     setFormData({
       title: '',
       description: '',
-      video_url: ''
+      video_url: '',
+      reservation_start_at: '',
+      reservation_end_at: '',
     })
     setDates([{ event_date: '', label: '' }])
     resetThumbnailState()
@@ -182,7 +203,9 @@ export default function AdminEventsPage() {
     setFormData({
       title: event.title,
       description: event.description || '',
-      video_url: event.video_url || ''
+      video_url: event.video_url || '',
+      reservation_start_at: isoToLocalInput(event.reservation_start_at),
+      reservation_end_at: isoToLocalInput(event.reservation_end_at),
     })
 
     const sortedDates = [...(event.event_dates || [])].sort((a, b) => a.sort_order - b.sort_order)
@@ -281,6 +304,8 @@ export default function AdminEventsPage() {
         description: formData.description,
         content_type: 'html',
         video_url: formData.video_url.trim() || null,
+        reservation_start_at: localInputToIso(formData.reservation_start_at),
+        reservation_end_at: localInputToIso(formData.reservation_end_at),
         dates: validDates.map((d, i) => ({
           event_date: d.event_date,
           label: d.label.trim() || undefined,
@@ -493,7 +518,8 @@ export default function AdminEventsPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredEvents.map((event) => {
                     const effectiveOpen = computeEffectiveOpen(event, new Date().toISOString())
-                    const hasSchedule = Boolean(event.reservation_start_at) && Boolean(event.reservation_end_at)
+                    // computeEffectiveOpen과 동일하게 시작·종료 중 하나라도 있으면 "스케줄 있음"으로 본다.
+                    const hasSchedule = Boolean(event.reservation_start_at) || Boolean(event.reservation_end_at)
                     const manageable = canManageEvent()
 
                     return (
@@ -504,15 +530,25 @@ export default function AdminEventsPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          {effectiveOpen ? (
-                            <span className="inline-flex px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-medium rounded-full">
-                              모집중
-                            </span>
-                          ) : (
-                            <span className="inline-flex px-2.5 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
-                              종료
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {effectiveOpen ? (
+                              <span className="inline-flex px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-medium rounded-full">
+                                모집중
+                              </span>
+                            ) : (
+                              <span className="inline-flex px-2.5 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
+                                종료
+                              </span>
+                            )}
+                            {hasSchedule && (
+                              <span
+                                className="inline-flex items-center gap-0.5 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
+                                title={`자동 스케줄${event.reservation_start_at ? ` · 시작 ${new Date(event.reservation_start_at).toLocaleString('ko-KR')}` : ''}${event.reservation_end_at ? ` · 종료 ${new Date(event.reservation_end_at).toLocaleString('ko-KR')}` : ''}`}
+                              >
+                                <Clock className="w-3 h-3" /> 자동
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-700">
                           <span className="inline-flex items-center gap-1">
@@ -703,6 +739,44 @@ export default function AdminEventsPage() {
                       <Plus className="w-3.5 h-3.5" />
                       날짜 추가
                     </button>
+                  </div>
+
+                  {/* 예약 자동 관리 (스케줄) */}
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">예약 자동 관리 (선택)</label>
+                    <p className="text-xs text-gray-500 mb-3">
+                      시작·종료 시각을 설정하면 <b>해당 기간에만 자동으로 예약이 열립니다</b>. 두 칸을 모두 비워두면
+                      목록의 <b>&lsquo;예약 시작/종료&rsquo;</b> 버튼으로 수동 관리합니다. (자동 스케줄이 설정되면 수동 버튼은 잠깁니다.)
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">예약 시작 시각</label>
+                        <input
+                          type="datetime-local"
+                          value={formData.reservation_start_at}
+                          onChange={(e) => setFormData(prev => ({ ...prev, reservation_start_at: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">예약 종료 시각</label>
+                        <input
+                          type="datetime-local"
+                          value={formData.reservation_end_at}
+                          onChange={(e) => setFormData(prev => ({ ...prev, reservation_end_at: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                    {(formData.reservation_start_at || formData.reservation_end_at) && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, reservation_start_at: '', reservation_end_at: '' }))}
+                        className="mt-2 text-xs text-gray-500 hover:text-red-600"
+                      >
+                        스케줄 지우기 (수동 관리로 전환)
+                      </button>
+                    )}
                   </div>
 
                   {/* 서류양식파일 */}

@@ -6,6 +6,18 @@ export type NormalizedEventInput = {
   content_type: 'html' | 'text'
   video_url: string | null
   dates: NormalizedEventDate[]
+  // 예약 자동 관리(스케줄). 둘 다 없으면 수동 is_open으로 관리한다.
+  reservation_start_at: string | null
+  reservation_end_at: string | null
+}
+
+// ISO 날짜/시각 문자열 또는 빈값(null) 파싱.
+function parseIsoOrNull(v: unknown): { ok: true; value: string | null } | { ok: false } {
+  if (v === null || v === undefined || v === '') return { ok: true, value: null }
+  if (typeof v !== 'string') return { ok: false }
+  const t = Date.parse(v)
+  if (Number.isNaN(t)) return { ok: false }
+  return { ok: true, value: v }
 }
 
 type ValidateResult =
@@ -46,8 +58,24 @@ export function validateEventInput(input: unknown): ValidateResult {
   const videoRaw = typeof raw.video_url === 'string' ? raw.video_url.trim() : ''
   const description = typeof raw.description === 'string' ? raw.description : ''
 
+  const startP = parseIsoOrNull(raw.reservation_start_at)
+  if (!startP.ok) return { ok: false, message: '예약 시작 시각 형식이 올바르지 않습니다.' }
+  const endP = parseIsoOrNull(raw.reservation_end_at)
+  if (!endP.ok) return { ok: false, message: '예약 종료 시각 형식이 올바르지 않습니다.' }
+  if (startP.value && endP.value && Date.parse(endP.value) <= Date.parse(startP.value)) {
+    return { ok: false, message: '예약 종료 시각은 시작 시각보다 뒤여야 합니다.' }
+  }
+
   return {
     ok: true,
-    value: { title, description, content_type, video_url: videoRaw || null, dates },
+    value: {
+      title,
+      description,
+      content_type,
+      video_url: videoRaw || null,
+      dates,
+      reservation_start_at: startP.value,
+      reservation_end_at: endP.value,
+    },
   }
 }
