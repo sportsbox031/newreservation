@@ -11,6 +11,9 @@ import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'
 
 interface AppRow { id: string; org_name: string; manager_name: string | null; phone: string | null; event_date: string | null; total_count: number; status: string; submission_count: number }
 interface SubGroup { application_id: string; org_name: string; status: string; submissions: { id: string; file_name: string }[] }
+interface EventDateRow { id: string; event_date: string; label: string | null; sort_order: number }
+
+const ALL = 'all'
 
 export default function AdminEventApplicationsPage() {
   const router = useRouter()
@@ -19,19 +22,28 @@ export default function AdminEventApplicationsPage() {
   const [adminInfo, setAdminInfo] = useState<{ role?: string } | null>(null)
   const [apps, setApps] = useState<AppRow[]>([])
   const [groups, setGroups] = useState<SubGroup[]>([])
+  const [dates, setDates] = useState<EventDateRow[]>([])
+  const [filter, setFilter] = useState<string>(ALL) // 'all' | event_date
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
     setLoading(true)
     try {
-      const [ar, sr] = await Promise.all([
+      const [ar, sr, er] = await Promise.all([
         fetch(`/api/admin/events/applications?event_id=${eventId}`, { credentials: 'include', headers: buildCookieFirstClientHeaders() }),
         fetch(`/api/admin/events/submissions?event_id=${eventId}`, { credentials: 'include', headers: buildCookieFirstClientHeaders() }),
+        fetch('/api/admin/events', { credentials: 'include', headers: buildCookieFirstClientHeaders() }),
       ])
       const aj = await ar.json().catch(() => null)
       const sj = await sr.json().catch(() => null)
+      const ej = await er.json().catch(() => null)
       if (ar.ok) setApps(aj?.data || [])
       if (sr.ok) setGroups(sj?.data || [])
+      if (er.ok) {
+        const ev = (ej?.data || []).find((e: { id: string }) => e.id === eventId)
+        const ds: EventDateRow[] = (ev?.event_dates || []).slice().sort((a: EventDateRow, b: EventDateRow) => a.sort_order - b.sort_order)
+        setDates(ds)
+      }
     } finally { setLoading(false) }
   }
 
@@ -62,6 +74,16 @@ export default function AdminEventApplicationsPage() {
     window.open(json.data.url, '_blank')
   }
 
+  // 회차 필터링
+  const dateByApp = new Map(apps.map((a) => [a.id, a.event_date]))
+  const matchesFilter = (eventDate: string | null | undefined) => filter === ALL || eventDate === filter
+  const filteredApps = apps.filter((a) => matchesFilter(a.event_date))
+  const filteredGroups = groups.filter((g) => matchesFilter(dateByApp.get(g.application_id)))
+  const countFor = (eventDate: string | null) =>
+    apps.filter((a) => a.event_date === eventDate && a.status !== 'cancelled').length
+
+  const roundLabel = (d: EventDateRow, i: number) => `${i + 1}회차${d.label ? ` · ${d.label}` : ''}`
+
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNavigation adminRole={adminInfo?.role} />
@@ -75,6 +97,33 @@ export default function AdminEventApplicationsPage() {
           <p className="text-gray-500 py-12 text-center">불러오는 중...</p>
         ) : (
           <>
+            {/* 회차 필터 탭 */}
+            {dates.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-5">
+                <button
+                  onClick={() => setFilter(ALL)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                    filter === ALL ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  전체 <span className="opacity-80">({apps.filter((a) => a.status !== 'cancelled').length})</span>
+                </button>
+                {dates.map((d, i) => (
+                  <button
+                    key={d.id}
+                    onClick={() => setFilter(d.event_date)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                      filter === d.event_date ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                    title={d.event_date}
+                  >
+                    {roundLabel(d, i)} <span className="opacity-80">({countFor(d.event_date)})</span>
+                    <span className={`ml-1 text-xs ${filter === d.event_date ? 'text-blue-100' : 'text-gray-400'}`}>{d.event_date}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-x-auto mb-8">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -85,9 +134,9 @@ export default function AdminEventApplicationsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {apps.length === 0 ? (
+                  {filteredApps.length === 0 ? (
                     <tr><td colSpan={8} className="text-center py-8 text-gray-500">신청자가 없습니다.</td></tr>
-                  ) : apps.map(a => (
+                  ) : filteredApps.map(a => (
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-900">{a.org_name}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{a.manager_name || '-'}</td>
@@ -118,13 +167,21 @@ export default function AdminEventApplicationsPage() {
               </table>
             </div>
 
-            <h2 className="text-lg font-bold text-gray-900 mb-3">제출 서류</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">
+              제출 서류{filter !== ALL && <span className="ml-2 text-sm font-normal text-gray-500">(선택 회차)</span>}
+            </h2>
             <div className="space-y-4">
-              {groups.filter(g => g.submissions.length > 0).length === 0 ? (
+              {filteredGroups.filter(g => g.submissions.length > 0).length === 0 ? (
                 <p className="text-gray-500">제출된 서류가 없습니다.</p>
-              ) : groups.filter(g => g.submissions.length > 0).map(g => (
+              ) : filteredGroups.filter(g => g.submissions.length > 0).map(g => (
                 <div key={g.application_id} className="bg-white rounded-lg border border-gray-200 p-4">
-                  <p className="font-medium text-gray-900 mb-2 flex items-center gap-2">{g.org_name} <Badge variant={eventStatusView(g.status).variant}>{eventStatusView(g.status).label}</Badge></p>
+                  <p className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                    {g.org_name}
+                    <Badge variant={eventStatusView(g.status).variant}>{eventStatusView(g.status).label}</Badge>
+                    {dateByApp.get(g.application_id) && (
+                      <span className="text-xs text-gray-400">{dateByApp.get(g.application_id)}</span>
+                    )}
+                  </p>
                   <ul className="space-y-1">
                     {g.submissions.map(s => (
                       <li key={s.id}>
