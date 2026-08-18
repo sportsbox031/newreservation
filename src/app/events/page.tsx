@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Trophy, List } from 'lucide-react'
 import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'
 import MyApplicationsModal from '@/components/MyApplicationsModal'
+import UserNavigation from '@/components/UserNavigation'
 
 interface EventCard {
   id: string
@@ -41,24 +42,21 @@ export default function EventsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-blue-600" />
-            <h1 className="text-xl font-bold text-gray-900">스포츠이벤트</h1>
-          </div>
-          <button
-            onClick={() => setShowMine(true)}
-            className="flex items-center gap-1 text-gray-700 hover:text-blue-600"
-          >
-            <List className="w-4 h-4" />
-            <span className="text-sm">내 신청내역</span>
-          </button>
-        </div>
-      </header>
+      <UserNavigation>
+        <button
+          onClick={() => setShowMine(true)}
+          className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 p-1 sm:p-0"
+        >
+          <List className="w-4 h-4" />
+          <span className="hidden sm:inline text-sm">내 신청내역</span>
+        </button>
+      </UserNavigation>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">모집중인 이벤트</h2>
+        <div className="flex items-center gap-2 mb-4">
+          <Trophy className="w-6 h-6 text-blue-600" />
+          <h2 className="text-lg font-bold text-gray-900">모집중인 이벤트</h2>
+        </div>
         {loading ? (
           <p className="text-gray-500 py-12 text-center">불러오는 중...</p>
         ) : events.length === 0 ? (

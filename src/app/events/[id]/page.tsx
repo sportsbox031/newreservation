@@ -6,6 +6,7 @@ import DOMPurify from 'dompurify'
 import { ArrowLeft, Trophy } from 'lucide-react'
 import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'
 import EventApplyModal from '@/components/EventApplyModal'
+import UserNavigation from '@/components/UserNavigation'
 
 interface EventDetail {
   id: string
@@ -61,12 +62,20 @@ export default function EventDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
-          <button onClick={() => router.push('/events')} className="text-gray-500 hover:text-gray-800"><ArrowLeft className="w-5 h-5" /></button>
+      <UserNavigation />
+
+      <div className="max-w-3xl mx-auto px-4 pt-6">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push('/events')}
+            className="flex items-center gap-1 text-gray-500 hover:text-gray-800"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm">목록으로</span>
+          </button>
           <h1 className="text-lg font-bold text-gray-900 truncate">{event.title}</h1>
         </div>
-      </header>
+      </div>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden flex items-center justify-center">
