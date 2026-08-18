@@ -516,3 +516,142 @@ input:focus, select:focus, textarea:focus {
     border-radius: 2px;
   }
 }
+/* =========================================================================
+   스포츠이벤트 신청 달력 (EventApplyModal 전용)
+   스포츠교실 대시보드의 premium 달력 "디자인"만 참고해 격리 적용한다.
+   (.event-calendar-container 네임스페이스 → 교실 예약 달력/데이터와 무관)
+   ========================================================================= */
+.event-calendar-container {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+.event-calendar-container .react-calendar {
+  width: 100%;
+  border: 0;
+  background: #ffffff;
+  font-family: inherit;
+}
+/* 네비게이션 헤더 */
+.event-calendar-container .react-calendar__navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  margin: 0;
+}
+.event-calendar-container .react-calendar__navigation button {
+  min-width: 40px;
+  min-height: 36px;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+  transition: background-color 0.15s ease;
+}
+.event-calendar-container .react-calendar__navigation button:enabled:hover,
+.event-calendar-container .react-calendar__navigation button:enabled:focus {
+  background: #f3f4f6;
+}
+.event-calendar-container .react-calendar__navigation__label {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+/* 요일 헤더 */
+.event-calendar-container .react-calendar__month-view__weekdays {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+.event-calendar-container .react-calendar__month-view__weekdays__weekday {
+  padding: 0.625rem 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+.event-calendar-container .react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
+}
+/* 날짜 타일 */
+.event-calendar-container .react-calendar__tile {
+  position: relative;
+  min-height: 62px;
+  padding: 0;
+  background: #ffffff;
+  border: 1px solid #f3f4f6;
+  text-align: center;
+  transition: background-color 0.15s ease;
+}
+.event-calendar-container .react-calendar__tile:enabled:hover,
+.event-calendar-container .react-calendar__tile:enabled:focus {
+  background: #f9fafb;
+}
+.event-calendar-container .react-calendar__tile abbr {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1;
+  text-decoration: none;
+}
+/* 신청 가능한 이벤트 일정 (관리자가 지정한 날짜) — 연한 핑크 강조 */
+.event-calendar-container .event-day-open {
+  background: #fdf2f8;
+  border-color: #fbcfe8;
+}
+.event-calendar-container .event-day-open:enabled:hover {
+  background: #fce7f3;
+}
+.event-calendar-container .event-day-open abbr {
+  color: #1f2937;
+}
+.event-calendar-container .event-day-label {
+  position: absolute;
+  left: 0.375rem;
+  right: 0.375rem;
+  bottom: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #be185d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 선택된 날짜 */
+.event-calendar-container .react-calendar__tile--active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.35);
+}
+.event-calendar-container .react-calendar__tile--active abbr,
+.event-calendar-container .react-calendar__tile--active .event-day-label {
+  color: #ffffff !important;
+}
+.event-calendar-container .react-calendar__tile--active:enabled:hover {
+  background: #1d4ed8 !important;
+}
+/* 오늘 */
+.event-calendar-container .react-calendar__tile--now {
+  background: #eff6ff;
+  border: 2px solid #93c5fd;
+}
+.event-calendar-container .react-calendar__tile--now abbr {
+  color: #1d4ed8;
+}
+/* 비활성(선택 불가) 날짜 */
+.event-calendar-container .react-calendar__tile:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
+}
+.event-calendar-container .react-calendar__tile:disabled abbr {
+  color: #d1d5db;
+}
+.event-calendar-container .react-calendar__month-view__days__day--neighboringMonth abbr {
+  color: #e5e7eb;
+}

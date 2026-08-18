@@ -23,8 +23,17 @@ function toYmd(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+// 'YYYY-MM-DD' → 로컬 자정 Date (UTC 파싱으로 인한 하루 밀림 방지)
+function fromYmd(s: string): Date {
+  const [y, m, d] = s.split('-').map((n) => parseInt(n, 10))
+  return new Date(y, m - 1, d)
+}
+
 export default function EventApplyModal({ eventId, dates, org, onClose, onApplied }: Props) {
   const allowed = new Set(dates.map((d) => d.event_date))
+  const labelByDate = new Map(dates.map((d) => [d.event_date, d.label]))
+  const sortedDates = [...dates].sort((a, b) => a.event_date.localeCompare(b.event_date))
+  const firstMonth = sortedDates.length ? fromYmd(sortedDates[0].event_date) : new Date()
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [student, setStudent] = useState(0)
   const [leader, setLeader] = useState(0)
@@ -61,7 +70,7 @@ export default function EventApplyModal({ eventId, dates, org, onClose, onApplie
 
   return (
     <ModalOverlay onClose={onClose} closeOnBackdrop={false}>
-      <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b p-5 flex justify-between items-center">
           <h2 className="text-lg font-bold text-gray-900">이벤트 신청</h2>
           <button onClick={onClose} aria-label="닫기" className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -69,12 +78,29 @@ export default function EventApplyModal({ eventId, dates, org, onClose, onApplie
         <div className="p-5 space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">신청 일정 <span className="text-red-500">*</span></label>
-            <Calendar
-              onChange={(v) => v instanceof Date && setSelectedDate(toYmd(v))}
-              tileDisabled={({ date, view }) => view === 'month' && !allowed.has(toYmd(date))}
-              className="border rounded-lg"
-            />
-            <p className="text-sm text-gray-600 mt-2">선택: {selectedDate || '없음'}</p>
+            <div className="event-calendar-container">
+              <Calendar
+                locale="ko-KR"
+                calendarType="gregory"
+                value={selectedDate ? fromYmd(selectedDate) : null}
+                defaultActiveStartDate={firstMonth}
+                onChange={(v) => v instanceof Date && setSelectedDate(toYmd(v))}
+                tileDisabled={({ date, view }) => view === 'month' && !allowed.has(toYmd(date))}
+                tileClassName={({ date, view }) =>
+                  view === 'month' && allowed.has(toYmd(date)) ? 'event-day-open' : null
+                }
+                tileContent={({ date, view }) => {
+                  if (view !== 'month') return null
+                  const lbl = labelByDate.get(toYmd(date))
+                  return lbl ? <span className="event-day-label">{lbl}</span> : null
+                }}
+              />
+            </div>
+            <p className="text-sm text-gray-600 mt-3">
+              선택: {selectedDate
+                ? `${selectedDate}${labelByDate.get(selectedDate) ? ` (${labelByDate.get(selectedDate)})` : ''}`
+                : '없음'}
+            </p>
           </div>
 
           <div className="space-y-2 text-sm">
