@@ -533,33 +533,38 @@ input:focus, select:focus, textarea:focus {
   background: #ffffff;
   font-family: inherit;
 }
-/* 네비게이션 헤더 */
+/* 네비게이션 헤더 — 교실 대시보드와 동일한 넉넉한 여백/타이포 */
 .event-calendar-container .react-calendar__navigation {
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: #ffffff;
-  padding: 0.75rem 1rem;
+  padding: 1.25rem 1.5rem;
   border-bottom: 1px solid #e5e7eb;
   margin: 0;
+  height: auto;
 }
 .event-calendar-container .react-calendar__navigation button {
-  min-width: 40px;
-  min-height: 36px;
-  padding: 0.375rem 0.75rem;
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   font-weight: 600;
   color: #374151;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.2s ease;
 }
 .event-calendar-container .react-calendar__navigation button:enabled:hover,
 .event-calendar-container .react-calendar__navigation button:enabled:focus {
   background: #f3f4f6;
 }
 .event-calendar-container .react-calendar__navigation__label {
-  font-size: 1.05rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #1f2937;
+}
+.event-calendar-container .react-calendar__navigation__arrow {
+  font-size: 1.5rem;
+  font-weight: 400;
 }
 /* 요일 헤더 */
 .event-calendar-container .react-calendar__month-view__weekdays {
@@ -567,24 +572,25 @@ input:focus, select:focus, textarea:focus {
   border-bottom: 1px solid #e5e7eb;
 }
 .event-calendar-container .react-calendar__month-view__weekdays__weekday {
-  padding: 0.625rem 0;
+  padding: 1rem 0;
   text-align: center;
-  font-size: 0.8125rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #4b5563;
 }
 .event-calendar-container .react-calendar__month-view__weekdays__weekday abbr {
   text-decoration: none;
 }
-/* 날짜 타일 */
+/* 날짜 타일 — 교실과 동일하게 크고 넓게 */
 .event-calendar-container .react-calendar__tile {
   position: relative;
-  min-height: 62px;
+  min-height: 88px;
   padding: 0;
   background: #ffffff;
   border: 1px solid #f3f4f6;
   text-align: center;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
 }
 .event-calendar-container .react-calendar__tile:enabled:hover,
 .event-calendar-container .react-calendar__tile:enabled:focus {
@@ -592,13 +598,13 @@ input:focus, select:focus, textarea:focus {
 }
 .event-calendar-container .react-calendar__tile abbr {
   position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  font-size: 1.05rem;
+  top: 0.75rem;
+  left: 0.75rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #1f2937;
   line-height: 1;
-  text-decoration: none;
+  text-decoration: none !important;
 }
 /* 신청 가능한 이벤트 일정 (관리자가 지정한 날짜) — 연한 핑크 강조 */
 .event-calendar-container .event-day-open {
