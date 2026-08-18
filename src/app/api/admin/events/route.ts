@@ -58,13 +58,13 @@ export async function POST(request: NextRequest) {
   if (!admin.ok) return admin.response
 
   try {
-    const body = await request.json()
+    const body = await request.json().catch(() => null)
     const parsed = validateEventInput(body)
     if (!parsed.ok) {
       return NextResponse.json({ error: { message: parsed.message } }, { status: 400 })
     }
 
-    const thumbnailPath = extractThumbnailPath(body)
+    const thumbnailPath = extractThumbnailPath((body ?? {}) as Record<string, unknown>)
     const result = await createEventOnServer(parsed.value, admin.user.id, thumbnailPath)
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status ?? 400 })
@@ -89,13 +89,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: { message: 'ID가 필요합니다.' } }, { status: 400 })
     }
 
-    const body = await request.json()
+    const body = await request.json().catch(() => null)
     const parsed = validateEventInput(body)
     if (!parsed.ok) {
       return NextResponse.json({ error: { message: parsed.message } }, { status: 400 })
     }
 
-    const thumbnailPath = extractThumbnailPath(body)
+    const thumbnailPath = extractThumbnailPath((body ?? {}) as Record<string, unknown>)
     const result = await updateEventOnServer(
       id,
       parsed.value,

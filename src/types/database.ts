@@ -501,7 +501,6 @@ export type EventSubmission = Database['public']['Tables']['event_submissions'][
 export type EventSubmissionInsert = Database['public']['Tables']['event_submissions']['Insert']
 
 export type EventContentType = 'html' | 'text'
-export type EventTargetType = 'all' | 'region'
 export type EventApplicationStatus = 'applied' | 'selected' | 'rejected' | 'cancelled'
 
 export type { Json }

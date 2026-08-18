@@ -41,7 +41,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: { message: 'ID가 필요합니다.' } }, { status: 400 })
     }
 
-    const body = await request.json()
+    const body = await request.json().catch(() => null)
     if (typeof body?.is_open !== 'boolean') {
       return NextResponse.json({ error: { message: 'is_open 값이 필요합니다.' } }, { status: 400 })
     }
@@ -62,8 +62,10 @@ export async function PATCH(request: NextRequest) {
 
     // 이벤트는 지역관리자도 전체관리자와 동일하게 모든 이벤트의 예약 상태를 토글할 수 있으므로 소유권 확인을 하지 않는다.
 
-    // 자동 스케줄(예약 시작/종료 시각)이 모두 설정된 이벤트는 수동 토글과 혼동될 수 있으므로 차단
-    if (event.reservation_start_at && event.reservation_end_at) {
+    // 자동 스케줄(예약 시작/종료 시각)이 설정된 이벤트는 수동 토글과 혼동될 수 있으므로 차단한다.
+    // computeEffectiveOpen은 start/end 중 하나라도 있으면 "스케줄 있음"으로 보고 스케줄을 우선하므로,
+    // 여기서도 동일하게 (start || end) 기준으로 막아야 읽기시점 계산과 일관된다.
+    if (event.reservation_start_at || event.reservation_end_at) {
       return NextResponse.json(
         {
           error: {

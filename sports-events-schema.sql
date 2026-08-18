@@ -54,6 +54,8 @@ create table if not exists public.event_applications (
 create unique index if not exists uq_event_applications_once
   on public.event_applications(event_id, user_id) where status <> 'cancelled';
 create index if not exists idx_event_applications_event on public.event_applications(event_id);
+-- 사용자 단독 조회("내 신청 내역")용 인덱스. 부분 유니크 인덱스는 event_id 선행이라 user_id 단독 조회를 못 덮는다.
+create index if not exists idx_event_applications_user on public.event_applications(user_id);
 
 create table if not exists public.event_submissions (
   id uuid primary key default gen_random_uuid(),
