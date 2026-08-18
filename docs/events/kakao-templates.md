@@ -5,12 +5,14 @@ Aligo(알리고) 알림톡 발송용 카카오 승인 템플릿 원문입니다.
 - 코드 위치: `src/lib/aligo.ts` (`sendEvent*Notification` 함수들). 문구 수정 시 이 파일과 아래 문서를 함께 맞춰주세요.
 - 등록 후 아래 env에 발급받은 템플릿 코드를 설정합니다. (미설정 시 발송 스킵, 미승인/실패 시 `failover`로 SMS 대체)
 
-| 알림 | 함수 | 환경변수 | 사용 변수 |
-|---|---|---|---|
-| 신청 완료 | `sendEventApplicationNotification` | `NEXT_PUBLIC_ALIGO_EVENT_APPLICATION_TPL_CODE` | `#{단체명}` `#{이벤트명}` `#{일정}` |
-| 신청 취소 | `sendEventCancellationNotification` | `NEXT_PUBLIC_ALIGO_EVENT_CANCEL_TPL_CODE` | `#{단체명}` `#{이벤트명}` |
-| 선정 | `sendEventSelectionNotification` | `NEXT_PUBLIC_ALIGO_EVENT_SELECTED_TPL_CODE` | `#{단체명}` `#{이벤트명}` |
-| 선정 결과(미선정) | `sendEventRejectionNotification` | `NEXT_PUBLIC_ALIGO_EVENT_REJECTED_TPL_CODE` | `#{단체명}` `#{이벤트명}` |
+| 알림 | 함수 | 환경변수 | 템플릿 코드 | 사용 변수 |
+|---|---|---|---|---|
+| 신청 완료 | `sendEventApplicationNotification` | `NEXT_PUBLIC_ALIGO_EVENT_APPLICATION_TPL_CODE` | `UK_4316` | `#{단체명}` `#{이벤트명}` `#{일정}` |
+| 신청 취소 | `sendEventCancellationNotification` | `NEXT_PUBLIC_ALIGO_EVENT_CANCEL_TPL_CODE` | `UK_4317` | `#{단체명}` `#{이벤트명}` |
+| 선정 | `sendEventSelectionNotification` | `NEXT_PUBLIC_ALIGO_EVENT_SELECTED_TPL_CODE` | `UK_4318` | `#{단체명}` `#{이벤트명}` |
+| 선정 결과(미선정) | `sendEventRejectionNotification` | `NEXT_PUBLIC_ALIGO_EVENT_REJECTED_TPL_CODE` | `UK_4319` | `#{단체명}` `#{이벤트명}` |
+
+> 템플릿 코드는 2026-08-18 기준 **심사중**입니다. 로컬은 `.env.local`에 설정됨. **프로덕션(Vercel)은 대시보드 Environment Variables에 위 4개를 반드시 추가**해야 발송됩니다(`NEXT_PUBLIC_`은 빌드타임 주입 → 추가 후 재배포 필요). 승인 완료 전까지는 `failover`로 SMS 대체 발송됩니다.
 
 ---
 
