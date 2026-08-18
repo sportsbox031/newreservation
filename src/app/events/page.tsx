@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trophy, List } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'
-import MyApplicationsModal from '@/components/MyApplicationsModal'
 import UserNavigation from '@/components/UserNavigation'
 
 interface EventCard {
@@ -24,7 +23,6 @@ export default function EventsPage() {
   const router = useRouter()
   const [events, setEvents] = useState<EventCard[]>([])
   const [loading, setLoading] = useState(true)
-  const [showMine, setShowMine] = useState(false)
 
   useEffect(() => {
     const currentUser = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null
@@ -42,15 +40,7 @@ export default function EventsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <UserNavigation>
-        <button
-          onClick={() => setShowMine(true)}
-          className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 p-1 sm:p-0"
-        >
-          <List className="w-4 h-4" />
-          <span className="hidden sm:inline text-sm">내 신청내역</span>
-        </button>
-      </UserNavigation>
+      <UserNavigation />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center gap-2 mb-4">
@@ -88,8 +78,6 @@ export default function EventsPage() {
           </div>
         )}
       </main>
-
-      {showMine && <MyApplicationsModal onClose={() => setShowMine(false)} />}
     </div>
   )
 }
