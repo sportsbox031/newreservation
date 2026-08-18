@@ -6,6 +6,7 @@ import {
   createApplicationOnServer,
   listMyApplicationsOnServer,
   cancelApplicationOnServer,
+  updateApplicationOnServer,
 } from '@/lib/eventApplicationServer'
 import { getErrorMessage } from '@/lib/requestUtils'
 
@@ -42,6 +43,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: result.data ?? [] })
   } catch (e) {
     return NextResponse.json({ error: { message: getErrorMessage(e, '신청 내역을 불러오는 중 오류가 발생했습니다.') } }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const u = await requireUser(request)
+  if (!u.ok) return u.response
+  try {
+    const id = new URL(request.url).searchParams.get('id')
+    if (!id) return NextResponse.json({ error: { message: 'ID가 필요합니다.' } }, { status: 400 })
+    const body = await request.json().catch(() => ({}))
+    const parsed = validateApplicationInput(body)
+    if (!parsed.ok) return NextResponse.json({ error: { message: parsed.message } }, { status: 400 })
+
+    const result = await updateApplicationOnServer(id, u.user.id, parsed.value)
+    if (result.error) return NextResponse.json({ error: result.error }, { status: result.status ?? 400 })
+    return NextResponse.json({ data: result.data })
+  } catch (e) {
+    return NextResponse.json({ error: { message: getErrorMessage(e, '신청 수정 중 오류가 발생했습니다.') } }, { status: 500 })
   }
 }
 
