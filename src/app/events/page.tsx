@@ -23,6 +23,7 @@ export default function EventsPage() {
   const router = useRouter()
   const [events, setEvents] = useState<EventCard[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     const currentUser = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null
@@ -31,7 +32,10 @@ export default function EventsPage() {
       try {
         const res = await fetch('/api/events', { credentials: 'include', headers: buildCookieFirstClientHeaders() })
         const json = await res.json().catch(() => null)
-        setEvents(res.ok ? json?.data || [] : [])
+        if (!res.ok) { setLoadError(true); return }
+        setEvents(json?.data || [])
+      } catch {
+        setLoadError(true)
       } finally {
         setLoading(false)
       }
@@ -49,6 +53,8 @@ export default function EventsPage() {
         </div>
         {loading ? (
           <p className="text-gray-500 py-12 text-center">불러오는 중...</p>
+        ) : loadError ? (
+          <p className="text-gray-500 py-12 text-center">이벤트를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
         ) : events.length === 0 ? (
           <p className="text-gray-500 py-12 text-center">현재 모집중인 이벤트가 없습니다.</p>
         ) : (

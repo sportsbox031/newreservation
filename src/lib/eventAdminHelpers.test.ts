@@ -34,6 +34,20 @@ test('잘못된 날짜 형식은 거부', () => {
   assert.equal(r.ok, false)
 })
 
+test('중복 일정 날짜는 하나로 dedupe', () => {
+  const r = validateEventInput({
+    title: 'x',
+    dates: [{ event_date: '2026-09-01', label: '오전' }, { event_date: '2026-09-01', label: '오후' }, { event_date: '2026-09-02' }],
+  })
+  assert.equal(r.ok, true)
+  if (r.ok) {
+    assert.equal(r.value.dates.length, 2)
+    assert.equal(r.value.dates[0].event_date, '2026-09-01')
+    assert.equal(r.value.dates[0].label, '오전') // 첫 항목 유지
+    assert.equal(r.value.dates[1].event_date, '2026-09-02')
+  }
+})
+
 test('스케줄 미지정 시 null로 정규화', () => {
   const r = validateEventInput({ title: 'x', dates: [{ event_date: '2026-09-01' }] })
   assert.equal(r.ok, true)

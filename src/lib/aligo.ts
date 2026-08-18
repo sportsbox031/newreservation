@@ -9,6 +9,9 @@ export async function sendAligoKakaoTalk(params: {
   message: string
   failover?: boolean
 }): Promise<{ success: boolean; message?: string; error?: string }> {
+  // 프록시가 느리거나 멈춰도 호출부(신청/취소/선정 등) 응답이 무한정 지연되지 않도록 타임아웃을 건다.
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 8000)
   try {
     // Fly.io 프록시 서버로 요청 전송
     const response = await fetch('https://sportsbox-aligo-proxy.fly.dev/proxy/aligo', {
@@ -22,7 +25,8 @@ export async function sendAligoKakaoTalk(params: {
         subject: params.subject,
         message: params.message,
         failover: params.failover !== false
-      })
+      }),
+      signal: controller.signal
     })
 
     const result = await response.json()
@@ -46,6 +50,8 @@ export async function sendAligoKakaoTalk(params: {
       success: false,
       error: '알림톡 발송 중 오류가 발생했습니다.'
     }
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 

@@ -7,6 +7,10 @@ import { ReactNode, useEffect } from 'react'
 export const modalOverlayClass = (padding: string = 'p-4') =>
   `fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center ${padding} z-50`
 
+// 열려 있는 ESC-닫기 오버레이 스택 (마지막 = 최상위).
+// 모달이 중첩됐을 때 ESC 한 번에 전부 닫히지 않고 최상위 하나만 닫히도록 한다.
+const escStack: object[] = []
+
 /**
  * 모달 공통 래퍼.
  * - onClose를 넘기면 ESC 키로 닫힌다.
@@ -25,16 +29,22 @@ export default function ModalOverlay({
   onClose?: () => void
   closeOnBackdrop?: boolean
 }) {
-  // ESC 키로 닫기
+  // ESC 키로 닫기 — 중첩 모달에서는 최상위(스택 마지막) 오버레이만 닫는다.
   useEffect(() => {
     if (!onClose) return
+    const token = {} // 이 마운트 고유 식별자
+    escStack.push(token)
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && escStack[escStack.length - 1] === token) {
         onClose()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      const i = escStack.lastIndexOf(token)
+      if (i >= 0) escStack.splice(i, 1)
+    }
   }, [onClose])
 
   // 모달이 떠 있는 동안 배경 스크롤 잠금

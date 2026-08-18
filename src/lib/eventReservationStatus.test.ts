@@ -3,6 +3,17 @@ import assert from 'node:assert/strict'
 
 import { computeEffectiveOpen } from './eventReservationStatus.ts'
 
+test('파싱 불가한 스케줄 시각은 열림 대신 닫힘(fail-safe)', () => {
+  assert.equal(
+    computeEffectiveOpen({ is_open: true, reservation_start_at: 'not-a-date', reservation_end_at: null }, '2026-08-18T00:00:00.000Z'),
+    false
+  )
+  assert.equal(
+    computeEffectiveOpen({ is_open: true, reservation_start_at: null, reservation_end_at: 'bogus' }, '2026-08-18T00:00:00.000Z'),
+    false
+  )
+})
+
 const NOW = '2026-08-13T05:00:00.000Z'
 
 test('스케줄이 없으면 is_open 값을 그대로 사용', () => {

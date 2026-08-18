@@ -42,12 +42,18 @@ export function validateEventInput(input: unknown): ValidateResult {
   }
 
   const dates: NormalizedEventDate[] = []
+  const seenDates = new Set<string>()
   for (let i = 0; i < rawDates.length; i++) {
     const d = (rawDates[i] ?? {}) as Record<string, unknown>
     const event_date = typeof d.event_date === 'string' ? d.event_date : ''
     if (!ISO_DATE.test(event_date)) {
       return { ok: false, message: '일정 날짜 형식이 올바르지 않습니다. (YYYY-MM-DD)' }
     }
+    // 같은 날짜 중복 입력은 무시(중복 event_dates 행 방지)
+    if (seenDates.has(event_date)) {
+      continue
+    }
+    seenDates.add(event_date)
     dates.push({
       event_date,
       label: typeof d.label === 'string' && d.label.trim() ? d.label.trim() : null,

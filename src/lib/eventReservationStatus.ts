@@ -13,11 +13,22 @@ export function computeEffectiveOpen(event: EventOpenInput, nowIso: string): boo
   }
 
   const now = new Date(nowIso).getTime()
-  if (reservation_start_at && now < new Date(reservation_start_at).getTime()) {
+  // now를 파싱할 수 없으면 안전하게 닫힘 처리(fail-safe)
+  if (Number.isNaN(now)) {
     return false
   }
-  if (reservation_end_at && now >= new Date(reservation_end_at).getTime()) {
-    return false
+  if (reservation_start_at) {
+    const start = new Date(reservation_start_at).getTime()
+    // 스케줄 시각이 파싱 불가면 열려버리지 않도록 닫힘 처리
+    if (Number.isNaN(start) || now < start) {
+      return false
+    }
+  }
+  if (reservation_end_at) {
+    const end = new Date(reservation_end_at).getTime()
+    if (Number.isNaN(end) || now >= end) {
+      return false
+    }
   }
   return true
 }
