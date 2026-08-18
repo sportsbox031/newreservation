@@ -136,7 +136,15 @@ export default function AdminEventsPage() {
       return
     }
 
-    const adminData = JSON.parse(adminAuth)
+    // 손상된 adminInfo로 JSON.parse가 throw하면 로딩 스켈레톤에서 영구히 멈추므로 방어한다.
+    let adminData
+    try {
+      adminData = JSON.parse(adminAuth)
+    } catch {
+      localStorage.removeItem('adminInfo')
+      router.push('/auth/login')
+      return
+    }
     setAdminInfo(adminData)
     loadData()
   }

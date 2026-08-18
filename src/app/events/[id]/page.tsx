@@ -43,15 +43,20 @@ export default function EventDetailPage() {
   const [showApply, setShowApply] = useState(false)
   const [showMine, setShowMine] = useState(false)
   const [myStatus, setMyStatus] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState(false)
   const [org, setOrg] = useState({ organization_name: '', manager_name: '', phone: '' })
 
-  // 이 이벤트에 대한 내 신청 상태(취소 제외)를 조회한다.
+  // 이 이벤트에 대한 내 신청 상태(취소 제외)를 조회한다. (네트워크 실패해도 앱이 죽지 않도록 방어)
   const refreshMyStatus = async () => {
-    const res = await fetch('/api/events/applications', { credentials: 'include', headers: buildCookieFirstClientHeaders() })
-    const json = await res.json().catch(() => null)
-    if (!res.ok) return
-    const mine = (json?.data || []).find((a: { event_id: string; status: string }) => a.event_id === id && a.status !== 'cancelled')
-    setMyStatus(mine?.status ?? null)
+    try {
+      const res = await fetch('/api/events/applications', { credentials: 'include', headers: buildCookieFirstClientHeaders() })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) return
+      const mine = (json?.data || []).find((a: { event_id: string; status: string }) => a.event_id === id && a.status !== 'cancelled')
+      setMyStatus(mine?.status ?? null)
+    } catch {
+      // 네트워크 오류 시 기존 상태 유지
+    }
   }
 
   useEffect(() => {
@@ -68,6 +73,9 @@ export default function EventDetailPage() {
         if (!res.ok) { alert(json?.error?.message || '이벤트를 불러오지 못했습니다.'); router.push('/events'); return }
         setEvent(json?.data || null)
         await refreshMyStatus()
+      } catch {
+        // 네트워크 오류 등: 빈 화면 대신 에러 상태를 표시
+        setLoadError(true)
       } finally {
         setLoading(false)
       }
@@ -85,7 +93,12 @@ export default function EventDetailPage() {
 
       {loading ? (
         <div className="max-w-3xl mx-auto px-4 py-16 text-center text-gray-500">불러오는 중...</div>
-      ) : !event ? null : (
+      ) : loadError || !event ? (
+        <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-3">
+          <p className="text-gray-500">이벤트를 불러오지 못했습니다. 네트워크 상태를 확인해 주세요.</p>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>다시 시도</Button>
+        </div>
+      ) : (
         <>
           <div className="max-w-3xl mx-auto px-4 pt-6">
             <div className="flex items-center gap-3">
@@ -152,13 +165,13 @@ export default function EventDetailPage() {
             <div className="pt-2">
               {myStatus ? (
                 // 이미 신청함 — 상태 안내 + 내 신청내역에서 관리
-                <div className="rounded-lg border border-gray-200 bg-white p-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <div className="rounded-lg border border-gray-200 bg-white p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm text-gray-700 min-w-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                     <span>이미 신청하셨습니다.</span>
                     <Badge variant={eventStatusView(myStatus).variant}>{eventStatusView(myStatus).label}</Badge>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setShowMine(true)}>내 신청 관리</Button>
+                  <Button variant="outline" size="sm" className="shrink-0" onClick={() => setShowMine(true)}>내 신청 관리</Button>
                 </div>
               ) : isOpen ? (
                 <Button variant="primary" size="md" className="w-full py-3" onClick={() => setShowApply(true)}>

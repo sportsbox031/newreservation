@@ -43,6 +43,8 @@ export default function EventApplyModal({
   const labelByDate = new Map(dates.map((d) => [d.event_date, d.label]))
   const sortedDates = [...dates].sort((a, b) => a.event_date.localeCompare(b.event_date))
   const initialDate = initial?.event_date && allowed.has(initial.event_date) ? initial.event_date : ''
+  // 편집 모드인데 기존에 선택했던 일정이 현재 선택 가능한 목록에서 사라진 경우(관리자가 삭제) 안내한다.
+  const prevDateRemoved = isEdit && !!initial?.event_date && !allowed.has(initial.event_date)
   const firstMonth = initialDate
     ? fromYmd(initialDate)
     : sortedDates.length ? fromYmd(sortedDates[0].event_date) : new Date()
@@ -123,6 +125,9 @@ export default function EventApplyModal({
                 ? `${selectedDate}${labelByDate.get(selectedDate) ? ` (${labelByDate.get(selectedDate)})` : ''}`
                 : '없음'}</span>
             </p>
+            {prevDateRemoved && (
+              <p className="text-sm text-amber-600 mt-1">기존에 선택했던 일정이 마감/변경되어, 새 일정을 선택해 주세요.</p>
+            )}
           </div>
 
           {org && (

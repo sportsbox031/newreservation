@@ -52,32 +52,11 @@ async function replaceEventDates(
     dates
   )
 
-  // 삭제: 신청자가 참조 중인 일정이면 FK 위반(23503)으로 실패 → 친절한 안내로 변환
-  if (toDeleteIds.length > 0) {
-    const { error: deleteError } = await runQueryWithTimeout(
-      supabaseAdmin.from('event_dates').delete().in('id', toDeleteIds),
-      '기존 일정을 삭제하는 중 시간이 초과되었습니다.'
-    )
-    if (deleteError) {
-      if ((deleteError as { code?: string }).code === '23503') {
-        return { message: '이미 신청자가 있는 일정은 삭제할 수 없습니다. 해당 일정은 유지한 채 수정해주세요.' }
-      }
-      return { message: getErrorMessage(deleteError, '기존 일정을 삭제하는데 실패했습니다.') }
-    }
-  }
+  // 비원자적(트랜잭션 아님) 다단계 작업이므로, 실패 시 "일정 0개" 같은 데이터 손실을 피하려고
+  // 반드시 삽입 → 갱신 → 삭제 순서로 진행한다.
+  // (삽입이 실패하면 기존 일정이 그대로 남고, 삭제 단계까지 못 가므로 최소 기존 상태는 보존된다.)
 
-  // 갱신: 같은 날짜의 label/sort_order 변경(id 유지 → 신청 참조 보존)
-  for (const u of toUpdate) {
-    const { error: updateError } = await runQueryWithTimeout(
-      supabaseAdmin.from('event_dates').update({ label: u.label, sort_order: u.sort_order }).eq('id', u.id),
-      '일정 수정 중 시간이 초과되었습니다.'
-    )
-    if (updateError) {
-      return { message: getErrorMessage(updateError, '일정 수정에 실패했습니다.') }
-    }
-  }
-
-  // 삽입: 신규 날짜
+  // 1) 삽입: 신규 날짜
   if (toInsert.length > 0) {
     const rows = toInsert.map((d) => ({
       event_id: eventId,
@@ -91,6 +70,31 @@ async function replaceEventDates(
     )
     if (insertError) {
       return { message: getErrorMessage(insertError, '일정 저장에 실패했습니다.') }
+    }
+  }
+
+  // 2) 갱신: 같은 날짜의 label/sort_order 변경(id 유지 → 신청 참조 보존)
+  for (const u of toUpdate) {
+    const { error: updateError } = await runQueryWithTimeout(
+      supabaseAdmin.from('event_dates').update({ label: u.label, sort_order: u.sort_order }).eq('id', u.id),
+      '일정 수정 중 시간이 초과되었습니다.'
+    )
+    if (updateError) {
+      return { message: getErrorMessage(updateError, '일정 수정에 실패했습니다.') }
+    }
+  }
+
+  // 3) 삭제: 제거된 일정. 신청자가 참조 중이면 FK 위반(23503)으로 실패 → 친절한 안내로 변환
+  if (toDeleteIds.length > 0) {
+    const { error: deleteError } = await runQueryWithTimeout(
+      supabaseAdmin.from('event_dates').delete().in('id', toDeleteIds),
+      '기존 일정을 삭제하는 중 시간이 초과되었습니다.'
+    )
+    if (deleteError) {
+      if ((deleteError as { code?: string }).code === '23503') {
+        return { message: '이미 신청자가 있는 일정은 삭제할 수 없습니다. 해당 일정은 유지한 채 수정해주세요.' }
+      }
+      return { message: getErrorMessage(deleteError, '기존 일정을 삭제하는데 실패했습니다.') }
     }
   }
 

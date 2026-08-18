@@ -27,17 +27,22 @@ interface MyApplication {
 export default function MyApplicationsModal({ onClose }: { onClose: () => void }) {
   const [apps, setApps] = useState<MyApplication[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [editing, setEditing] = useState<MyApplication | null>(null)
 
   const load = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res = await fetch('/api/events/applications', {
         credentials: 'include',
         headers: buildCookieFirstClientHeaders(),
       })
       const json = await res.json().catch(() => null)
-      setApps(res.ok ? json?.data || [] : [])
+      if (!res.ok) { setLoadError(true); return }
+      setApps(json?.data || [])
+    } catch {
+      setLoadError(true)
     } finally {
       setLoading(false)
     }
@@ -68,6 +73,8 @@ export default function MyApplicationsModal({ onClose }: { onClose: () => void }
         <div className="p-5 space-y-3">
           {loading ? (
             <p className="text-center text-gray-500 py-8">불러오는 중...</p>
+          ) : loadError ? (
+            <p className="text-center text-gray-500 py-8">신청 내역을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
           ) : apps.length === 0 ? (
             <p className="text-center text-gray-500 py-8">신청한 이벤트가 없습니다.</p>
           ) : (
@@ -170,11 +177,11 @@ function SubmissionSection({ applicationId }: { applicationId: string }) {
       <p className="text-xs font-medium text-gray-500 mb-2">제출 서류 ({subs.length}/10)</p>
       <ul className="space-y-1 mb-2">
         {subs.map(s => (
-          <li key={s.id} className="flex items-center justify-between text-sm">
-            <button onClick={() => handleDownload(s.id)} className="flex items-center gap-1 text-blue-600 hover:underline">
-              <Download className="w-3.5 h-3.5" />{s.file_name}
+          <li key={s.id} className="flex items-center justify-between gap-2 text-sm min-w-0">
+            <button onClick={() => handleDownload(s.id)} className="flex items-center gap-1 text-blue-600 hover:underline min-w-0">
+              <Download className="w-3.5 h-3.5 shrink-0" /><span className="truncate">{s.file_name}</span>
             </button>
-            <button aria-label="삭제" onClick={() => handleDelete(s.id)} className="text-gray-400 hover:text-red-600">
+            <button aria-label="삭제" onClick={() => handleDelete(s.id)} className="text-gray-400 hover:text-red-600 shrink-0">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </li>
