@@ -4,6 +4,7 @@ import { Database } from '@/types/database'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import { computeEffectiveOpen } from '@/lib/eventReservationStatus'
 import { canCancelApplication, type NormalizedApplicationInput } from '@/lib/eventApplicationHelpers'
+import { notifyEventApplication, notifyEventCancellation } from '@/lib/eventNotifications'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -113,6 +114,8 @@ export async function createApplicationOnServer(
         : getErrorMessage(insErr, '신청에 실패했습니다.')
       return { data: null, error: { message: msg }, status: 400 }
     }
+    // 신청 완료 알림(서류 제출 안내 포함). 실패해도 신청 자체는 유지된다.
+    await notifyEventApplication(inserted.id)
     return { data: { id: inserted.id }, error: null }
   } catch (e) {
     return { data: null, error: { message: getErrorMessage(e, '신청 처리 중 오류가 발생했습니다.') }, status: 500 }
@@ -179,6 +182,8 @@ export async function cancelApplicationOnServer(id: string, userId: string): Pro
       '신청 취소 중 시간이 초과되었습니다.'
     )
     if (uErr) return { data: null, error: { message: getErrorMessage(uErr, '신청 취소에 실패했습니다.') }, status: 400 }
+    // 신청 취소 알림. 실패해도 취소 자체는 유지된다.
+    await notifyEventCancellation(id)
     return { data: { id }, error: null }
   } catch (e) {
     return { data: null, error: { message: getErrorMessage(e, '신청 취소 중 오류가 발생했습니다.') }, status: 500 }

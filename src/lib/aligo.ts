@@ -318,3 +318,113 @@ export async function sendProgramDayNotification(
     failover: true
   })
 }
+
+// ─────────────────────────────────────────────────────────────
+// 스포츠이벤트 알림톡 (신청/취소/선정/선정결과)
+// 카카오 승인 템플릿(tplCode)이 필요하며, 미승인/실패 시 failover로 SMS 대체 발송된다.
+// ─────────────────────────────────────────────────────────────
+
+// 이벤트 신청 완료 — 서류 제출 안내 포함
+export async function sendEventApplicationNotification(
+  phone: string,
+  organizationName: string,
+  eventTitle: string,
+  eventDate: string,
+  tplCode: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const subject = '[경기도체육회 스포츠박스] 이벤트 신청 완료 안내'
+
+  const message = `[경기도체육회 스포츠박스] 이벤트 신청 완료 안내
+
+안녕하세요, #{단체명} 담당자님.
+'#{이벤트명}' 이벤트 신청이 정상적으로 접수되었습니다.
+- 신청 일정: #{일정}
+
+제출할 서류가 있다면 홈페이지 로그인 후 '내 신청내역'에서 서류를 제출해 주세요.
+선정 결과는 확정되는 대로 다시 안내드리겠습니다.
+
+문의사항은
+남부지역 031-250-0474~7
+북부지역 031-872-6520~4으로 연락 바랍니다.`
+    .replace(/#{단체명}/g, organizationName)
+    .replace(/#{이벤트명}/g, eventTitle)
+    .replace(/#{일정}/g, eventDate)
+
+  return sendAligoKakaoTalk({ tplCode, receiver: phone, subject, message, failover: true })
+}
+
+// 이벤트 신청 취소
+export async function sendEventCancellationNotification(
+  phone: string,
+  organizationName: string,
+  eventTitle: string,
+  tplCode: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const subject = '[경기도체육회 스포츠박스] 이벤트 신청 취소 안내'
+
+  const message = `[경기도체육회 스포츠박스] 이벤트 신청 취소 안내
+
+안녕하세요, #{단체명} 담당자님.
+'#{이벤트명}' 이벤트 신청이 취소되었습니다.
+다시 신청을 원하시면 홈페이지에서 진행해 주세요.
+
+문의사항은
+남부지역 031-250-0474~7
+북부지역 031-872-6520~4으로 연락 바랍니다.`
+    .replace(/#{단체명}/g, organizationName)
+    .replace(/#{이벤트명}/g, eventTitle)
+
+  return sendAligoKakaoTalk({ tplCode, receiver: phone, subject, message, failover: true })
+}
+
+// 이벤트 선정
+export async function sendEventSelectionNotification(
+  phone: string,
+  organizationName: string,
+  eventTitle: string,
+  tplCode: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const subject = '[경기도체육회 스포츠박스] 이벤트 선정 안내'
+
+  const message = `[경기도체육회 스포츠박스] 이벤트 선정 안내
+
+축하합니다, #{단체명} 담당자님!
+'#{이벤트명}' 이벤트에 선정되셨습니다.
+
+아직 제출하지 않은 서류가 있다면 홈페이지 '내 신청내역'에서 제출해 주세요.
+자세한 진행 사항은 별도로 안내드리겠습니다.
+
+문의사항은
+남부지역 031-250-0474~7
+북부지역 031-872-6520~4으로 연락 바랍니다.`
+    .replace(/#{단체명}/g, organizationName)
+    .replace(/#{이벤트명}/g, eventTitle)
+
+  return sendAligoKakaoTalk({ tplCode, receiver: phone, subject, message, failover: true })
+}
+
+// 이벤트 선정 결과(미선정) — '탈락' 대신 온화한 표현 사용
+export async function sendEventRejectionNotification(
+  phone: string,
+  organizationName: string,
+  eventTitle: string,
+  tplCode: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const subject = '[경기도체육회 스포츠박스] 이벤트 선정 결과 안내'
+
+  const message = `[경기도체육회 스포츠박스] 이벤트 선정 결과 안내
+
+안녕하세요, #{단체명} 담당자님.
+'#{이벤트명}' 이벤트에 관심을 가지고 신청해 주셔서 진심으로 감사합니다.
+
+아쉽게도 이번에는 함께하지 못하게 되었지만, 보내주신 관심에 깊이 감사드립니다.
+앞으로도 더 좋은 프로그램으로 자주 찾아뵙겠습니다. 다음 기회에 꼭 함께할 수 있기를 바랍니다.
+
+문의사항은
+남부지역 031-250-0474~7
+북부지역 031-872-6520~4으로 연락 바랍니다.`
+    .replace(/#{단체명}/g, organizationName)
+    .replace(/#{이벤트명}/g, eventTitle)
+
+  return sendAligoKakaoTalk({ tplCode, receiver: phone, subject, message, failover: true })
+}

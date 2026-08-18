@@ -4,6 +4,7 @@ import { Database, type EventApplicationStatus } from '@/types/database'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import { isValidSelectionStatus } from '@/lib/eventSubmissionHelpers'
 import type { ServerResult } from '@/lib/eventApplicationServer'
+import { notifyEventSelection, notifyEventRejection } from '@/lib/eventNotifications'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -71,6 +72,11 @@ export async function setApplicationStatusOnServer(id: string, status: string): 
       T, '상태 변경 중 시간이 초과되었습니다.'
     )
     if (error) return { data: null, error: { message: getErrorMessage(error, '상태 변경에 실패했습니다.') }, status: 400 }
+    // 상태가 실제로 바뀐 경우에만 선정/미선정 알림 발송. 실패해도 상태 변경은 유지된다.
+    if (status !== existing.status) {
+      if (status === 'selected') await notifyEventSelection(id)
+      else if (status === 'rejected') await notifyEventRejection(id)
+    }
     return { data: { id, status }, error: null }
   } catch (e) {
     return { data: null, error: { message: getErrorMessage(e, '상태 변경 중 오류가 발생했습니다.') }, status: 500 }
