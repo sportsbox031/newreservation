@@ -203,7 +203,8 @@ export async function loginMemberOnServer(
     )
 
     if (error || !data) {
-      return { data: null, error: error || { message: '등록되지 않은 단체명입니다.' } }
+      // 원시 Supabase 에러(PGRST116 등)를 클라이언트에 노출하지 않고 sanitized 메시지만 반환한다 (관리자 경로와 동일).
+      return { data: null, error: { message: '등록되지 않은 단체명입니다.' } }
     }
 
     let isPasswordValid = false
