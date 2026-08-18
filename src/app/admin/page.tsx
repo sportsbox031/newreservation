@@ -9,12 +9,15 @@ import {
   Bell,
   Monitor,
   Settings,
-  AlertTriangle
+  AlertTriangle,
+  Trophy
 } from 'lucide-react'
 import { memberAPI, reservationAPI, announcementAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
 import { getStatusIcon, getStatusText, getStatusBadgeClass } from '@/components/approvalStatus'
 import { formatShortDateTimeKR } from '@/lib/formatDate'
+import { buildCookieFirstClientHeaders } from '@/lib/clientAuthHeaders'
+import { computeEffectiveOpen } from '@/lib/eventReservationStatus'
 
 interface DashboardStats {
   pendingMembers: number
@@ -24,6 +27,8 @@ interface DashboardStats {
   cancelRequestedReservations: number
   totalAnnouncements: number
   activeAnnouncements: number
+  totalEvents: number
+  openEvents: number
 }
 
 interface RecentActivity {
@@ -45,7 +50,9 @@ export default function AdminDashboard() {
     approvedReservations: 0,
     cancelRequestedReservations: 0,
     totalAnnouncements: 0,
-    activeAnnouncements: 0
+    activeAnnouncements: 0,
+    totalEvents: 0,
+    openEvents: 0
   })
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
 
@@ -72,16 +79,34 @@ export default function AdminDashboard() {
         : undefined
 
       // 통계 데이터 로드
-      const [membersResult, reservationsResult, announcementsResult, cancelRequestsResult] = await Promise.all([
+      const [membersResult, reservationsResult, announcementsResult, cancelRequestsResult, eventsResponse] = await Promise.all([
         memberAPI.getPendingMembers(regionCode),
         reservationAPI.getPendingReservations(regionCode),
         announcementAPI.getPublicAnnouncements(),
-        reservationAPI.getCancellationRequests(regionCode)
+        reservationAPI.getCancellationRequests(regionCode),
+        fetch('/api/admin/events', {
+          credentials: 'include',
+          headers: buildCookieFirstClientHeaders()
+        }).catch((error) => {
+          console.error('이벤트 통계 로드 오류:', error)
+          return null
+        })
       ])
 
       // 승인된 회원 수 조회
       const approvedMembersResult = await memberAPI.getApprovedMembers(regionCode)
       const approvedReservationsResult = await reservationAPI.getApprovedReservations(regionCode)
+
+      // 이벤트 통계 (읽기 시점 기준 유효 모집중 여부 계산)
+      let totalEvents = 0
+      let openEvents = 0
+      if (eventsResponse && eventsResponse.ok) {
+        const eventsJson = await eventsResponse.json().catch(() => null)
+        const eventRows = eventsJson?.data || []
+        totalEvents = eventRows.length
+        const nowIso = new Date().toISOString()
+        openEvents = eventRows.filter((event: any) => computeEffectiveOpen(event, nowIso)).length
+      }
 
       setStats({
         pendingMembers: membersResult.data?.length || 0,
@@ -90,7 +115,9 @@ export default function AdminDashboard() {
         approvedReservations: approvedReservationsResult.data?.length || 0,
         cancelRequestedReservations: cancelRequestsResult.data?.length || 0,
         totalAnnouncements: announcementsResult.data?.length || 0,
-        activeAnnouncements: announcementsResult.data?.filter((a: any) => a.is_published).length || 0
+        activeAnnouncements: announcementsResult.data?.filter((a: any) => a.is_published).length || 0,
+        totalEvents,
+        openEvents
       })
 
       // 최근 활동 데이터 구성
@@ -228,6 +255,21 @@ export default function AdminDashboard() {
                 </div>
                 <div className="p-3 bg-orange-50 rounded-full">
                   <Monitor className="w-6 h-6 text-orange-600" />
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/admin/events" className="block">
+            <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border-l-4 border-teal-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">스포츠이벤트</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalEvents}</p>
+                  <p className="text-xs text-gray-500 mt-1">모집중: {stats.openEvents}건</p>
+                </div>
+                <div className="p-3 bg-teal-50 rounded-full">
+                  <Trophy className="w-6 h-6 text-teal-600" />
                 </div>
               </div>
             </div>

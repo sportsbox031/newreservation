@@ -123,7 +123,10 @@ async function validateUserSessionToken(token: string, nowTimestamp: number): Pr
  */
 export async function validateApiRequest(request: NextRequest): Promise<AuthResult> {
   try {
-    const token = getAuthTokenFromRequest(request)
+    // 관리자 라우트 전용 검증기이므로 admin 세션 쿠키를 우선 해석한다.
+    // (기본 순서 ['user','admin']이면 사용자·관리자가 같은 브라우저에 동시 로그인했을 때
+    //  user 쿠키를 먼저 집어 관리자 세션 조회에 실패 → isAdmin false → 401이 된다)
+    const token = getAuthTokenFromRequest(request, ['admin', 'user'])
     if (!token) {
       return { authenticated: false, error: 'Token missing' }
     }

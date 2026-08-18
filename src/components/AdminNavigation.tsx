@@ -11,7 +11,8 @@ import {
   LogOut,
   Home,
   Monitor,
-  UserCog
+  UserCog,
+  Trophy
 } from 'lucide-react'
 import AccountManagementModal from './AccountManagementModal'
 import { adminAPI } from '@/lib/supabase'
@@ -57,6 +58,12 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
       href: '/admin/popups',
       label: '팝업 관리',
       icon: Monitor,
+      roles: ['super', 'south', 'north']
+    },
+    {
+      href: '/admin/events',
+      label: '스포츠이벤트',
+      icon: Trophy,
       roles: ['super', 'south', 'north']
     },
     {

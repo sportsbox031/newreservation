@@ -5,14 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import { 
-  Award, 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Users, 
-  MapPin, 
-  Plus, 
-  X, 
+import {
+  Award,
+  Calendar as CalendarIcon,
+  Clock,
+  Users,
+  MapPin,
+  Plus,
+  X,
   Copy,
   LogOut,
   User,
@@ -20,7 +20,8 @@ import {
   ChevronDown,
   UserCog,
   MessageCircle,
-  HelpCircle
+  HelpCircle,
+  Trophy
 } from 'lucide-react';
 import { dashboardAPI, settingsAPI, reservationAPI } from '@/lib/supabase';
 import AccountManagementModal from '@/components/AccountManagementModal';
@@ -1190,6 +1191,14 @@ export default function DashboardPage() {
                 )}
               </div>
 
+              {/* 스포츠이벤트 진입 */}
+              <Link
+                href="/events"
+                className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 p-1 sm:p-0"
+              >
+                <Trophy className="w-4 h-4" />
+                <span className="hidden sm:inline text-sm">스포츠이벤트</span>
+              </Link>
               <button
                 onClick={handleOpenMyReservations}
                 className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 p-1 sm:p-0"
