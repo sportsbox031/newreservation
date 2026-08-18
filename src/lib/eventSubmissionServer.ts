@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import { canSubmit } from '@/lib/eventSubmissionHelpers'
-import { validateFileMetadata, validateAttachmentCount, sanitizeFileName } from '@/lib/fileValidation'
+import { validateFileMetadata, validateAttachmentCount, sanitizeFileName, EVENT_DOCUMENT_EXTENSIONS } from '@/lib/fileValidation'
 import type { ServerResult } from '@/lib/eventApplicationServer'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -55,7 +55,7 @@ export async function uploadSubmissionOnServer(applicationId: string, userId: st
     const countCheck = validateAttachmentCount(existing?.length || 0, MAX_SUBMISSIONS)
     if (!countCheck.valid) return { data: null, error: { message: countCheck.error || '제출 개수를 초과했습니다.' }, status: 400 }
 
-    const fileCheck = validateFileMetadata(file.name, file.size, file.type)
+    const fileCheck = validateFileMetadata(file.name, file.size, file.type, EVENT_DOCUMENT_EXTENSIONS)
     if (!fileCheck.valid) return { data: null, error: { message: fileCheck.error || '허용되지 않는 파일입니다.' }, status: 400 }
 
     const timestamp = Date.now()
@@ -102,11 +102,13 @@ export async function deleteSubmissionOnServer(id: string, userId: string): Prom
   try {
     const sub = await loadOwnedSubmission(id, userId)
     if (!sub) return { data: null, error: { message: '본인 제출 서류만 삭제할 수 있습니다.' }, status: 403 }
-    await supabaseAdmin.storage.from(BUCKET).remove([sub.storage_path])
+    // DB 행(소스 오브 트루스)을 먼저 삭제하고, 성공 후 스토리지 객체를 정리한다.
+    // (역순이면 스토리지만 지워지고 DB 삭제가 실패할 때 실체 없는 dangling 행이 남는다)
     const { error } = await withTimeout(
       supabaseAdmin.from('event_submissions').delete().eq('id', id), T, '서류 삭제 중 시간이 초과되었습니다.'
     )
     if (error) return { data: null, error: { message: getErrorMessage(error, '서류 삭제에 실패했습니다.') }, status: 400 }
+    await supabaseAdmin.storage.from(BUCKET).remove([sub.storage_path])
     return { data: { id }, error: null }
   } catch (e) {
     return { data: null, error: { message: getErrorMessage(e, '서류 삭제 중 오류가 발생했습니다.') }, status: 500 }

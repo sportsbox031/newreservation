@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { validateApiRequest, isAdmin } from '@/lib/auth'
-import { validateFileMetadata, validateAttachmentCount, sanitizeFileName } from '@/lib/fileValidation'
+import { validateFileMetadata, validateAttachmentCount, sanitizeFileName, EVENT_DOCUMENT_EXTENSIONS } from '@/lib/fileValidation'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 서버 사이드 파일 메타데이터 검증
-    const fileValidation = validateFileMetadata(file.name, file.size, file.type)
+    const fileValidation = validateFileMetadata(file.name, file.size, file.type, EVENT_DOCUMENT_EXTENSIONS)
     if (!fileValidation.valid) {
       return NextResponse.json({ error: { message: fileValidation.error } }, { status: 400 })
     }
@@ -140,23 +140,29 @@ export async function DELETE(request: NextRequest) {
 
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
-    const storagePath = url.searchParams.get('path')
 
-    if (!id || !storagePath) {
-      return NextResponse.json({ error: { message: 'id 또는 path 파라미터가 필요합니다.' } }, { status: 400 })
+    if (!id) {
+      return NextResponse.json({ error: { message: 'id 파라미터가 필요합니다.' } }, { status: 400 })
     }
 
-    // Storage에서 파일 삭제
-    const { error: storageError } = await supabaseAdmin.storage
-      .from(EVENT_FILES_BUCKET)
-      .remove([storagePath])
+    // storage_path는 클라이언트가 보낸 값을 신뢰하지 않고 레코드에서 직접 조회한다.
+    // (클라이언트 path를 그대로 쓰면 인증된 관리자가 같은 버킷의 임의 객체(예: 사용자 제출 서류)를
+    //  삭제하거나 DB-스토리지 불일치를 유발할 수 있음)
+    const { data: formFile, error: fetchError } = await supabaseAdmin
+      .from('event_form_files')
+      .select('id, storage_path')
+      .eq('id', id)
+      .maybeSingle()
 
-    if (storageError) {
-      console.error('서류양식 스토리지 삭제 오류:', storageError)
-      // Storage 삭제 실패해도 DB 레코드는 삭제 진행
+    if (fetchError) {
+      console.error('서류양식 조회 오류:', fetchError)
+      return NextResponse.json({ error: { message: '서류양식 정보를 확인할 수 없습니다.' } }, { status: 500 })
+    }
+    if (!formFile) {
+      return NextResponse.json({ error: { message: '서류양식을 찾을 수 없습니다.' } }, { status: 404 })
     }
 
-    // 데이터베이스에서 레코드 삭제
+    // 데이터베이스 레코드를 먼저 삭제한다(레코드가 소스 오브 트루스).
     const { error } = await supabaseAdmin
       .from('event_form_files')
       .delete()
@@ -165,6 +171,15 @@ export async function DELETE(request: NextRequest) {
     if (error) {
       console.error('서류양식 DB 삭제 오류:', error)
       return NextResponse.json({ error: { message: '서류양식을 삭제할 수 없습니다.' } }, { status: 400 })
+    }
+
+    // DB 삭제 성공 후 스토리지 객체 정리(실패해도 orphan 파일만 남으므로 응답은 성공)
+    const { error: storageError } = await supabaseAdmin.storage
+      .from(EVENT_FILES_BUCKET)
+      .remove([formFile.storage_path])
+
+    if (storageError) {
+      console.error('서류양식 스토리지 삭제 오류:', storageError)
     }
 
     return NextResponse.json({ success: true })

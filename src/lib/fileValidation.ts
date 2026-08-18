@@ -45,6 +45,10 @@ const ALLOWED_EXTENSIONS: Record<string, readonly string[]> = {
 
 const ALLOWED_EXTENSION_LABEL = 'HWP, HWPX, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, JPG, PNG, GIF, WEBP, ZIP'
 
+// 이벤트 서류(양식/제출) 전용 허용 확장자 — 공지 첨부보다 좁게 제한한다.
+// (스포츠이벤트 스펙: pdf/hwp/hwpx/jpg/jpeg/png)
+export const EVENT_DOCUMENT_EXTENSIONS: readonly string[] = ['pdf', 'hwp', 'hwpx', 'jpg', 'jpeg', 'png']
+
 /**
  * 확장자 + MIME type 검증 (확장자 화이트리스트 1차, MIME은 보조)
  *
@@ -54,7 +58,11 @@ const ALLOWED_EXTENSION_LABEL = 'HWP, HWPX, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX
  *   (브라우저/OS가 MIME을 인식하지 못하는 정상 케이스)
  * - 그 외에는 MIME이 확장자와 일치해야 함
  */
-function validateExtensionAndMime(filename: string, rawMimeType: string): FileValidationResult {
+function validateExtensionAndMime(
+  filename: string,
+  rawMimeType: string,
+  allowedExtensions?: readonly string[]
+): FileValidationResult {
   const extension = getFileExtension(filename)
   const mimeType = (rawMimeType || '').toLowerCase()
 
@@ -62,6 +70,15 @@ function validateExtensionAndMime(filename: string, rawMimeType: string): FileVa
     return {
       valid: false,
       error: `허용되지 않는 파일 형식입니다. 허용 형식: ${ALLOWED_EXTENSION_LABEL}`
+    }
+  }
+
+  // 호출부가 더 좁은 확장자 집합을 지정하면 그 집합으로 2차 제한한다.
+  // (전역 화이트리스트는 MIME 규칙을 얻기 위한 상위 집합이고, 실제 허용은 이 부분집합)
+  if (allowedExtensions && !allowedExtensions.includes(extension)) {
+    return {
+      valid: false,
+      error: `허용되지 않는 파일 형식입니다. 허용 형식: ${allowedExtensions.map((e) => e.toUpperCase()).join(', ')}`
     }
   }
 
@@ -246,14 +263,15 @@ export function validateAttachmentCount(
 export function validateFileMetadata(
   fileName: string,
   fileSize: number,
-  fileType: string
+  fileType: string,
+  allowedExtensions?: readonly string[]
 ): FileValidationResult {
   // 파일명 검증
   const nameResult = validateFileName(fileName)
   if (!nameResult.valid) return nameResult
 
-  // 확장자 + MIME type 검증
-  const typeResult = validateExtensionAndMime(fileName, fileType)
+  // 확장자 + MIME type 검증 (allowedExtensions 지정 시 그 부분집합으로 제한)
+  const typeResult = validateExtensionAndMime(fileName, fileType, allowedExtensions)
   if (!typeResult.valid) return typeResult
 
   // 크기 검증
