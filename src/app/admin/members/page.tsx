@@ -13,7 +13,8 @@ import {
   Key,
   Download,
   RefreshCw,
-  X
+  X,
+  Loader2
 } from 'lucide-react'
 import { memberAPI } from '@/lib/supabase'
 import AdminNavigation from '@/components/AdminNavigation'
@@ -76,6 +77,21 @@ interface Member {
   }
 }
 
+// 페이지 번호 버튼 목록 생성 (7페이지 이하는 전부, 초과 시 앞뒤 생략기호로 축약)
+function getPageNumbers(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = new Set<number>([1, 2, total - 1, total, current - 1, current, current + 1])
+  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b)
+  const result: (number | '...')[] = []
+  let prev = 0
+  for (const p of sorted) {
+    if (prev && p - prev > 1) result.push('...')
+    result.push(p)
+    prev = p
+  }
+  return result
+}
+
 export default function MembersPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -86,6 +102,8 @@ export default function MembersPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all')
   const [regionFilter, setRegionFilter] = useState<'all' | '경기남부' | '경기북부'>('all')
   const [processing, setProcessing] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 30
   // 패널티(경고/퇴장) 상태
   const [penaltySummaries, setPenaltySummaries] = useState<Record<string, PenaltyStatus>>({})
   const [penaltyTarget, setPenaltyTarget] = useState<{ member: Member; type: 'warning' | 'ejection' } | null>(null)
@@ -109,6 +127,11 @@ export default function MembersPage() {
   useEffect(() => {
     filterMembers()
   }, [members, searchTerm, statusFilter, regionFilter])
+
+  // 검색/필터가 바뀌면 첫 페이지로 되돌린다
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, regionFilter])
 
   const checkAuth = () => {
     const adminAuth = localStorage.getItem('adminInfo')
@@ -863,10 +886,27 @@ export default function MembersPage() {
     )
   }
 
+  const isBusy = processing !== null || isPenaltyProcessing
+
+  // 페이지네이션 계산 (검색/필터 적용된 목록을 30개씩 분할)
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedMembers = filteredMembers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNavigation adminRole={adminInfo?.role} />
-      
+
+      {/* 처리 중 오버레이 — 알림톡 발송 등으로 지연되는 동안 진행 상태 안내 */}
+      {isBusy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="flex items-center gap-3 rounded-xl bg-white px-6 py-4 shadow-lg">
+            <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+            <span className="text-sm font-medium text-gray-800">처리 중입니다...</span>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* 헤더 */}
         <div className="mb-8">
@@ -1034,22 +1074,22 @@ export default function MembersPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredMembers.map((member) => (
+                    {paginatedMembers.map((member) => (
                       <tr key={member.id} className="hover:bg-gray-50">
                         <td className="px-3 py-3">
                           <div
-                            className="text-sm font-medium text-gray-900 truncate max-w-[150px]"
+                            className="text-sm font-medium text-gray-900 break-words max-w-[240px]"
                             title={member.organization_name}
                           >
                             {member.organization_name}
                           </div>
-                          <div className="text-xs text-gray-500 truncate max-w-[150px]">
+                          <div className="text-xs text-gray-500 truncate max-w-[240px]">
                             {member.manager_name}
                           </div>
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{member.phone}</div>
-                          <div className="text-xs text-gray-500 truncate max-w-[150px]" title={member.email}>
+                          <div className="text-xs text-gray-500 truncate max-w-[120px]" title={member.email}>
                             {member.email}
                           </div>
                         </td>
@@ -1093,7 +1133,7 @@ export default function MembersPage() {
 
               {/* 모바일: 카드 목록 */}
               <div className="md:hidden divide-y divide-gray-200">
-                {filteredMembers.map((member) => (
+                {paginatedMembers.map((member) => (
                   <div key={member.id} className="p-4 space-y-2">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0">
@@ -1130,6 +1170,48 @@ export default function MembersPage() {
                   </div>
                 ))}
               </div>
+
+              {/* 페이지네이션 */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 sm:px-6">
+                  <div className="text-xs text-gray-500">
+                    총 {filteredMembers.length}명 중 {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredMembers.length)} 표시
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage(safePage - 1)}
+                      disabled={safePage <= 1}
+                      className="px-2.5 py-1.5 text-sm rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      이전
+                    </button>
+                    {getPageNumbers(safePage, totalPages).map((p, idx) =>
+                      p === '...' ? (
+                        <span key={`ellipsis-${idx}`} className="px-2 text-sm text-gray-400">…</span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => setCurrentPage(p)}
+                          className={`min-w-[2rem] px-2.5 py-1.5 text-sm rounded-md border ${
+                            p === safePage
+                              ? 'border-blue-600 bg-blue-600 text-white'
+                              : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                    <button
+                      onClick={() => setCurrentPage(safePage + 1)}
+                      disabled={safePage >= totalPages}
+                      className="px-2.5 py-1.5 text-sm rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      다음
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
