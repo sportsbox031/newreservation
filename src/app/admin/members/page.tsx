@@ -26,6 +26,7 @@ import {
 } from '@/lib/memberAdminHelpers'
 import { buildCookieFirstJsonRequestInit } from '@/lib/clientAuthHeaders'
 import { formatDateTimeKST as formatDate } from '@/lib/formatDate'
+import { formatPhoneNumber, phoneDigits } from '@/lib/phone'
 
 interface Member {
   id: string
@@ -125,9 +126,9 @@ export default function MembersPage() {
 
     const confirmMessage = type === 'warning'
       ? `${member.organization_name}에 경고(${penaltyReason})를 부여하시겠습니까?${
-          willAutoEject ? '\n\n⚠️ 이 경고로 누적 기준에 도달하여 자동으로 퇴장 처리되고 퇴장 알림톡이 발송됩니다.' : '\n\n경고 알림톡이 발송됩니다.'
+          willAutoEject ? '\n\n⚠️ 이 경고로 누적 기준에 도달하여 자동으로 패널티 처리되고 패널티 알림톡이 발송됩니다.' : '\n\n경고 알림톡이 발송됩니다.'
         }`
-      : `${member.organization_name}을(를) 퇴장(${penaltyReason}) 조치하시겠습니까?\n\n이번 달 신청이 제한되며 퇴장 알림톡이 발송됩니다.`
+      : `${member.organization_name}을(를) 패널티(${penaltyReason}) 조치하시겠습니까?\n\n이번 달 신청이 제한되며 패널티 알림톡이 발송됩니다.`
 
     if (!confirm(confirmMessage)) return
 
@@ -148,7 +149,7 @@ export default function MembersPage() {
       const ejected = result.data?.ejected === true
       const notificationError = result.data?.notificationError
       let message = ejected
-        ? `${member.organization_name}이(가) 퇴장 처리되었습니다. 이번 달 신청이 제한됩니다.`
+        ? `${member.organization_name}이(가) 패널티 처리되었습니다. 이번 달 신청이 제한됩니다.`
         : `${member.organization_name}에 경고가 부여되었습니다.`
       if (notificationError) {
         message += `\n\n(알림톡: ${notificationError})`
@@ -183,7 +184,7 @@ export default function MembersPage() {
   }
 
   const handleCancelPenalty = async (penalty: UserPenalty) => {
-    const typeLabel = penalty.type === 'warning' ? '경고' : '퇴장'
+    const typeLabel = penalty.type === 'warning' ? '경고' : '패널티'
     if (!confirm(`이 ${typeLabel} 기록을 취소(삭제)하시겠습니까?\n\n취소 알림톡은 발송되지 않습니다.`)) return
 
     setIsPenaltyProcessing(true)
@@ -540,9 +541,9 @@ export default function MembersPage() {
             onClick={() => openPenaltyModal(member, 'ejection')}
             disabled={processing === member.id || penaltySummaries[member.id]?.restricted}
             className="text-red-600 hover:text-red-900 disabled:opacity-50"
-            title="퇴장 조치"
+            title="패널티 조치"
           >
-            퇴장
+            패널티
           </button>
         </>
       )}
@@ -675,7 +676,7 @@ export default function MembersPage() {
         const rowData = [
           member.organization_name,
           member.manager_name,
-          member.phone,
+          formatPhoneNumber(member.phone),
           member.email,
           member.cities?.regions?.name || '',
           member.cities?.name || '',
@@ -929,7 +930,7 @@ export default function MembersPage() {
                           </div>
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{member.phone}</div>
+                          <div className="text-sm text-gray-900">{formatPhoneNumber(member.phone)}</div>
                           <div className="text-xs text-gray-500 truncate max-w-[150px]" title={member.email}>
                             {member.email}
                           </div>
@@ -988,7 +989,14 @@ export default function MembersPage() {
                       <div className="shrink-0">{getStatusBadge(member.status)}</div>
                     </div>
                     <div className="text-xs text-gray-600">
-                      {member.phone} · 학생 {member.student_count || 0} / 학급 {member.class_count || 0}
+                      <a
+                        href={`tel:${phoneDigits(member.phone)}`}
+                        className="text-blue-600 underline underline-offset-2 hover:text-blue-800"
+                        title="전화 걸기"
+                      >
+                        {formatPhoneNumber(member.phone)}
+                      </a>
+                      {' · '}학생 {member.student_count || 0} / 학급 {member.class_count || 0}
                     </div>
                     <div className="text-xs text-gray-500 truncate">{member.email}</div>
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -1024,15 +1032,15 @@ export default function MembersPage() {
               <div className="w-14 h-14 bg-yellow-100 rounded-full mx-auto mb-4 flex items-center justify-center">
                 <AlertTriangle className="w-7 h-7 text-yellow-600" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">퇴장 조치 불가</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-3">패널티 조치 불가</h3>
               <p className="text-sm text-gray-700 mb-2 break-keep">
                 <span className="font-semibold">{ejectionBlockedTarget.organization_name}</span>은(는) 현재 누적된 경고가 없습니다.
               </p>
               <p className="text-sm text-gray-600 mb-6 break-keep">
-                경고를 먼저 부여한 후 퇴장 조치가 가능합니다.
+                경고를 먼저 부여한 후 패널티 조치가 가능합니다.
                 {penaltySummaries[ejectionBlockedTarget.id]?.probation
-                  ? ' (보호관찰 회원은 경고 1회 부여 시 자동으로 퇴장 처리됩니다)'
-                  : ' (경고 2회 누적 시 자동으로 퇴장 처리됩니다)'}
+                  ? ' (보호관찰 회원은 경고 1회 부여 시 자동으로 패널티 처리됩니다)'
+                  : ' (경고 2회 누적 시 자동으로 패널티 처리됩니다)'}
               </p>
               <button
                 onClick={() => setEjectionBlockedTarget(null)}
@@ -1051,7 +1059,7 @@ export default function MembersPage() {
           <div className="bg-white rounded-xl max-w-md w-full">
             <div className="p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-1">
-                {penaltyTarget.type === 'warning' ? '⚠️ 경고 부여' : '🟥 퇴장 조치'}
+                {penaltyTarget.type === 'warning' ? '⚠️ 경고 부여' : '🟥 패널티 조치'}
               </h3>
               <p className="text-sm text-gray-600 mb-4">{penaltyTarget.member.organization_name}</p>
 
@@ -1079,14 +1087,14 @@ export default function MembersPage() {
                   (penaltySummaries[penaltyTarget.member.id]?.warningThreshold ?? 2) && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 break-keep">
                   {penaltySummaries[penaltyTarget.member.id]?.probation
-                    ? '보호관찰 중인 회원입니다. 이 경고 부여 시 즉시 자동 퇴장 처리됩니다.'
-                    : '이 경고로 경고 2회가 누적되어 자동 퇴장 처리됩니다.'}
+                    ? '보호관찰 중인 회원입니다. 이 경고 부여 시 즉시 자동 패널티 처리됩니다.'
+                    : '이 경고로 경고 2회가 누적되어 자동 패널티 처리됩니다.'}
                 </div>
               )}
 
               {penaltyTarget.type === 'ejection' && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 break-keep">
-                  퇴장 시 이번 달 신청이 제한되며, 다음달 1일부터 신청 가능합니다. 기존 예약은 예약 관리에서 별도로 취소해주세요.
+                  패널티 시 이번 달 신청이 제한되며, 다음달 1일부터 신청 가능합니다. 기존 예약은 예약 관리에서 별도로 취소해주세요.
                 </div>
               )}
 
@@ -1094,20 +1102,20 @@ export default function MembersPage() {
                 <button
                   onClick={() => setPenaltyTarget(null)}
                   disabled={isPenaltyProcessing}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50"
+                  className="flex-1 whitespace-nowrap px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50"
                 >
                   취소
                 </button>
                 <button
                   onClick={handleIssuePenalty}
                   disabled={isPenaltyProcessing}
-                  className={`flex-1 px-4 py-2.5 text-white rounded-lg font-medium disabled:opacity-50 ${
+                  className={`flex-1 whitespace-nowrap px-4 py-2.5 text-white rounded-lg font-medium disabled:opacity-50 ${
                     penaltyTarget.type === 'warning'
                       ? 'bg-yellow-500 hover:bg-yellow-600'
                       : 'bg-red-600 hover:bg-red-700'
                   }`}
                 >
-                  {isPenaltyProcessing ? '처리 중...' : penaltyTarget.type === 'warning' ? '경고하기' : '퇴장하기'}
+                  {isPenaltyProcessing ? '처리 중...' : penaltyTarget.type === 'warning' ? '경고하기' : '패널티부여하기'}
                 </button>
               </div>
             </div>
@@ -1141,12 +1149,12 @@ export default function MembersPage() {
                     <div key={penalty.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          <span className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium ${
                             penalty.type === 'warning'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-red-100 text-red-800'
                           }`}>
-                            {penalty.type === 'warning' ? '⚠️ 경고' : '🟥 퇴장'}
+                            {penalty.type === 'warning' ? '⚠️ 경고' : '🟥 패널티'}
                           </span>
                           <span className="text-sm text-gray-800">{penalty.reason}</span>
                         </div>
