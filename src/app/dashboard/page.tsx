@@ -1362,7 +1362,7 @@ export default function DashboardPage() {
                       <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
                         <span className="text-3xl">🟥</span>
                       </div>
-                      <h3 className="text-xl font-bold text-red-700 mb-2">퇴장 조치로 신청이 제한되었습니다.</h3>
+                      <h3 className="text-xl font-bold text-red-700 mb-2 break-keep">패널티 조치로 신청이 제한되었습니다.</h3>
                       <p className="text-sm text-gray-600 break-keep">
                         {penaltyRestriction.resumeMonth
                           ? `${formatYearMonthLabel(penaltyRestriction.resumeMonth)}부터 신청이 가능합니다.`
@@ -1578,11 +1578,11 @@ export default function DashboardPage() {
               <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
                 <span className="text-3xl">🟥</span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">퇴장 조치 안내</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-3 break-keep">패널티 조치 안내</h3>
               <p className="text-sm text-gray-700 mb-2 break-keep">
                 {penaltyRestriction.triggeredByWarning
-                  ? '경고 2회 누적으로 인해 퇴장 조치되었습니다.'
-                  : '운영 규정 위반으로 인해 퇴장 조치되었습니다.'}
+                  ? '경고 2회 누적으로 인해 패널티 조치되었습니다.'
+                  : '운영 규정 위반으로 인해 패널티 조치되었습니다.'}
               </p>
               <p className="text-sm text-gray-700 mb-6 break-keep">
                 {penaltyRestriction.restrictedMonth && penaltyRestriction.resumeMonth
