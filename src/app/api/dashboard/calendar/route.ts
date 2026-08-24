@@ -31,16 +31,25 @@ export async function GET(request: NextRequest) {
     // 퇴장(신청 제한) 상태면 달력을 닫힌 상태로 내려준다.
     // 조회 실패 시에는 대시보드 가용성을 위해 제한 없이 진행한다. (예약 API에서 최종 차단)
     const penaltyResult = await getUserPenaltyStatus(authResult.user.id)
+
+    // 대시보드 '회원 등급' 카드의 패널티 상태 표시용 요약.
+    // 제한 여부와 무관하게 항상 함께 내려준다(경고 0~1회도 표시하기 위함).
+    const penaltySummary = penaltyResult.data
+      ? {
+          restricted: penaltyResult.data.restricted,
+          restricted_month: penaltyResult.data.restrictedMonth,
+          resume_month: penaltyResult.data.resumeMonth,
+          triggered_by_warning: penaltyResult.data.lastEjectionTriggeredByWarning,
+          warning_count: penaltyResult.data.warningCount,
+          warning_threshold: penaltyResult.data.warningThreshold,
+        }
+      : null
+
     if (penaltyResult.data?.restricted) {
       return NextResponse.json({
         data: {
           ...buildDashboardCalendarData({}, [], false),
-          penalty: {
-            restricted: true,
-            restricted_month: penaltyResult.data.restrictedMonth,
-            resume_month: penaltyResult.data.resumeMonth,
-            triggered_by_warning: penaltyResult.data.lastEjectionTriggeredByWarning
-          }
+          penalty: penaltySummary
         }
       })
     }
@@ -59,7 +68,10 @@ export async function GET(request: NextRequest) {
     const tierIsOpen = tierOpenResult.data === true
     if (!tierIsOpen) {
       return NextResponse.json({
-        data: buildDashboardCalendarData({}, [], false)
+        data: {
+          ...buildDashboardCalendarData({}, [], false),
+          penalty: penaltySummary
+        }
       })
     }
 
@@ -70,7 +82,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: calendarResult.error || '달력 정보를 불러오지 못했습니다.' }, { status: 400 })
     }
 
-    return NextResponse.json({ data: calendarResult.data })
+    return NextResponse.json({ data: { ...calendarResult.data, penalty: penaltySummary } })
   } catch (error) {
     console.error('대시보드 calendar API 오류:', error)
     return NextResponse.json(

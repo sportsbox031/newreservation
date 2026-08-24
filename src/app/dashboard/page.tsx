@@ -29,6 +29,7 @@ import { shouldStartDashboardRefresh } from '@/lib/dashboardRefresh';
 import { applyReservationStatusDelta } from '@/lib/reservationStatus';
 import { getInitialDashboardMonth } from '@/lib/reservationActiveMonth';
 import { formatYearMonthLabel } from '@/lib/penalty';
+import { getPenaltyBanner } from '@/lib/penaltyBanner';
 import Spinner from '@/components/Spinner';
 import ModalOverlay from '@/components/ModalOverlay';
 import {
@@ -129,6 +130,13 @@ export default function DashboardPage() {
     triggeredByWarning: boolean;
   } | null>(null);
   const [showPenaltyModal, setShowPenaltyModal] = useState(false);
+  // '회원 등급' 카드에 표시할 패널티 요약(경고 횟수 등) — 제한 여부와 무관하게 항상 표시
+  const [penaltySummary, setPenaltySummary] = useState<{
+    restricted: boolean;
+    resumeMonth: string | null;
+    warningCount: number;
+    warningThreshold: number;
+  } | null>(null);
   const [hasResolvedActiveMonth, setHasResolvedActiveMonth] = useState(false);
   const [userTier, setUserTier] = useState<UserTier | null>(null);
   const [currentUserInfo, setCurrentUserInfo] = useState<{
@@ -338,6 +346,15 @@ export default function DashboardPage() {
     } else {
       setPenaltyRestriction(null);
     }
+
+    // 패널티 상태 배너용 요약(경고 0~1회 등 제한이 아닌 경우도 표시)
+    const penalty = calendarData?.penalty;
+    setPenaltySummary(penalty ? {
+      restricted: penalty.restricted === true,
+      resumeMonth: penalty.resume_month ?? null,
+      warningCount: typeof penalty.warning_count === 'number' ? penalty.warning_count : 0,
+      warningThreshold: typeof penalty.warning_threshold === 'number' ? penalty.warning_threshold : 2,
+    } : null);
 
     const monthGateIsOpen = calendarData?.monthGate?.is_open === true;
 
@@ -1558,6 +1575,32 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </div>
+
+                  {penaltySummary && (() => {
+                    const banner = getPenaltyBanner({
+                      restricted: penaltySummary.restricted,
+                      resumeMonth: penaltySummary.resumeMonth,
+                      warningCount: penaltySummary.warningCount,
+                      warningThreshold: penaltySummary.warningThreshold,
+                    });
+                    const styles = {
+                      ok: { box: 'bg-green-50 border-green-200', title: 'text-green-800', text: 'text-green-700', icon: '✅' },
+                      warning: { box: 'bg-yellow-50 border-yellow-200', title: 'text-yellow-800', text: 'text-yellow-700', icon: '⚠️' },
+                      restricted: { box: 'bg-red-50 border-red-200', title: 'text-red-800', text: 'text-red-700', icon: '🟥' },
+                    }[banner.level];
+                    return (
+                      <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100">
+                        <h4 className="text-sm sm:text-base font-medium text-gray-900 mb-2">패널티 상태</h4>
+                        <div className={`rounded-lg border p-3 ${styles.box}`}>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg leading-none">{styles.icon}</span>
+                            <span className={`text-sm sm:text-base font-semibold ${styles.title}`}>{banner.title}</span>
+                          </div>
+                          <p className={`mt-1 text-xs sm:text-sm break-keep ${styles.text}`}>{banner.detail}</p>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded text-center break-keep">
                     관리자가 예약을 시작하면 예약 가능합니다
