@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 
 import { Database } from '@/types/database'
 import { hashPassword, verifyPassword } from '@/lib/passwordHash'
+import { formatPhoneNumber } from '@/lib/phone'
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
 import {
   canManageRequestedRegion,
@@ -304,9 +305,14 @@ export async function updateUserProfileOnServer(
     class_count?: number
   }
 ) {
+  // 연락처는 항상 하이픈 형식(000-0000-0000)으로 정규화하여 저장한다.
+  const normalizedData = updateData.phone !== undefined
+    ? { ...updateData, phone: formatPhoneNumber(updateData.phone) }
+    : updateData
+
   const { data, error } = await supabaseAdmin
     .from('users')
-    .update(updateData)
+    .update(normalizedData)
     .eq('id', userId)
     .select()
 
@@ -343,9 +349,14 @@ export async function updateAdminProfileOnServer(
   adminId: string,
   updates: { phone?: string; email?: string }
 ) {
+  // 연락처는 항상 하이픈 형식(000-0000-0000)으로 정규화하여 저장한다.
+  const normalizedUpdates = updates.phone !== undefined
+    ? { ...updates, phone: formatPhoneNumber(updates.phone) }
+    : updates
+
   const { data, error } = await supabaseAdmin
     .from('admins')
-    .update(updates)
+    .update(normalizedUpdates)
     .eq('id', adminId)
     .select()
 
