@@ -3,6 +3,7 @@ import { Database } from '@/types/database'
 import { v4 as uuidv4 } from 'uuid'
 
 import { getErrorMessage, withTimeout } from '@/lib/requestUtils'
+import { formatPhoneNumber } from '@/lib/phone'
 import { hashPassword, isBcryptHash, legacyHashPassword, verifyPassword } from '@/lib/passwordHash'
 import { sendNewMemberAdminNotification } from '@/lib/aligo'
 import {
@@ -158,7 +159,7 @@ export async function registerMemberOnServer(userData: {
           password_hash: passwordHash,
           manager_name: userData.manager_name,
           city_id: cityId,
-          phone: userData.phone,
+          phone: formatPhoneNumber(userData.phone),
           email: userData.email,
           student_count: userData.student_count,
           class_count: userData.class_count,
