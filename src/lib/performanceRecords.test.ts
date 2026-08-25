@@ -52,6 +52,10 @@ test('applyOverride: participant/grade/memo 대체, excluded면 null', () => {
   assert.equal(applyOverride(base, { ...ov, excluded: true }), null)
   // participant_count null이면 원본 유지
   assert.equal(applyOverride(base, { ...ov, participant_count: null })!.participant_count, 30)
+  // participant_count 0은 명시적 override로 존중 (absent 취급 금지)
+  assert.equal(applyOverride(base, { ...ov, participant_count: 0 })!.participant_count, 0)
+  // override row가 있으면 memo는 항상 override 값 사용 (null이면 memo-clear)
+  assert.equal(applyOverride(base, { ...ov, memo: null })!.memo, null)
 })
 
 test('normalizeSportsEventRow: total_count 사용, grade는 null', () => {

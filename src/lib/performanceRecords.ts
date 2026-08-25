@@ -58,7 +58,7 @@ export function applyOverride(
     ...base,
     grade: override.grade != null ? override.grade : base.grade,
     participant_count: override.participant_count != null ? override.participant_count : base.participant_count,
-    memo: override.memo != null ? override.memo : base.memo,
+    memo: override.memo,
   }
 }
 
