@@ -1,4 +1,3 @@
-import { resolveReservationRegionScope } from './reservationManagementHelpers.ts'
 import type { PerformanceFilters, PerformanceProgram, PerformanceRecord } from './performanceTypes.ts'
 
 const PROGRAMS: PerformanceProgram[] = ['sports_class', 'sports_event', 'experience_zone']
