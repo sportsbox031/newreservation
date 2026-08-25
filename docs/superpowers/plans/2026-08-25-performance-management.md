@@ -17,7 +17,7 @@
 - 접근 권한: `super`=전체, `south`/`north`=자기 지역만. 지역관리자의 region 파라미터는 서버에서 자기 지역으로 강제.
 - 학년(`grade`)은 어디서도 필수 아님(nullable).
 - API 반환 형식 `{ data, error }`. 관리자 인증은 `validateApiRequest` + `isAdmin`. 지역 스코핑은 `resolveReservationRegionScope(adminRole, requestedRegionCode)` 재사용.
-- 테스트는 `node:test` + `node:assert/strict`, 소스는 `.ts` 확장자로 import (`import { x } from './foo.ts'`). 헬퍼는 `src/lib`에서 `import { x } from '@/lib/...'` (테스트 파일도 동일 alias 사용 — 기존 관례).
+- 테스트는 `node:test` + `node:assert/strict`. **중요:** `node --test`는 `@/` alias를 해석하지 못한다(alias 기반 테스트는 현재 실패 상태). 따라서 **테스트 대상 lib 파일(Task 2~4)과 그 테스트 파일은 intra-lib 참조를 반드시 상대경로 + `.ts` 확장자로 import**한다: `import { x } from './performanceTypes.ts'`, `import { resolveReservationRegionScope } from './reservationManagementHelpers.ts'`. `@/` alias 사용 금지(테스트 로드 실패). node:test로 실행되지 않는 파일(server/route/UI, Task 5~11)은 기존대로 `@/` alias 사용 가능.
 - 프로그램 식별자 리터럴(verbatim): `'sports_class'` | `'sports_event'` | `'experience_zone'`.
 - 지역 코드 리터럴(verbatim): `'south'` | `'north'`.
 - 새 파일은 기존 admin 페이지 디자인(white 카드·`rounded-xl`·`shadow-sm`·`blue-600`·`gray-50`, `AdminNavigation`, `ModalOverlay`, `Spinner`)으로 통일. 원본 사이트의 보라 그라데이션 사용 금지.
@@ -287,8 +287,8 @@ import {
   applyRecordFilters,
   sortByDateDesc,
   paginate,
-} from '@/lib/performanceFilters'
-import type { PerformanceRecord } from '@/lib/performanceTypes'
+} from './performanceFilters.ts'
+import type { PerformanceRecord } from './performanceTypes.ts'
 
 function rec(partial: Partial<PerformanceRecord>): PerformanceRecord {
   return {
@@ -351,8 +351,8 @@ Expected: FAIL (module not found / 함수 미정의).
 - [ ] **Step 4: `performanceFilters.ts` 구현**
 
 ```ts
-import { resolveReservationRegionScope } from '@/lib/reservationManagementHelpers'
-import type { PerformanceFilters, PerformanceProgram, PerformanceRecord } from '@/lib/performanceTypes'
+import { resolveReservationRegionScope } from './reservationManagementHelpers.ts'
+import type { PerformanceFilters, PerformanceProgram, PerformanceRecord } from './performanceTypes.ts'
 
 const PROGRAMS: PerformanceProgram[] = ['sports_class', 'sports_event', 'experience_zone']
 const DEFAULT_PAGE_SIZE = 30
@@ -472,8 +472,8 @@ import {
   normalizeSportsEventRow,
   normalizeExperienceRow,
   overrideKey,
-} from '@/lib/performanceRecords'
-import type { OverrideRow, PerformanceRecord } from '@/lib/performanceTypes'
+} from './performanceRecords.ts'
+import type { OverrideRow, PerformanceRecord } from './performanceTypes.ts'
 
 test('combineGrades: 중복/공백 제거 후 결합, 없으면 null', () => {
   assert.equal(combineGrades(['3학년', '3학년', ' ', null, '5학년']), '3학년, 5학년')
@@ -558,7 +558,7 @@ Expected: FAIL (module not found).
 - [ ] **Step 3: `performanceRecords.ts` 구현**
 
 ```ts
-import type { OverrideRow, PerformanceRecord } from '@/lib/performanceTypes'
+import type { OverrideRow, PerformanceRecord } from './performanceTypes.ts'
 
 export interface SportsClassRow {
   id: string
@@ -715,8 +715,8 @@ Create `src/lib/performanceAggregate.test.ts`:
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { aggregatePerformance } from '@/lib/performanceAggregate'
-import type { PerformanceRecord } from '@/lib/performanceTypes'
+import { aggregatePerformance } from './performanceAggregate.ts'
+import type { PerformanceRecord } from './performanceTypes.ts'
 
 function rec(p: Partial<PerformanceRecord>): PerformanceRecord {
   return {
@@ -771,7 +771,7 @@ Expected: FAIL.
 - [ ] **Step 3: `performanceAggregate.ts` 구현**
 
 ```ts
-import type { PerformanceProgram, PerformanceRecord, PerformanceSummary } from '@/lib/performanceTypes'
+import type { PerformanceProgram, PerformanceRecord, PerformanceSummary } from './performanceTypes.ts'
 
 const PROGRAMS: PerformanceProgram[] = ['sports_class', 'sports_event', 'experience_zone']
 
