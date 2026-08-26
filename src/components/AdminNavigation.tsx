@@ -12,7 +12,8 @@ import {
   Home,
   Monitor,
   UserCog,
-  Trophy
+  Trophy,
+  BarChart3
 } from 'lucide-react'
 import AccountManagementModal from './AccountManagementModal'
 import { adminAPI } from '@/lib/supabase'
@@ -73,8 +74,14 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
       roles: ['super', 'south', 'north']
     },
     {
+      href: '/admin/performance',
+      label: '실적관리',
+      icon: BarChart3,
+      roles: ['super', 'south', 'north']
+    },
+    {
       href: '/admin/reservations',
-      label: '예약 관리', 
+      label: '예약 관리',
       icon: Calendar,
       roles: ['super', 'south', 'north']
     },
@@ -105,7 +112,9 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
             <div className="flex space-x-4">
               {filteredNavItems.map((item) => {
                 const Icon = item.icon
-                const isActive = pathname === item.href
+                const isActive = item.href === '/admin/performance'
+                  ? pathname.startsWith('/admin/performance')
+                  : pathname === item.href
                 
                 return (
                   <Link
