@@ -174,6 +174,84 @@ type ExtendedPublic = Merge<
             },
           ]
         }
+        experience_zone_records: {
+          Row: {
+            id: string
+            date: string
+            organization_name: string
+            region_id: number | null
+            city_id: number | null
+            grade: string | null
+            participant_count: number
+            memo: string | null
+            created_by: string | null
+            created_at: string
+            updated_at: string
+          }
+          Insert: {
+            id?: string
+            date: string
+            organization_name: string
+            region_id?: number | null
+            city_id?: number | null
+            grade?: string | null
+            participant_count?: number
+            memo?: string | null
+            created_by?: string | null
+            created_at?: string
+            updated_at?: string
+          }
+          Update: {
+            id?: string
+            date?: string
+            organization_name?: string
+            region_id?: number | null
+            city_id?: number | null
+            grade?: string | null
+            participant_count?: number
+            memo?: string | null
+            created_by?: string | null
+            created_at?: string
+            updated_at?: string
+          }
+          Relationships: []
+        }
+        performance_overrides: {
+          Row: {
+            id: string
+            source_type: 'sports_class' | 'sports_event'
+            source_id: string
+            grade: string | null
+            participant_count: number | null
+            memo: string | null
+            excluded: boolean
+            updated_by: string | null
+            updated_at: string
+          }
+          Insert: {
+            id?: string
+            source_type: 'sports_class' | 'sports_event'
+            source_id: string
+            grade?: string | null
+            participant_count?: number | null
+            memo?: string | null
+            excluded?: boolean
+            updated_by?: string | null
+            updated_at?: string
+          }
+          Update: {
+            id?: string
+            source_type?: 'sports_class' | 'sports_event'
+            source_id?: string
+            grade?: string | null
+            participant_count?: number | null
+            memo?: string | null
+            excluded?: boolean
+            updated_by?: string | null
+            updated_at?: string
+          }
+          Relationships: []
+        }
         events: {
           Row: {
             id: string
@@ -496,6 +574,13 @@ export type EventFormFileInsert = Database['public']['Tables']['event_form_files
 export type EventApplication = Database['public']['Tables']['event_applications']['Row']
 export type EventApplicationInsert = Database['public']['Tables']['event_applications']['Insert']
 export type EventApplicationUpdate = Database['public']['Tables']['event_applications']['Update']
+
+export type ExperienceZoneRecord = Database['public']['Tables']['experience_zone_records']['Row']
+export type ExperienceZoneRecordInsert = Database['public']['Tables']['experience_zone_records']['Insert']
+export type ExperienceZoneRecordUpdate = Database['public']['Tables']['experience_zone_records']['Update']
+export type PerformanceOverride = Database['public']['Tables']['performance_overrides']['Row']
+export type PerformanceOverrideInsert = Database['public']['Tables']['performance_overrides']['Insert']
+export type PerformanceOverrideUpdate = Database['public']['Tables']['performance_overrides']['Update']
 
 export type EventSubmission = Database['public']['Tables']['event_submissions']['Row']
 export type EventSubmissionInsert = Database['public']['Tables']['event_submissions']['Insert']
