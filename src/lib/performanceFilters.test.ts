@@ -12,7 +12,7 @@ import type { PerformanceRecord } from './performanceTypes.ts'
 function rec(partial: Partial<PerformanceRecord>): PerformanceRecord {
   return {
     id: 'sports_class:1', program_type: 'sports_class', date: '2026-05-10',
-    organization_name: '테스트초', city_name: '수원시', region_id: 1, region_code: 'south',
+    organization_name: '테스트초', phone: '010-0000-0000', city_name: '수원시', region_id: 1, region_code: 'south',
     grade: '3학년', participant_count: 30, memo: null,
     source_type: 'sports_class', source_id: '1', ...partial,
   }

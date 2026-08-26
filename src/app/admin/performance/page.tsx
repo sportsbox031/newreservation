@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Edit2, Trash2, Download, Search, RotateCcw, Calendar, Users2, BarChart3, ChevronRight } from 'lucide-react'
+import { Plus, Edit2, Trash2, Download, Search, RotateCcw, Calendar, Users2, BarChart3, ChevronRight, ClipboardList } from 'lucide-react'
 import AdminNavigation from '@/components/AdminNavigation'
 import ModalOverlay from '@/components/ModalOverlay'
 import Spinner from '@/components/Spinner'
@@ -318,7 +318,7 @@ function AdminPerformanceContent() {
     }
   }
 
-  const handleExport = () => {
+  const buildFilterParams = () => {
     const params = new URLSearchParams()
     params.set('year', String(year))
     if (region !== 'all') params.set('region', region)
@@ -326,7 +326,15 @@ function AdminPerformanceContent() {
     if (from) params.set('from', from)
     if (to) params.set('to', to)
     if (q) params.set('q', q)
-    window.location.href = `/api/admin/performance/export?${params}`
+    return params
+  }
+
+  const handleExport = () => {
+    window.location.href = `/api/admin/performance/export?${buildFilterParams()}`
+  }
+
+  const handleSurveyExport = () => {
+    window.location.href = `/api/admin/performance/survey-export?${buildFilterParams()}`
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -348,6 +356,14 @@ function AdminPerformanceContent() {
             >
               <Download className="w-4 h-4" />
               Excel 다운로드
+            </button>
+            <button
+              onClick={handleSurveyExport}
+              title="연락처가 있는 참여 단체(스포츠교실·이벤트)를 중복 없이 연락처·단체명만 내려받습니다."
+              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+            >
+              <ClipboardList className="w-4 h-4" />
+              만족도조사용 다운로드
             </button>
             <button
               onClick={() => {

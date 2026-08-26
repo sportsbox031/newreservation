@@ -5,6 +5,7 @@ export interface PerformanceRecord {
   program_type: PerformanceProgram
   date: string
   organization_name: string
+  phone: string | null
   city_name: string | null
   region_id: number | null
   region_code: 'south' | 'north' | null

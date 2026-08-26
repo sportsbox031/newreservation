@@ -7,7 +7,7 @@ import type { PerformanceRecord } from './performanceTypes.ts'
 function rec(p: Partial<PerformanceRecord>): PerformanceRecord {
   return {
     id: 'x', program_type: 'sports_class', date: '2026-05-10',
-    organization_name: 'o', city_name: null, region_id: 1, region_code: 'south',
+    organization_name: 'o', phone: null, city_name: null, region_id: 1, region_code: 'south',
     grade: null, participant_count: 10, memo: null,
     source_type: 'sports_class', source_id: 'x', ...p,
   }

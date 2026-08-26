@@ -6,7 +6,7 @@ import {
 } from '@/lib/performanceFilters'
 import {
   normalizeSportsClassRow, normalizeSportsEventRow, normalizeExperienceRow,
-  overrideKey,
+  overrideKey, dedupeSurveyContacts,
   type SportsClassRow, type SportsEventRow, type ExperienceRow,
 } from '@/lib/performanceRecords'
 import { aggregatePerformance } from '@/lib/performanceAggregate'
@@ -47,7 +47,7 @@ async function loadSportsClassRecords(
     .from('reservations')
     .select(`
       id, date, region_id, status,
-      users!inner ( organization_name, cities!inner ( name, regions!inner ( code ) ) ),
+      users!inner ( organization_name, phone, cities!inner ( name, regions!inner ( code ) ) ),
       reservation_slots ( grade, participant_count )
     `)
     .eq('status', 'approved')
@@ -73,7 +73,7 @@ async function loadSportsEventRecords(
   let query = supabaseAdmin
     .from('event_applications')
     .select(`
-      id, total_count, applicant_org_name, region_id, status,
+      id, total_count, applicant_org_name, applicant_phone, region_id, status,
       event_dates ( event_date ),
       ${regionsEmbed}
     `)
@@ -135,6 +135,14 @@ export async function getPerformanceSummary(adminRole: string, filters: Performa
   const result = await getAllPerformanceRecords(adminRole, filters)
   if (result.error || !result.data) return { data: null, error: result.error }
   return { data: aggregatePerformance(result.data, filters.year), error: null }
+}
+
+// 만족도조사용 명단: 현재 필터를 적용한 실적에서 연락처가 있는 단체만
+// (체험존은 연락처가 없어 자동 제외) 단체명 기준 중복을 제거해 반환한다.
+export async function getSurveyContacts(adminRole: string, filters: PerformanceFilters) {
+  const result = await getAllPerformanceRecords(adminRole, filters)
+  if (result.error || !result.data) return { data: null, error: result.error }
+  return { data: dedupeSurveyContacts(result.data), error: null }
 }
 
 export interface ExperienceInput {
