@@ -14,6 +14,10 @@ export interface PerformanceRecord {
   memo: string | null
   source_type: PerformanceProgram
   source_id: string
+  // 수기 레코드(experience_zone_records)에서만 채워지는 수정 폼 프리필용 값.
+  // 예약/이벤트 파생 레코드에서는 undefined.
+  user_id?: string | null
+  city_id?: number | null
 }
 
 export interface OverrideRow {

@@ -14,6 +14,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const patch: any = {}
     if (typeof body?.date === 'string') patch.date = body.date
     if (typeof body?.organization_name === 'string') patch.organization_name = body.organization_name.trim()
+    if ('program_type' in body && ['sports_class', 'sports_event', 'experience_zone'].includes(body.program_type)) {
+      patch.program_type = body.program_type
+    }
+    if ('user_id' in body) patch.user_id = typeof body.user_id === 'string' && body.user_id.trim() ? body.user_id.trim() : null
     if ('region_id' in body) patch.region_id = body.region_id != null ? Number(body.region_id) : null
     if ('city_id' in body) patch.city_id = body.city_id != null ? Number(body.city_id) : null
     if ('grade' in body) patch.grade = body.grade?.trim() || null

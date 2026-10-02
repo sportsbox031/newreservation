@@ -30,6 +30,10 @@ export interface ExperienceRow {
   grade: string | null
   participant_count: number | null
   memo: string | null
+  program_type?: 'sports_class' | 'sports_event' | 'experience_zone' | null
+  phone?: string | null
+  user_id?: string | null
+  city_id?: number | null
   regions: { code: string | null } | null
   cities: { name: string | null } | null
 }
@@ -109,13 +113,20 @@ export function normalizeSportsEventRow(
   return applyOverride(base, override)
 }
 
+// 수기 실적 레코드(experience_zone_records). program_type이 3개 프로그램 중 무엇이든
+// 집계·표시용 program_type과 연락처(phone)는 저장값을 그대로 반영하되,
+// 수정/삭제는 항상 수기 레코드 경로로 보내야 하므로 source_type은 'experience_zone'로 고정한다.
 export function normalizeExperienceRow(row: ExperienceRow): PerformanceRecord {
+  const programType =
+    row.program_type === 'sports_class' || row.program_type === 'sports_event'
+      ? row.program_type
+      : 'experience_zone'
   return {
     id: overrideKey('experience_zone', row.id),
-    program_type: 'experience_zone',
+    program_type: programType,
     date: row.date,
     organization_name: row.organization_name,
-    phone: null,
+    phone: row.phone ?? null,
     city_name: row.cities?.name ?? null,
     region_id: row.region_id ?? null,
     region_code: asRegionCode(row.regions?.code),
@@ -124,6 +135,8 @@ export function normalizeExperienceRow(row: ExperienceRow): PerformanceRecord {
     memo: row.memo ?? null,
     source_type: 'experience_zone',
     source_id: row.id,
+    user_id: row.user_id ?? null,
+    city_id: row.city_id ?? null,
   }
 }
 

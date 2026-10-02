@@ -102,6 +102,43 @@ test('normalizeExperienceRow: 입력값 그대로', () => {
   assert.equal(rec.phone, null) // 체험존은 연락처 없음
 })
 
+test('normalizeExperienceRow: 수기 교실/이벤트 레코드는 program_type·phone 반영, source_type은 experience_zone 유지', () => {
+  const row = {
+    id: 'm1', date: '2026-08-01', organization_name: '가나초', region_id: 1,
+    grade: '3학년', participant_count: 20, memo: null, program_type: 'sports_class',
+    phone: '031-123-4567',
+    regions: { code: 'south' }, cities: { name: '수원시' },
+  }
+  const rec = normalizeExperienceRow(row as any)
+  assert.equal(rec.program_type, 'sports_class') // 집계·표시용 프로그램 구분
+  assert.equal(rec.phone, '031-123-4567') // 만족도조사 명단 포함을 위한 연락처
+  assert.equal(rec.source_type, 'experience_zone') // 수정/삭제는 수기 레코드 경로 유지
+  assert.equal(rec.id, 'experience_zone:m1')
+})
+
+test('normalizeExperienceRow: 수정 폼 프리필용 user_id·city_id 전달', () => {
+  const row = {
+    id: 'm2', date: '2026-08-02', organization_name: '가나초', region_id: 1,
+    grade: null, participant_count: 5, memo: null, program_type: 'experience_zone',
+    user_id: 'u-9', city_id: 42,
+    regions: { code: 'south' }, cities: { name: '수원시' },
+  }
+  const rec = normalizeExperienceRow(row as any)
+  assert.equal(rec.user_id, 'u-9')
+  assert.equal(rec.city_id, 42)
+})
+
+test('normalizeExperienceRow: program_type 없으면 experience_zone 기본', () => {
+  const row = {
+    id: 'e2', date: '2026-07-01', organization_name: '체험단', region_id: 1,
+    grade: null, participant_count: 10, memo: null,
+    regions: { code: 'south' }, cities: { name: '성남시' },
+  }
+  const rec = normalizeExperienceRow(row as any)
+  assert.equal(rec.program_type, 'experience_zone')
+  assert.equal(rec.phone, null)
+})
+
 test('overrideKey', () => {
   assert.equal(overrideKey('sports_class', 'r1'), 'sports_class:r1')
 })

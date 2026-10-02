@@ -43,13 +43,48 @@ function regionBadge(code: 'south' | 'north' | null) {
   return <span className="text-gray-400 text-xs">-</span>
 }
 
+const FORM_PROGRAM_OPTIONS: { value: PerformanceProgram; label: string }[] = [
+  { value: 'sports_class', label: '스포츠교실' },
+  { value: 'sports_event', label: '스포츠이벤트' },
+  { value: 'experience_zone', label: '스포츠체험존' },
+]
+
+interface CityOption {
+  id: number
+  name: string
+  region_id: number | null
+  region_code: 'south' | 'north' | null
+}
+
+interface MemberSearchResult {
+  user_id: string
+  organization_name: string
+  phone: string | null
+  city_id: number | null
+  city_name: string | null
+  region_id: number | null
+  region_code: 'south' | 'north' | null
+}
+
 interface ExperienceForm {
   date: string
+  program_type: PerformanceProgram
   organization_name: string
+  user_id: string | null
+  phone: string | null
   region: 'south' | 'north'
+  city_id: number | null
+  city_name: string | null
   grade: string
   participant_count: string
   memo: string
+}
+
+function emptyForm(region: 'south' | 'north'): ExperienceForm {
+  return {
+    date: '', program_type: 'sports_class', organization_name: '', user_id: null, phone: null,
+    region, city_id: null, city_name: null, grade: '', participant_count: '', memo: '',
+  }
 }
 
 interface OverrideForm {
@@ -84,18 +119,17 @@ function AdminPerformanceContent() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  // 시/군 목록(체험존 미가입 단체 입력용). 관리자 지역 범위 적용.
+  const [cities, setCities] = useState<CityOption[]>([])
+
   // 실적 추가 모달
   const [showAddModal, setShowAddModal] = useState(false)
-  const [addForm, setAddForm] = useState<ExperienceForm>({
-    date: '', organization_name: '', region: 'south', grade: '', participant_count: '', memo: '',
-  })
+  const [addForm, setAddForm] = useState<ExperienceForm>(emptyForm('south'))
   const [saving, setSaving] = useState(false)
 
   // 행 수정 모달
   const [editing, setEditing] = useState<PerformanceRecord | null>(null)
-  const [expForm, setExpForm] = useState<ExperienceForm>({
-    date: '', organization_name: '', region: 'south', grade: '', participant_count: '', memo: '',
-  })
+  const [expForm, setExpForm] = useState<ExperienceForm>(emptyForm('south'))
   const [ovForm, setOvForm] = useState<OverrideForm>({
     grade: '', participant_count: '', memo: '', excluded: false,
   })
@@ -120,6 +154,25 @@ function AdminPerformanceContent() {
       setAddForm((f) => ({ ...f, region: adminData.role }))
     }
   }, [router])
+
+  // 시/군 목록 로드(관리자 지역 범위)
+  useEffect(() => {
+    if (!adminRole) return
+    let active = true
+    ;(async () => {
+      try {
+        const res = await fetch('/api/admin/performance/cities', {
+          credentials: 'include',
+          headers: buildCookieFirstClientHeaders(),
+        })
+        const json = await readJsonSafely(res)
+        if (active) setCities(res.ok ? (json?.data || []) : [])
+      } catch {
+        if (active) setCities([])
+      }
+    })()
+    return () => { active = false }
+  }, [adminRole])
 
   // 요약: 연도/지역/기간만 반영(프로그램 필터와 무관하게 전체 프로그램 집계)
   const loadSummary = useCallback(async () => {
@@ -203,13 +256,20 @@ function AdminPerformanceContent() {
       alert('날짜와 단체명은 필수입니다.')
       return
     }
+    if ((addForm.program_type === 'sports_class' || addForm.program_type === 'sports_event') && !addForm.user_id) {
+      alert('스포츠교실·스포츠이벤트는 회원가입된 단체만 선택할 수 있습니다.')
+      return
+    }
     setSaving(true)
     try {
       const regionId = await settingsAPI.getRegionId(addForm.region)
       const body = {
         date: addForm.date,
+        program_type: addForm.program_type,
         organization_name: addForm.organization_name.trim(),
+        user_id: addForm.user_id,
         region_id: regionId,
+        city_id: addForm.city_id,
         grade: addForm.grade.trim() || null,
         participant_count: Number(addForm.participant_count) || 0,
         memo: addForm.memo.trim() || null,
@@ -221,7 +281,7 @@ function AdminPerformanceContent() {
         return
       }
       setShowAddModal(false)
-      setAddForm({ date: '', organization_name: '', region: isRegionalAdmin ? (adminRole as 'south' | 'north') : 'south', grade: '', participant_count: '', memo: '' })
+      setAddForm(emptyForm(isRegionalAdmin ? (adminRole as 'south' | 'north') : 'south'))
       await reloadAll()
     } finally {
       setSaving(false)
@@ -230,11 +290,17 @@ function AdminPerformanceContent() {
 
   const openEdit = (rec: PerformanceRecord) => {
     setEditing(rec)
-    if (rec.program_type === 'experience_zone') {
+    // 수기 레코드(source_type === 'experience_zone')는 프로그램 구분과 무관하게 전체 편집 가능
+    if (rec.source_type === 'experience_zone') {
       setExpForm({
         date: rec.date,
+        program_type: rec.program_type,
         organization_name: rec.organization_name,
+        user_id: rec.user_id ?? null,
+        phone: rec.phone ?? null,
         region: rec.region_code === 'north' ? 'north' : 'south',
+        city_id: rec.city_id ?? null,
+        city_name: rec.city_name ?? null,
         grade: rec.grade || '',
         participant_count: String(rec.participant_count),
         memo: rec.memo || '',
@@ -251,13 +317,20 @@ function AdminPerformanceContent() {
 
   const handleSaveExperienceEdit = async () => {
     if (!editing) return
+    if ((expForm.program_type === 'sports_class' || expForm.program_type === 'sports_event') && !expForm.user_id) {
+      alert('스포츠교실·스포츠이벤트는 회원가입된 단체만 선택할 수 있습니다.')
+      return
+    }
     setSaving(true)
     try {
       const regionId = await settingsAPI.getRegionId(expForm.region)
       const body = {
         date: expForm.date,
+        program_type: expForm.program_type,
         organization_name: expForm.organization_name.trim(),
+        user_id: expForm.user_id,
         region_id: regionId,
+        city_id: expForm.city_id,
         grade: expForm.grade.trim() || null,
         participant_count: Number(expForm.participant_count) || 0,
         memo: expForm.memo.trim() || null,
@@ -367,7 +440,7 @@ function AdminPerformanceContent() {
             </button>
             <button
               onClick={() => {
-                setAddForm({ date: '', organization_name: '', region: isRegionalAdmin ? (adminRole as 'south' | 'north') : 'south', grade: '', participant_count: '', memo: '' })
+                setAddForm(emptyForm(isRegionalAdmin ? (adminRole as 'south' | 'north') : 'south'))
                 setShowAddModal(true)
               }}
               className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -587,7 +660,7 @@ function AdminPerformanceContent() {
         <ModalOverlay onClose={() => setShowAddModal(false)} closeOnBackdrop={false}>
           <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">실적 추가</h2>
-            <ExperienceFields form={addForm} setForm={setAddForm} isRegionalAdmin={isRegionalAdmin} />
+            <ManualRecordFields form={addForm} setForm={setAddForm} isRegionalAdmin={isRegionalAdmin} cities={cities} />
             <div className="flex justify-end gap-2 mt-6">
               <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm hover:bg-gray-200">취소</button>
               <button onClick={handleAddExperience} disabled={saving} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
@@ -604,10 +677,10 @@ function AdminPerformanceContent() {
         <ModalOverlay onClose={() => setEditing(null)} closeOnBackdrop={false}>
           <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">{PROGRAM_LABEL[editing.program_type]} 실적 수정</h2>
-            {editing.program_type === 'experience_zone' ? (
+            {editing.source_type === 'experience_zone' ? (
               <>
-                <p className="text-xs text-gray-500 mb-4">체험존 실적은 모든 항목을 수정하거나 삭제할 수 있습니다.</p>
-                <ExperienceFields form={expForm} setForm={setExpForm} isRegionalAdmin={isRegionalAdmin} />
+                <p className="text-xs text-gray-500 mb-4">수기 입력 실적은 모든 항목을 수정하거나 삭제할 수 있습니다.</p>
+                <ManualRecordFields form={expForm} setForm={setExpForm} isRegionalAdmin={isRegionalAdmin} cities={cities} />
                 <div className="flex justify-between gap-2 mt-6">
                   <button onClick={handleDeleteExperience} disabled={saving} className="px-4 py-2 rounded-lg bg-red-50 text-red-600 text-sm hover:bg-red-100 disabled:opacity-50 flex items-center gap-1">
                     <Trash2 className="w-4 h-4" />
@@ -659,37 +732,166 @@ function AdminPerformanceContent() {
   )
 }
 
-function ExperienceFields({
+function ManualRecordFields({
   form,
   setForm,
   isRegionalAdmin,
+  cities,
 }: {
   form: ExperienceForm
   setForm: React.Dispatch<React.SetStateAction<ExperienceForm>>
   isRegionalAdmin: boolean
+  cities: CityOption[]
 }) {
+  const [results, setResults] = useState<MemberSearchResult[]>([])
+  const [open, setOpen] = useState(false)
+  const [searching, setSearching] = useState(false)
+
+  // 단체명 자동완성: 회원이 선택되지 않은 상태에서 입력값이 바뀌면 디바운스 검색
+  useEffect(() => {
+    if (form.user_id) { setResults([]); setOpen(false); return }
+    const term = form.organization_name.trim()
+    if (!term) { setResults([]); setOpen(false); return }
+    let active = true
+    setSearching(true)
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/performance/org-search?q=${encodeURIComponent(term)}`, {
+          credentials: 'include',
+          headers: buildCookieFirstClientHeaders(),
+        })
+        const json = await readJsonSafely(res)
+        if (active) {
+          setResults(res.ok ? (json?.data || []) : [])
+          setOpen(true)
+        }
+      } finally {
+        if (active) setSearching(false)
+      }
+    }, 200)
+    return () => { active = false; clearTimeout(timer) }
+  }, [form.organization_name, form.user_id])
+
+  const locked = !!form.user_id
+  const requiresMember = form.program_type === 'sports_class' || form.program_type === 'sports_event'
+  const regionCities = cities.filter((c) => c.region_code === form.region)
+
+  const selectMember = (m: MemberSearchResult) => {
+    setForm((f) => ({
+      ...f,
+      organization_name: m.organization_name,
+      user_id: m.user_id,
+      phone: m.phone,
+      region: m.region_code === 'north' ? 'north' : 'south',
+      city_id: m.city_id,
+      city_name: m.city_name,
+    }))
+    setOpen(false)
+  }
+
+  // 직접 타이핑하면 이전 회원 선택을 해제하고 시/군·지역 잠금을 푼다
+  const onOrgChange = (value: string) => {
+    setForm((f) => ({ ...f, organization_name: value, user_id: null, phone: null, city_id: null, city_name: null }))
+  }
+
   return (
     <div className="space-y-3">
       <div>
         <label className="block text-sm text-gray-600 mb-1">날짜 <span className="text-red-500">*</span></label>
         <input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
       </div>
+
       <div>
-        <label className="block text-sm text-gray-600 mb-1">단체명 <span className="text-red-500">*</span></label>
-        <input type="text" value={form.organization_name} onChange={(e) => setForm((f) => ({ ...f, organization_name: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+        <label className="block text-sm text-gray-600 mb-1">프로그램 구분 <span className="text-red-500">*</span></label>
+        <select
+          value={form.program_type}
+          onChange={(e) => setForm((f) => ({ ...f, program_type: e.target.value as PerformanceProgram }))}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        >
+          {FORM_PROGRAM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
       </div>
+
+      <div className="relative">
+        <label className="block text-sm text-gray-600 mb-1">단체명 <span className="text-red-500">*</span></label>
+        <input
+          type="text"
+          value={form.organization_name}
+          onChange={(e) => onOrgChange(e.target.value)}
+          onFocus={() => { if (!form.user_id && results.length > 0) setOpen(true) }}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder="단체명을 입력해 회원 단체를 검색하세요"
+          autoComplete="off"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        />
+        {locked ? (
+          <p className="mt-1 text-xs text-green-600">회원 단체로 확인됨 · 시/군·지역이 자동 설정되었습니다</p>
+        ) : requiresMember ? (
+          <p className="mt-1 text-xs text-amber-600">스포츠교실·이벤트는 회원가입된 단체를 검색해 선택해야 합니다</p>
+        ) : (
+          <p className="mt-1 text-xs text-gray-400">체험존은 미가입 단체도 입력할 수 있습니다</p>
+        )}
+        {open && !form.user_id && (
+          <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+            {searching ? (
+              <div className="px-3 py-2 text-sm text-gray-400">검색 중…</div>
+            ) : results.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-gray-400">회원 검색 결과가 없습니다</div>
+            ) : (
+              results.map((m) => (
+                <button
+                  key={m.user_id}
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); selectMember(m) }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between gap-2"
+                >
+                  <span className="font-medium text-gray-900">{m.organization_name}</span>
+                  <span className="text-xs text-gray-500">{m.city_name || '-'}</span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm text-gray-600 mb-1">시/군{requiresMember && <span className="text-red-500"> *</span>}</label>
+        {locked ? (
+          <input
+            type="text"
+            value={form.city_name || '-'}
+            disabled
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-600"
+          />
+        ) : (
+          <select
+            value={form.city_id ?? ''}
+            onChange={(e) => {
+              const id = e.target.value ? Number(e.target.value) : null
+              const name = regionCities.find((c) => c.id === id)?.name ?? null
+              setForm((f) => ({ ...f, city_id: id, city_name: name }))
+            }}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">선택 안 함</option>
+            {regionCities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
+      </div>
+
       <div>
         <label className="block text-sm text-gray-600 mb-1">지역 <span className="text-red-500">*</span></label>
         <select
           value={form.region}
-          onChange={(e) => setForm((f) => ({ ...f, region: e.target.value as 'south' | 'north' }))}
-          disabled={isRegionalAdmin}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-100"
+          onChange={(e) => setForm((f) => ({ ...f, region: e.target.value as 'south' | 'north', city_id: null, city_name: null }))}
+          disabled={isRegionalAdmin || locked}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-600"
         >
           <option value="south">남부</option>
           <option value="north">북부</option>
         </select>
       </div>
+
       <div>
         <label className="block text-sm text-gray-600 mb-1">학년</label>
         <input type="text" value={form.grade} onChange={(e) => setForm((f) => ({ ...f, grade: e.target.value }))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />

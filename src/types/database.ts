@@ -184,6 +184,9 @@ type ExtendedPublic = Merge<
             grade: string | null
             participant_count: number
             memo: string | null
+            program_type: 'sports_class' | 'sports_event' | 'experience_zone'
+            phone: string | null
+            user_id: string | null
             created_by: string | null
             created_at: string
             updated_at: string
@@ -197,6 +200,9 @@ type ExtendedPublic = Merge<
             grade?: string | null
             participant_count?: number
             memo?: string | null
+            program_type?: 'sports_class' | 'sports_event' | 'experience_zone'
+            phone?: string | null
+            user_id?: string | null
             created_by?: string | null
             created_at?: string
             updated_at?: string
@@ -210,6 +216,9 @@ type ExtendedPublic = Merge<
             grade?: string | null
             participant_count?: number
             memo?: string | null
+            program_type?: 'sports_class' | 'sports_event' | 'experience_zone'
+            phone?: string | null
+            user_id?: string | null
             created_by?: string | null
             created_at?: string
             updated_at?: string
