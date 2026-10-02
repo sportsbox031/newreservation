@@ -35,6 +35,7 @@ import {
 import ExcelJS from 'exceljs';
 import { settingsAPI, reservationAPI, staffAPI } from '@/lib/supabase';
 import { getAdminCalendarDayStatus } from '@/lib/adminCalendarStatus';
+import { formatReservationCell } from '@/lib/reservationExcelFormat';
 import AdminNavigation from '@/components/AdminNavigation';
 import { buildCookieFirstJsonRequestInit } from '@/lib/clientAuthHeaders';
 import Spinner from '@/components/Spinner';
@@ -1027,19 +1028,14 @@ function AdminReservationsContent() {
           const reservation = weekReservations[day][i];
           const cell = reservationRow.getCell(day + 1);
           if (reservation) {
-            let content = reservation.organization_name;
-            if (reservation.slots && reservation.slots.length > 0) {
-              const firstSlot = reservation.slots[0];
-              const lastSlot = reservation.slots[reservation.slots.length - 1];
-              content += ` ${firstSlot.startTime}~${lastSlot.endTime}`;
-            }
-            cell.value = content;
+            // 단체명 / 학년 / 시간 / 장소 (줄바꿈 구분)
+            cell.value = formatReservationCell(reservation.organization_name, reservation.slots ?? []);
           } else {
             cell.value = '';
           }
           cell.font = { name: '맑은 고딕', size: 9, color: { argb: 'FF000000' } };
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
           cell.border = {
             top: { style: 'thin', color: { argb: 'FF000000' } },
             bottom: { style: 'thin', color: { argb: 'FF000000' } },
@@ -1047,7 +1043,7 @@ function AdminReservationsContent() {
             right: { style: 'thin', color: { argb: 'FF000000' } }
           };
         }
-        reservationRow.height = 18;
+        reservationRow.height = 46;
         currentRow++;
       }
     }
