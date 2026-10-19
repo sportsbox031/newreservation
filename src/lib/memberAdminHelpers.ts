@@ -108,3 +108,42 @@ export function getMemberSummaryCounts<T extends MemberSummaryLike>(
     approved: baseMembers.filter((member) => member.status === 'approved').length,
   }
 }
+
+export type MemberCreatedAtSortOrder = 'newest' | 'oldest'
+
+function parseTime(value: string | null | undefined): number | null {
+  if (!value) return null
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? null : time
+}
+
+// 가입일 기준 정렬 — 가입일이 없는 회원은 항상 맨 뒤
+export function sortMembersByCreatedAt<T extends { created_at: string | null }>(
+  members: T[],
+  order: MemberCreatedAtSortOrder
+): T[] {
+  return [...members].sort((a, b) => {
+    const aTime = parseTime(a.created_at)
+    const bTime = parseTime(b.created_at)
+    if (aTime === null && bTime === null) return 0
+    if (aTime === null) return 1
+    if (bTime === null) return -1
+    return order === 'newest' ? bTime - aTime : aTime - bTime
+  })
+}
+
+// 승인 대기 회원 강조 기준 (가입 후 경과일)
+export const PENDING_MEMBER_OVERDUE_DAYS = 50
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+export function getPendingMemberAge(
+  createdAt: string | null,
+  now: Date = new Date()
+): { days: number; isOverdue: boolean } | null {
+  const createdTime = parseTime(createdAt)
+  if (createdTime === null) return null
+
+  const days = Math.max(0, Math.floor((now.getTime() - createdTime) / DAY_MS))
+  return { days, isOverdue: days >= PENDING_MEMBER_OVERDUE_DAYS }
+}
