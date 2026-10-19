@@ -26,6 +26,9 @@ import * as XLSX from 'xlsx'
 import {
   filterMembersForDisplay,
   getMemberSummaryCounts,
+  getPendingMemberAge,
+  sortMembersByCreatedAt,
+  type MemberCreatedAtSortOrder,
 } from '@/lib/memberAdminHelpers'
 import { buildCookieFirstJsonRequestInit } from '@/lib/clientAuthHeaders'
 import { formatDateTimeKST as formatDate } from '@/lib/formatDate'
@@ -102,6 +105,7 @@ export default function MembersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all')
   const [regionFilter, setRegionFilter] = useState<'all' | '경기남부' | '경기북부'>('all')
+  const [sortOrder, setSortOrder] = useState<MemberCreatedAtSortOrder>('newest')
   const [processing, setProcessing] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const PAGE_SIZE = 30
@@ -127,7 +131,7 @@ export default function MembersPage() {
 
   useEffect(() => {
     filterMembers()
-  }, [members, searchTerm, statusFilter, regionFilter])
+  }, [members, searchTerm, statusFilter, regionFilter, sortOrder])
 
   // 검색/필터가 바뀌면 첫 페이지로 되돌린다
   useEffect(() => {
@@ -318,11 +322,11 @@ export default function MembersPage() {
   }
 
   const filterMembers = () => {
-    setFilteredMembers(filterMembersForDisplay(members, {
+    setFilteredMembers(sortMembersByCreatedAt(filterMembersForDisplay(members, {
       searchTerm,
       statusFilter,
       regionFilter,
-    }))
+    }), sortOrder))
   }
 
   // 학교알리미 기준 등급 자동조정 1단계(미리보기): DB 변경 없이 변경 예정 내역만 조회한다.
@@ -620,6 +624,38 @@ export default function MembersPage() {
       </span>
     )
   )
+
+  // 가입일시 + (대기중이면) 가입 후 경과일 — 오래 대기한 회원은 빨간색으로 강조
+  const renderJoinedAt = (member: Member) => {
+    if (!member.created_at) {
+      return <span className="text-xs text-gray-400">-</span>
+    }
+
+    const joinedAt = new Date(member.created_at)
+    const joinedDate = joinedAt.toLocaleDateString('ko-KR', {
+      year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Seoul'
+    })
+    const joinedTime = joinedAt.toLocaleTimeString('ko-KR', {
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Seoul'
+    })
+    const pendingAge = member.status === 'pending' ? getPendingMemberAge(member.created_at) : null
+
+    return (
+      <div className={pendingAge?.isOverdue ? 'text-red-600' : 'text-gray-900'}>
+        <div className={`text-sm ${pendingAge?.isOverdue ? 'font-semibold' : ''}`}>{joinedDate}</div>
+        <div className={`text-xs ${pendingAge?.isOverdue ? '' : 'text-gray-500'}`}>{joinedTime}</div>
+        {pendingAge && (
+          <span
+            className={`inline-flex mt-0.5 px-1.5 py-0.5 rounded text-xs font-medium ${
+              pendingAge.isOverdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            가입 {pendingAge.days}일째
+          </span>
+        )}
+      </div>
+    )
+  }
 
   const renderTierControl = (member: Member) => (
     member.status === 'approved' ? (
@@ -957,6 +993,14 @@ export default function MembersPage() {
                   <option value="pending">대기중</option>
                   <option value="approved">승인됨</option>
                 </select>
+                <select
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as MemberCreatedAtSortOrder)}
+                >
+                  <option value="newest">가입일 최신순</option>
+                  <option value="oldest">가입일 오래된순</option>
+                </select>
                 <button
                   onClick={handleAutoTierPreview}
                   disabled={autoTierRunning}
@@ -1061,6 +1105,9 @@ export default function MembersPage() {
                         상태
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
+                        가입일시
+                      </th>
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
                         티어
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 tracking-wider">
@@ -1107,6 +1154,9 @@ export default function MembersPage() {
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           {getStatusBadge(member.status)}
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          {renderJoinedAt(member)}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           {renderTierControl(member)}
@@ -1158,6 +1208,10 @@ export default function MembersPage() {
                       {' · '}학생 {member.student_count || 0} / 학급 {member.class_count || 0}
                     </div>
                     <div className="text-xs text-gray-500 truncate">{member.email}</div>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <span>가입일시</span>
+                      {renderJoinedAt(member)}
+                    </div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {renderTierControl(member)}
                       <button

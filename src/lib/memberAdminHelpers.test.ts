@@ -7,6 +7,8 @@ import {
   resolveMemberStatusScope,
   filterMembersForDisplay,
   getMemberSummaryCounts,
+  sortMembersByCreatedAt,
+  getPendingMemberAge,
 } from './memberAdminHelpers.ts'
 
 test('resolveMemberRegionScope restricts regional admins to their own region', () => {
@@ -103,4 +105,29 @@ test('getMemberSummaryCounts follows the selected region instead of all members'
     pending: 1,
     approved: 1,
   })
+})
+
+test('sortMembersByCreatedAt orders newest or oldest first and keeps missing dates last', () => {
+  const members = [
+    { id: 'b', created_at: '2026-08-10T00:00:00Z' },
+    { id: 'none', created_at: null },
+    { id: 'a', created_at: '2026-09-01T00:00:00Z' },
+    { id: 'c', created_at: '2026-07-01T00:00:00Z' },
+  ]
+
+  assert.deepEqual(sortMembersByCreatedAt(members, 'newest').map((m) => m.id), ['a', 'b', 'c', 'none'])
+  assert.deepEqual(sortMembersByCreatedAt(members, 'oldest').map((m) => m.id), ['c', 'b', 'a', 'none'])
+  // 원본 배열은 변경하지 않는다
+  assert.deepEqual(members.map((m) => m.id), ['b', 'none', 'a', 'c'])
+})
+
+test('getPendingMemberAge counts elapsed days and flags members waiting 50+ days', () => {
+  const now = new Date('2026-10-19T03:00:00Z')
+
+  assert.deepEqual(getPendingMemberAge('2026-10-19T01:00:00Z', now), { days: 0, isOverdue: false })
+  assert.deepEqual(getPendingMemberAge('2026-08-31T03:00:00Z', now), { days: 49, isOverdue: false })
+  assert.deepEqual(getPendingMemberAge('2026-08-30T03:00:00Z', now), { days: 50, isOverdue: true })
+  assert.deepEqual(getPendingMemberAge('2026-07-01T00:00:00Z', now), { days: 110, isOverdue: true })
+  assert.equal(getPendingMemberAge(null, now), null)
+  assert.equal(getPendingMemberAge('not-a-date', now), null)
 })
