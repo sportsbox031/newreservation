@@ -678,9 +678,10 @@ export default function MembersPage() {
   )
 
   const renderActionButtons = (member: Member) => (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium">
+    <div className="flex flex-col gap-1 text-xs font-medium">
+      {/* 1줄: 상태별 처리 (승인/거절 또는 경고/패널티) */}
       {member.status === 'pending' && (
-        <>
+        <div className="flex items-center gap-2 whitespace-nowrap">
           <button
             onClick={() => handleStatusChange(member.id, 'approved')}
             disabled={processing === member.id}
@@ -695,10 +696,10 @@ export default function MembersPage() {
           >
             거절
           </button>
-        </>
+        </div>
       )}
       {member.status === 'approved' && (
-        <>
+        <div className="flex items-center gap-2 whitespace-nowrap">
           <button
             onClick={() => openPenaltyModal(member, 'warning')}
             disabled={processing === member.id || penaltySummaries[member.id]?.restricted}
@@ -715,26 +716,29 @@ export default function MembersPage() {
           >
             패널티
           </button>
-        </>
+        </div>
       )}
-      <button
-        onClick={() => handlePasswordReset(member.id, member.organization_name)}
-        disabled={processing === member.id}
-        className="flex items-center gap-0.5 text-blue-600 hover:text-blue-900 disabled:opacity-50"
-        title="비밀번호를 0000으로 초기화"
-      >
-        <Key className="w-3 h-3" />
-        초기화
-      </button>
-      <button
-        onClick={() => handleDeleteMember(member.id, member.organization_name)}
-        disabled={processing === member.id}
-        className="flex items-center gap-0.5 text-red-600 hover:text-red-900 disabled:opacity-50"
-        title="회원 삭제"
-      >
-        <XCircle className="w-3 h-3" />
-        삭제
-      </button>
+      {/* 2줄: 공통 관리 (비밀번호 초기화/삭제) */}
+      <div className="flex items-center gap-2 whitespace-nowrap">
+        <button
+          onClick={() => handlePasswordReset(member.id, member.organization_name)}
+          disabled={processing === member.id}
+          className="flex items-center gap-0.5 text-blue-600 hover:text-blue-900 disabled:opacity-50"
+          title="비밀번호를 0000으로 초기화"
+        >
+          <Key className="w-3 h-3" />
+          초기화
+        </button>
+        <button
+          onClick={() => handleDeleteMember(member.id, member.organization_name)}
+          disabled={processing === member.id}
+          className="flex items-center gap-0.5 text-red-600 hover:text-red-900 disabled:opacity-50"
+          title="회원 삭제"
+        >
+          <XCircle className="w-3 h-3" />
+          삭제
+        </button>
+      </div>
     </div>
   )
 
@@ -1126,12 +1130,12 @@ export default function MembersPage() {
                       <tr key={member.id} className="hover:bg-gray-50">
                         <td className="px-3 py-3">
                           <div
-                            className="text-sm font-medium text-gray-900 break-words max-w-[240px]"
+                            className="text-sm font-medium text-gray-900 min-w-[150px]"
                             title={member.organization_name}
                           >
                             {member.organization_name}
                           </div>
-                          <div className="text-xs text-gray-500 truncate max-w-[240px]">
+                          <div className="text-xs text-gray-500">
                             {member.manager_name}
                           </div>
                         </td>
@@ -1188,7 +1192,7 @@ export default function MembersPage() {
                   <div key={member.id} className="p-4 space-y-2">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-gray-900 truncate">
+                        <div className="text-sm font-semibold text-gray-900">
                           {member.organization_name}
                         </div>
                         <div className="text-xs text-gray-500">
