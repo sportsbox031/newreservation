@@ -116,18 +116,18 @@ function LoginFormComponent() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 sports-box-gradient rounded-lg flex items-center justify-center">
+            <Link href="/" className="flex items-center space-x-3 min-w-0">
+              <div className="w-10 h-10 sports-box-gradient rounded-lg flex items-center justify-center shrink-0">
                 <Award className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">경기도체육회</h1>
-                <p className="text-sm text-blue-600">스포츠박스 예약시스템</p>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">경기도체육회</h1>
+                <p className="text-xs sm:text-sm text-blue-600 whitespace-nowrap">스포츠박스 예약시스템</p>
               </div>
             </Link>
             <Link
               href="/"
-              className="flex items-center text-gray-600 hover:text-gray-900"
+              className="flex items-center text-gray-600 hover:text-gray-900 shrink-0 whitespace-nowrap ml-3"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
               홈으로
@@ -136,12 +136,12 @@ function LoginFormComponent() {
         </div>
       </header>
 
-      <div className="flex items-center justify-center py-12 px-4">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
+      <div className="flex items-center justify-center py-8 sm:py-12 px-4">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-5 sm:p-8">
           {/* 회원가입 완료 알림 */}
           {isRegistered && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+              <CheckCircle className="w-5 h-5 text-green-500 mr-2 shrink-0" />
               <div>
                 <p className="text-green-700 text-sm font-medium">회원가입이 완료되었습니다!</p>
                 <p className="text-green-600 text-xs mt-1">관리자 승인 후 로그인하실 수 있습니다.</p>
@@ -150,13 +150,13 @@ function LoginFormComponent() {
           )}
 
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">로그인</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">로그인</h1>
             <p className="text-gray-600">스포츠박스 프로그램 예약을 위한 로그인</p>
           </div>
 
           {loginError && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+              <AlertCircle className="w-5 h-5 text-red-500 mr-2 shrink-0" />
               <p className="text-red-700 text-sm">{loginError}</p>
             </div>
           )}

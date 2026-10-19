@@ -468,14 +468,14 @@ export default function AdminEventsPage() {
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* 헤더 */}
         <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Trophy className="w-7 h-7 text-blue-600" />
-              <h1 className="text-3xl font-bold text-gray-900">스포츠이벤트 관리</h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <Trophy className="w-7 h-7 shrink-0 text-blue-600" />
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">스포츠이벤트 관리</h1>
             </div>
             <button
               onClick={handleCreate}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              className="flex items-center gap-2 shrink-0 whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
             >
               <Plus className="w-4 h-4" />
               새 이벤트
@@ -540,11 +540,11 @@ export default function AdminEventsPage() {
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             {effectiveOpen ? (
-                              <span className="inline-flex px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-medium rounded-full">
+                              <span className="inline-flex whitespace-nowrap px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-medium rounded-full">
                                 모집중
                               </span>
                             ) : (
-                              <span className="inline-flex px-2.5 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
+                              <span className="inline-flex whitespace-nowrap px-2.5 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
                                 종료
                               </span>
                             )}
@@ -619,22 +619,22 @@ export default function AdminEventsPage() {
           <ModalOverlay onClose={closeModal} closeOnBackdrop={false}>
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <form onSubmit={handleSubmit}>
-                <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
-                  <div className="flex justify-between items-center">
+                <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6">
+                  <div className="flex justify-between items-center gap-2">
                     <h2 className="text-xl font-bold text-gray-900">
                       {editingEvent ? '이벤트 수정' : '새 이벤트 작성'}
                     </h2>
                     <button
                       type="button"
                       onClick={closeModal}
-                      className="text-gray-400 hover:text-gray-600 text-xl font-semibold"
+                      className="shrink-0 text-gray-400 hover:text-gray-600 text-xl font-semibold"
                     >
                       ×
                     </button>
                   </div>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="p-4 sm:p-6 space-y-6">
                   {/* 이벤트명 */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -659,12 +659,12 @@ export default function AdminEventsPage() {
                         <img
                           src={thumbnailPreview}
                           alt="대표이미지 미리보기"
-                          className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                          className="w-24 h-24 shrink-0 object-cover rounded-lg border border-gray-200"
                         />
                         <button
                           type="button"
                           onClick={handleRemoveThumbnail}
-                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                          className="flex items-center gap-1 whitespace-nowrap px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
                         >
                           <X className="w-3.5 h-3.5" />
                           이미지 제거
@@ -725,13 +725,13 @@ export default function AdminEventsPage() {
                             value={date.label}
                             onChange={(e) => updateDateRow(index, 'label', e.target.value)}
                             placeholder="라벨 (선택, 예: 1일차)"
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                           <button
                             type="button"
                             onClick={() => removeDateRow(index)}
                             disabled={dates.length === 1}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            className="p-2 shrink-0 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                             title="삭제"
                           >
                             <X className="w-4 h-4" />
@@ -796,7 +796,7 @@ export default function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
+                <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 sm:p-6">
                   <div className="flex justify-end gap-3">
                     <button
                       type="button"

@@ -332,14 +332,14 @@ export default function AdminAnnouncementsPage() {
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       {/* 헤더 */}
       <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Bell className="w-7 h-7 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">공지사항 관리</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Bell className="w-7 h-7 text-blue-600 shrink-0" />
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">공지사항 관리</h1>
           </div>
           <button
             onClick={handleCreate}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap shrink-0"
           >
             <Plus className="w-4 h-4" />
             새 공지사항
@@ -371,35 +371,35 @@ export default function AdminAnnouncementsPage() {
         ) : (
           <div className="divide-y divide-gray-200">
             {filteredAnnouncements.map((announcement) => (
-              <div key={announcement.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex justify-between items-start gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+              <div key={announcement.id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex justify-between items-start gap-3 sm:gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
                       {announcement.is_important && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full whitespace-nowrap">
                           <AlertCircle className="w-3 h-3" />
                           중요
                         </span>
                       )}
                       {announcement.target_type === 'all' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full whitespace-nowrap">
                           <Users className="w-3 h-3" />
                           전체 공지
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full whitespace-nowrap">
                           <MapPin className="w-3 h-3" />
                           {announcement.regions?.name || '지역'} 공지
                         </span>
                       )}
                       {!announcement.is_published && (
-                        <span className="inline-flex px-2.5 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
+                        <span className="inline-flex px-2.5 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full whitespace-nowrap">
                           비공개
                         </span>
                       )}
                     </div>
                     
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 break-words">
                       {announcement.title}
                     </h3>
                     
@@ -414,7 +414,7 @@ export default function AdminAnnouncementsPage() {
                       }}
                     />
                     
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         <span>{formatDate(announcement.created_at || '')}</span>
@@ -427,7 +427,7 @@ export default function AdminAnnouncementsPage() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                     {canEditAnnouncement(announcement) ? (
                       <button
                         onClick={() => handleEdit(announcement)}
@@ -475,9 +475,9 @@ export default function AdminAnnouncementsPage() {
         >
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSubmit}>
-              <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-bold text-gray-900">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6">
+                <div className="flex justify-between items-center gap-3">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 min-w-0">
                     {editingAnnouncement ? '공지사항 수정' : '새 공지사항 작성'}
                   </h2>
                   <button
@@ -488,14 +488,14 @@ export default function AdminAnnouncementsPage() {
                       setOriginalAttachments([])
                       setAttachments([])
                     }}
-                    className="text-gray-400 hover:text-gray-600 text-xl font-semibold"
+                    className="text-gray-400 hover:text-gray-600 text-xl font-semibold shrink-0"
                   >
                     ×
                   </button>
                 </div>
               </div>
               
-              <div className="p-6 space-y-6">
+              <div className="p-4 sm:p-6 space-y-6">
                 {/* 제목 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -588,7 +588,7 @@ export default function AdminAnnouncementsPage() {
 
                 {/* 옵션 */}
                 <div className="space-y-3">
-                  <label className="flex items-center gap-3">
+                  <label className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <input
                       type="checkbox"
                       checked={formData.is_important}
@@ -611,7 +611,7 @@ export default function AdminAnnouncementsPage() {
                 </div>
               </div>
               
-              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6">
+              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 sm:p-6">
                 <div className="flex justify-end gap-3">
                   <button
                     type="button"
@@ -621,13 +621,13 @@ export default function AdminAnnouncementsPage() {
                       setOriginalAttachments([])
                       setAttachments([])
                     }}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors whitespace-nowrap"
                   >
                     취소
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
                   >
                     {editingAnnouncement ? '수정' : '작성'} 완료
                   </button>

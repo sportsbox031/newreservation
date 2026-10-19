@@ -172,7 +172,7 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* 헤더 */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">관리자 대시보드</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">관리자 대시보드</h1>
           <p className="text-gray-600 mt-2">
             {adminInfo?.role === 'super' && '전체 시스템을 관리합니다'}
             {adminInfo?.role === 'south' && '경기남부 지역을 관리합니다'}
@@ -297,7 +297,7 @@ export default function AdminDashboard() {
 
         {/* 최근 활동 */}
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">최근 활동</h2>
           </div>
           <div className="divide-y divide-gray-200">
@@ -308,11 +308,11 @@ export default function AdminDashboard() {
               </div>
             ) : (
               recentActivities.map((activity) => (
-                <div key={activity.id} className="px-6 py-4 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+                <div key={activity.id} className="px-4 sm:px-6 py-4 hover:bg-gray-50">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center min-w-0 space-x-3">
                       {getStatusIcon(activity.status)}
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900">
                           {activity.title}
                         </p>
@@ -321,7 +321,7 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                     </div>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(activity.status)}`}>
+                    <span className={`inline-flex items-center shrink-0 whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(activity.status)}`}>
                       {getStatusText(activity.status)}
                     </span>
                   </div>

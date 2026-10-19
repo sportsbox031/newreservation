@@ -417,15 +417,15 @@ function AdminPerformanceContent() {
       <AdminNavigation adminRole={adminRole || 'super'} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
           <div className="flex items-center space-x-2">
             <BarChart3 className="w-6 h-6 text-blue-600" />
             <h1 className="text-2xl font-bold text-gray-900">실적관리</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleExport}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+              className="flex items-center gap-1 whitespace-nowrap px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
             >
               <Download className="w-4 h-4" />
               Excel 다운로드
@@ -433,7 +433,7 @@ function AdminPerformanceContent() {
             <button
               onClick={handleSurveyExport}
               title="연락처가 있는 참여 단체(스포츠교실·이벤트)를 중복 없이 연락처·단체명만 내려받습니다."
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+              className="flex items-center gap-1 whitespace-nowrap px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
             >
               <ClipboardList className="w-4 h-4" />
               만족도조사용 다운로드
@@ -443,7 +443,7 @@ function AdminPerformanceContent() {
                 setAddForm(emptyForm(isRegionalAdmin ? (adminRole as 'south' | 'north') : 'south'))
                 setShowAddModal(true)
               }}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-1 whitespace-nowrap px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
               실적 추가
@@ -459,7 +459,7 @@ function AdminPerformanceContent() {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-lg bg-blue-50 flex items-center justify-center">
+                <div className="w-11 h-11 shrink-0 rounded-lg bg-blue-50 flex items-center justify-center">
                   <Calendar className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
@@ -474,19 +474,19 @@ function AdminPerformanceContent() {
             </div>
             {expanded && summary && (
               <div className="mt-4 pt-4 border-t border-gray-100 space-y-2 text-sm">
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span className="text-gray-600">스포츠교실</span>
                   <span className="text-gray-900">
                     {summary.byProgram.sports_class.count}회 · {summary.byProgram.sports_class.participants.toLocaleString()}명
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span className="text-gray-600">스포츠체험존</span>
                   <span className="text-gray-900">
                     {summary.byProgram.experience_zone.count}회 · {summary.byProgram.experience_zone.participants.toLocaleString()}명
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span className="text-gray-600">스포츠이벤트</span>
                   <span className="text-gray-900">
                     {summary.byProgram.sports_event.count}회 · {summary.byProgram.sports_event.participants.toLocaleString()}명
@@ -498,7 +498,7 @@ function AdminPerformanceContent() {
 
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-lg bg-green-50 flex items-center justify-center">
+              <div className="w-11 h-11 shrink-0 rounded-lg bg-green-50 flex items-center justify-center">
                 <Users2 className="w-6 h-6 text-green-600" />
               </div>
               <div>
@@ -565,12 +565,12 @@ function AdminPerformanceContent() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 w-full sm:w-auto">
               <label className="text-xs text-gray-500">기간</label>
               <div className="flex items-center gap-1">
-                <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm" />
+                <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="min-w-0 flex-1 sm:flex-none border border-gray-300 rounded-lg px-2 py-1.5 text-sm" />
                 <span className="text-gray-400">~</span>
-                <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm" />
+                <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="min-w-0 flex-1 sm:flex-none border border-gray-300 rounded-lg px-2 py-1.5 text-sm" />
               </div>
             </div>
 
@@ -630,7 +630,7 @@ function AdminPerformanceContent() {
           </div>
 
           {/* 페이지네이션 */}
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-100">
             <span className="text-sm text-gray-500">
               총 {total.toLocaleString()}건 중 {records.length.toLocaleString()}건 표시
             </span>
@@ -638,15 +638,15 @@ function AdminPerformanceContent() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="px-3 py-1.5 rounded-lg text-sm bg-gray-100 text-gray-700 disabled:opacity-50 hover:bg-gray-200"
+                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-sm bg-gray-100 text-gray-700 disabled:opacity-50 hover:bg-gray-200"
               >
                 이전
               </button>
-              <span className="text-sm text-gray-600">{page} / {totalPages}</span>
+              <span className="text-sm text-gray-600 whitespace-nowrap">{page} / {totalPages}</span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="px-3 py-1.5 rounded-lg text-sm bg-gray-100 text-gray-700 disabled:opacity-50 hover:bg-gray-200"
+                className="whitespace-nowrap px-3 py-1.5 rounded-lg text-sm bg-gray-100 text-gray-700 disabled:opacity-50 hover:bg-gray-200"
               >
                 다음
               </button>
@@ -658,7 +658,7 @@ function AdminPerformanceContent() {
       {/* 실적 추가 모달 */}
       {showAddModal && (
         <ModalOverlay onClose={() => setShowAddModal(false)} closeOnBackdrop={false}>
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto sm:max-h-none sm:overflow-visible p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">실적 추가</h2>
             <ManualRecordFields form={addForm} setForm={setAddForm} isRegionalAdmin={isRegionalAdmin} cities={cities} />
             <div className="flex justify-end gap-2 mt-6">
@@ -675,7 +675,7 @@ function AdminPerformanceContent() {
       {/* 행 수정 모달 */}
       {editing && (
         <ModalOverlay onClose={() => setEditing(null)} closeOnBackdrop={false}>
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto sm:max-h-none sm:overflow-visible p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">{PROGRAM_LABEL[editing.program_type]} 실적 수정</h2>
             {editing.source_type === 'experience_zone' ? (
               <>
@@ -845,8 +845,8 @@ function ManualRecordFields({
                   onMouseDown={(e) => { e.preventDefault(); selectMember(m) }}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between gap-2"
                 >
-                  <span className="font-medium text-gray-900">{m.organization_name}</span>
-                  <span className="text-xs text-gray-500">{m.city_name || '-'}</span>
+                  <span className="font-medium text-gray-900 min-w-0">{m.organization_name}</span>
+                  <span className="text-xs text-gray-500 shrink-0 whitespace-nowrap">{m.city_name || '-'}</span>
                 </button>
               ))
             )}

@@ -89,15 +89,15 @@ export default function EventApplyModal({
   return (
     <ModalOverlay onClose={onClose} closeOnBackdrop={false}>
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 z-10 bg-white border-b p-5 flex justify-between items-center">
+        <div className="sticky top-0 z-10 bg-white border-b p-4 sm:p-5 flex justify-between items-center gap-3">
           <h2 className="text-lg font-bold text-gray-900">{isEdit ? '신청 수정' : '이벤트 신청'}</h2>
-          <button onClick={onClose} aria-label="닫기" className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} aria-label="닫기" className="text-gray-400 hover:text-gray-600 shrink-0"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-5 space-y-5">
+        <div className="p-4 sm:p-5 space-y-5">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2">
               <label className="block text-sm font-medium text-gray-700">신청 일정 <span className="text-red-500">*</span></label>
-              <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
                 <span className="inline-block w-3 h-3 rounded-sm border border-pink-200 bg-pink-50" />
                 신청 가능 일정
               </span>
@@ -132,9 +132,9 @@ export default function EventApplyModal({
 
           {org && (
             <div className="rounded-lg bg-gray-50 border border-gray-100 p-4 space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-gray-500">단체명</span><span className="text-gray-900 font-medium">{org.organization_name}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">담당자</span><span className="text-gray-900">{org.manager_name}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">연락처</span><span className="text-gray-900">{org.phone}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0 whitespace-nowrap">단체명</span><span className="text-gray-900 font-medium min-w-0 text-right">{org.organization_name}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0 whitespace-nowrap">담당자</span><span className="text-gray-900 min-w-0 text-right">{org.manager_name}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0 whitespace-nowrap">연락처</span><span className="text-gray-900 min-w-0 text-right">{org.phone}</span></div>
             </div>
           )}
 
@@ -154,7 +154,7 @@ export default function EventApplyModal({
           </div>
           <p className="text-sm text-gray-700">전체 인원: <span className="font-semibold">{total}명</span></p>
         </div>
-        <div className="sticky bottom-0 bg-white border-t p-5 flex justify-end gap-3">
+        <div className="sticky bottom-0 bg-white border-t p-4 sm:p-5 flex justify-end gap-3">
           <Button variant="outline" onClick={onClose}>취소</Button>
           <Button variant="primary" onClick={handleSubmit} disabled={saving}>
             {saving ? (isEdit ? '저장 중...' : '신청 중...') : (isEdit ? '수정 저장' : '신청하기')}
