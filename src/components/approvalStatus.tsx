@@ -5,13 +5,13 @@ import { Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
 export const getStatusIcon = (status: string) => {
   switch (status) {
     case 'pending':
-      return <Clock className="w-4 h-4 text-yellow-500" />
+      return <Clock className="w-4 h-4 text-yellow-500 shrink-0" />
     case 'approved':
-      return <CheckCircle className="w-4 h-4 text-green-500" />
+      return <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
     case 'rejected':
-      return <XCircle className="w-4 h-4 text-red-500" />
+      return <XCircle className="w-4 h-4 text-red-500 shrink-0" />
     default:
-      return <AlertTriangle className="w-4 h-4 text-gray-500" />
+      return <AlertTriangle className="w-4 h-4 text-gray-500 shrink-0" />
   }
 }
 
@@ -26,8 +26,8 @@ export const getStatusText = (status: string) => {
 
 export const getStatusBadgeClass = (status: string) => {
   return status === 'pending'
-    ? 'bg-yellow-100 text-yellow-800'
+    ? 'bg-yellow-100 text-yellow-800 whitespace-nowrap shrink-0'
     : status === 'approved'
-    ? 'bg-green-100 text-green-800'
-    : 'bg-red-100 text-red-800'
+    ? 'bg-green-100 text-green-800 whitespace-nowrap shrink-0'
+    : 'bg-red-100 text-red-800 whitespace-nowrap shrink-0'
 }

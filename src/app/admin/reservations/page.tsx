@@ -627,7 +627,7 @@ function AdminReservationsContent() {
         {status && !isFullDayBlocked && (
           <>
             {status.isFull ? (
-              <div className="px-2 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-full shadow-md animate-pulse">
+              <div className="px-1 sm:px-2 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-full shadow-md animate-pulse whitespace-nowrap">
                 마감
               </div>
             ) : (
@@ -645,7 +645,7 @@ function AdminReservationsContent() {
                 </div>
                 {/* 예약 숫자 - 더 눈에 띄게 개선 */}
                 {status.max > 0 && (
-                  <div className={`text-xs font-bold text-center px-2 py-1 rounded-full shadow-sm border backdrop-blur-sm ${
+                  <div className={`text-xs font-bold text-center px-1 sm:px-2 py-1 rounded-full shadow-sm border backdrop-blur-sm whitespace-nowrap ${
                     status.current === 0 ? 'text-emerald-800 bg-emerald-100 border-emerald-300' :
                     status.current >= status.max * 0.7 ? 'text-amber-800 bg-amber-100 border-amber-300' :
                     'text-blue-800 bg-blue-100 border-blue-300'
@@ -674,7 +674,7 @@ function AdminReservationsContent() {
     const { label, color } = statusMap[status] || { label: status, color: 'bg-gray-100 text-gray-800' };
 
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${color}`}>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 ${color}`}>
         {label}
       </span>
     );
@@ -1130,9 +1130,9 @@ function AdminReservationsContent() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">예약 관리</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">예약 관리</h1>
               <p className="text-gray-600 mt-1">
                 {adminInfo?.role === 'super' && '전체 지역'}
                 {adminInfo?.role === 'south' && '경기남부'}
@@ -1145,7 +1145,7 @@ function AdminReservationsContent() {
               <div className="flex space-x-2">
                 <button
                   onClick={() => setAdminRegion('south')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
                     adminRegion === 'south'
                       ? 'bg-blue-600 text-white'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -1155,7 +1155,7 @@ function AdminReservationsContent() {
                 </button>
                 <button
                   onClick={() => setAdminRegion('north')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
                     adminRegion === 'north'
                       ? 'bg-blue-600 text-white'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -1171,10 +1171,10 @@ function AdminReservationsContent() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* 달력/리스트 섹션 */}
           <div className="xl:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm p-8">
-              <div className="flex justify-between items-center mb-8">
-                <div className="flex items-center space-x-4">
-                  <h2 className="text-2xl font-bold text-gray-900">
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-8">
+              <div className="flex flex-wrap justify-between items-center gap-4 mb-6 sm:mb-8">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 whitespace-nowrap">
                     {viewMode === 'calendar' ? '예약 달력' : '예약 목록'}
                   </h2>
 
@@ -1182,7 +1182,7 @@ function AdminReservationsContent() {
                   <div className="flex items-center bg-gray-100 p-1 rounded-lg">
                     <button
                       onClick={() => setViewMode('calendar')}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${
                         viewMode === 'calendar'
                           ? 'bg-white text-blue-600 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
@@ -1193,7 +1193,7 @@ function AdminReservationsContent() {
                     </button>
                     <button
                       onClick={() => setViewMode('list')}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors whitespace-nowrap ${
                         viewMode === 'list'
                           ? 'bg-white text-blue-600 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
@@ -1205,11 +1205,11 @@ function AdminReservationsContent() {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                   <button
                     onClick={() => setShowRandomAssignChoice(true)}
                     disabled={assignLoading}
-                    className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                    className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                     title="이번 달 전체 예약에 담당자를 랜덤 배정합니다"
                   >
                     <Shuffle className="w-4 h-4" />
@@ -1218,7 +1218,7 @@ function AdminReservationsContent() {
                   <button
                     onClick={handleCalendarSync}
                     disabled={calendarSyncLoading}
-                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                     title="담당자 지정된 예약을 지역 구글캘린더에 동기화합니다"
                   >
                     {calendarSyncLoading ? (
@@ -1231,7 +1231,7 @@ function AdminReservationsContent() {
                   {viewMode === 'calendar' && (
                     <button
                       onClick={handleDownloadExcel}
-                      className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
                       title="엑셀 다운로드"
                     >
                       <Download className="w-4 h-4" />
@@ -1243,12 +1243,12 @@ function AdminReservationsContent() {
                       loadReservationStatus();
                       loadAllReservations();
                     }}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
                   >
                     <RefreshCw className="w-4 h-4" />
                     <span>새로고침</span>
                   </button>
-                  <div className="flex items-center space-x-2 px-3 py-2 bg-white bg-opacity-60 backdrop-blur-sm rounded-lg shadow-sm">
+                  <div className="flex items-center space-x-2 px-3 py-2 bg-white bg-opacity-60 backdrop-blur-sm rounded-lg shadow-sm whitespace-nowrap">
                     <MapPin className="w-4 h-4 text-blue-500" />
                     <span className="text-sm font-medium text-gray-700">
                       {adminRegion === 'south' ? '경기남부' : '경기북부'}
@@ -1357,11 +1357,11 @@ function AdminReservationsContent() {
                       </div>
                     ) : (
                       filteredAllReservations.map((reservation) => (
-                        <div key={reservation.id} className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h3 className="text-lg font-semibold text-gray-900">{reservation.organization_name}</h3>
+                        <div key={reservation.id} className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow">
+                          <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-3 sm:gap-0 mb-4">
+                            <div className="flex-1 min-w-0 w-full sm:w-auto">
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                <h3 className="text-base sm:text-lg font-semibold text-gray-900 min-w-0">{reservation.organization_name}</h3>
                                 <StatusBadge status={reservation.status} />
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
@@ -1392,7 +1392,7 @@ function AdminReservationsContent() {
                             </div>
 
                             {/* 액션 버튼들 */}
-                            <div className="flex items-center space-x-2 ml-4">
+                            <div className="flex items-center space-x-2 sm:ml-4 shrink-0">
                               <button
                                 onClick={async () => {
                                   // 최신 데이터 로드 후 모달 열기
@@ -1417,7 +1417,7 @@ function AdminReservationsContent() {
                                   <button
                                     onClick={() => handleApprove(reservation.id)}
                                     disabled={actionLoading === reservation.id}
-                                    className="px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
+                                    className="px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 font-medium whitespace-nowrap"
                                   >
                                     {actionLoading === reservation.id ? (
                                       <Spinner size="sm" color="white" className="mx-auto" />
@@ -1428,7 +1428,7 @@ function AdminReservationsContent() {
                                   <button
                                     onClick={() => handleReject(reservation.id)}
                                     disabled={actionLoading === reservation.id}
-                                    className="px-3 py-1.5 text-sm bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
+                                    className="px-3 py-1.5 text-sm bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 font-medium whitespace-nowrap"
                                   >
                                     {actionLoading === reservation.id ? (
                                       <Spinner size="sm" color="white" className="mx-auto" />
@@ -1477,11 +1477,11 @@ function AdminReservationsContent() {
                               <div className="flex flex-wrap gap-2">
                                 {reservation.slots.map((slot, index) => (
                                   <div key={index} className={`${index === 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'} px-3 py-2 rounded-lg text-xs border shadow-sm`}>
-                                    <div className="flex items-center space-x-2">
+                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                       <span className={`${index === 0 ? 'bg-blue-600' : 'bg-purple-600'} text-white px-1.5 py-0.5 rounded text-xs font-bold`}>
                                         {index === 0 ? '1' : '2'}
                                       </span>
-                                      <span className="font-bold">{slot.startTime} - {slot.endTime}</span>
+                                      <span className="font-bold whitespace-nowrap">{slot.startTime} - {slot.endTime}</span>
                                       <span className="text-gray-600">({slot.grade} / {slot.participantCount}명)</span>
                                     </div>
                                   </div>
@@ -1498,7 +1498,7 @@ function AdminReservationsContent() {
 
               {/* 범례 - 사용자 대시보드와 완전히 동일하게 */}
               {viewMode === 'calendar' && (
-                <div className="mt-4 flex flex-wrap items-center space-x-4 text-sm">
+                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-pink-200 rounded-full"></div>
                     <span>예약가능</span>
@@ -1515,7 +1515,7 @@ function AdminReservationsContent() {
                     <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
                     <span>예약불가</span>
                   </div>
-                  <div className="text-xs text-gray-500 ml-4">
+                  <div className="text-xs text-gray-500 sm:ml-4">
                     * 숫자는 현재예약수/최대예약수를 나타냅니다
                   </div>
                 </div>
@@ -1525,7 +1525,7 @@ function AdminReservationsContent() {
 
           {/* 관리 통계 섹션 */}
           <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">관리 통계 <span className="text-sm font-normal text-gray-500">({currentMonth.getFullYear()}년 {currentMonth.getMonth() + 1}월)</span></h3>
               <div className="space-y-4">
                 <div
@@ -1591,7 +1591,7 @@ function AdminReservationsContent() {
             </div>
 
             {/* 최근 예약 */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">최근 예약</h3>
               <div className="space-y-3">
                 {allReservations.slice(0, 3).length === 0 ? (
@@ -1607,7 +1607,7 @@ function AdminReservationsContent() {
                         <CalendarIcon className="w-6 h-6 text-blue-500" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900">{reservation.organization_name}</div>
+                        <div className="font-medium text-gray-900 truncate">{reservation.organization_name}</div>
                         <div className="text-sm text-gray-600">
                           {reservation.date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
                         </div>
@@ -1687,9 +1687,9 @@ function AdminReservationsContent() {
       {activeModal === 'reservationList' && selectedDate && (
         <ModalOverlay onClose={() => setActiveModal(null)}>
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 min-w-0">
                   {selectedDate.toLocaleDateString('ko-KR', {
                     year: 'numeric',
                     month: 'long',
@@ -1697,10 +1697,10 @@ function AdminReservationsContent() {
                     weekday: 'long'
                   })} 예약 목록
                 </h3>
-                <p className="text-gray-600">총 {filteredReservations.length}개의 예약</p>
+                <p className="text-gray-600 whitespace-nowrap">총 {filteredReservations.length}개의 예약</p>
                 <button
                   onClick={() => setActiveModal(null)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 shrink-0"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -1740,11 +1740,11 @@ function AdminReservationsContent() {
                   </div>
                 ) : (
                   filteredReservations.map((reservation) => (
-                    <div key={reservation.id} className="bg-gray-50 p-4 rounded-lg">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h4 className="font-semibold text-gray-900">{reservation.organization_name}</h4>
+                    <div key={reservation.id} className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                      <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-3 sm:gap-0">
+                        <div className="flex-1 min-w-0 w-full sm:w-auto">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                            <h4 className="font-semibold text-gray-900 min-w-0">{reservation.organization_name}</h4>
                             <StatusBadge status={reservation.status} />
                           </div>
                           <div className="text-sm text-gray-600 space-y-1">
@@ -1767,20 +1767,20 @@ function AdminReservationsContent() {
                             <div className="space-y-2">
                               {reservation.slots.map((slot, index) => (
                                 <div key={index} className={`${index === 0 ? 'bg-blue-50 border-blue-200' : 'bg-purple-50 border-purple-200'} p-3 rounded-lg border shadow-sm`}>
-                                  <div className="flex justify-between items-center">
+                                  <div className="flex flex-wrap justify-between items-center gap-2">
                                     <div className="flex items-center">
-                                      <span className={`${index === 0 ? 'bg-blue-600' : 'bg-purple-600'} text-white px-2 py-1 rounded text-xs font-bold mr-2`}>
+                                      <span className={`${index === 0 ? 'bg-blue-600' : 'bg-purple-600'} text-white px-2 py-1 rounded text-xs font-bold mr-2 whitespace-nowrap`}>
                                         {index === 0 ? '1타임' : '2타임'}
                                       </span>
-                                      <span className="font-bold text-gray-800">{slot.startTime} - {slot.endTime}</span>
+                                      <span className="font-bold text-gray-800 whitespace-nowrap">{slot.startTime} - {slot.endTime}</span>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                       <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">{slot.grade}</span>
-                                      <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">{slot.participantCount}명</span>
+                                      <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap">{slot.participantCount}명</span>
                                     </div>
                                   </div>
                                   <div className="text-sm text-gray-600 mt-2 flex items-center">
-                                    <MapPin className="w-3 h-3 mr-1" />
+                                    <MapPin className="w-3 h-3 mr-1 shrink-0" />
                                     {slot.location}
                                   </div>
                                 </div>
@@ -1792,7 +1792,7 @@ function AdminReservationsContent() {
                         </div>
 
                         {/* 액션 버튼들 */}
-                        <div className="flex items-center space-x-2 ml-4">
+                        <div className="flex items-center space-x-2 sm:ml-4 shrink-0">
                           <button
                             onClick={() => {
                               setSelectedReservation(reservation);
@@ -1809,7 +1809,7 @@ function AdminReservationsContent() {
                               <button
                                 onClick={() => handleApprove(reservation.id)}
                                 disabled={actionLoading === reservation.id}
-                                className="px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
+                                className="px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 font-medium whitespace-nowrap"
                               >
                                 {actionLoading === reservation.id ? (
                                   <Spinner size="sm" color="white" className="mx-auto" />
@@ -1820,7 +1820,7 @@ function AdminReservationsContent() {
                               <button
                                 onClick={() => handleReject(reservation.id)}
                                 disabled={actionLoading === reservation.id}
-                                className="px-3 py-1.5 text-sm bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 font-medium"
+                                className="px-3 py-1.5 text-sm bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 font-medium whitespace-nowrap"
                               >
                                 {actionLoading === reservation.id ? (
                                   <Spinner size="sm" color="white" className="mx-auto" />
@@ -1884,10 +1884,10 @@ function AdminReservationsContent() {
           }}
         >
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">예약 상세 정보</h3>
+            <div className="p-4 sm:p-6">
+              <div className="flex justify-between items-start sm:items-center gap-2 mb-6">
+                <div className="min-w-0">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900">예약 상세 정보</h3>
                   <p className="text-sm text-gray-600 mt-1">
                     {selectedReservation.date.toLocaleDateString('ko-KR', {
                       year: 'numeric',
@@ -1902,7 +1902,7 @@ function AdminReservationsContent() {
                     setActiveModal(null);
                     setSelectedReservation(null);
                   }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 shrink-0"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -1910,18 +1910,18 @@ function AdminReservationsContent() {
 
               <div className="space-y-6">
                 {/* 신청자 정보 - 개선된 디자인 */}
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-6 rounded-xl shadow-sm">
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-4 sm:p-6 rounded-xl shadow-sm">
                   <h4 className="font-bold text-gray-900 mb-4 flex items-center">
                     <Building className="w-5 h-5 mr-2 text-emerald-600" />
                     신청자 정보
                   </h4>
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-4">
                       <div className="flex items-center">
                         <Building className="w-4 h-4 text-emerald-600 mr-3" />
                         <div>
                           <label className="text-xs text-gray-500 block">단체명</label>
-                          <div className="font-bold text-gray-800 text-lg">{selectedReservation.organization_name}</div>
+                          <div className="font-bold text-gray-800 text-base sm:text-lg">{selectedReservation.organization_name}</div>
                         </div>
                       </div>
                       <div className="flex items-center">
@@ -1951,7 +1951,7 @@ function AdminReservationsContent() {
                         <Mail className="w-4 h-4 text-red-600 mr-3" />
                         <div>
                           <label className="text-xs text-gray-500 block">이메일</label>
-                          <div className="font-semibold text-gray-800">{selectedReservation.email}</div>
+                          <div className="font-semibold text-gray-800 break-all">{selectedReservation.email}</div>
                         </div>
                       </div>
                     </div>
@@ -1967,24 +1967,24 @@ function AdminReservationsContent() {
                   </h4>
                   <div className="space-y-4">
                     {selectedReservation.slots.map((slot, index) => (
-                      <div key={index} className={`${index === 0 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200' : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200'} border p-6 rounded-xl shadow-md`}>
+                      <div key={index} className={`${index === 0 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200' : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200'} border p-4 sm:p-6 rounded-xl shadow-md`}>
                         {/* 타임 슬롯 헤더 - 더 구분되는 디자인 */}
-                        <div className="flex items-center justify-between mb-5">
-                          <div className="flex items-center">
-                            <div className={`${index === 0 ? 'bg-blue-600' : 'bg-purple-600'} text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg`}>
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                          <div className="flex flex-wrap items-center gap-y-2">
+                            <div className={`${index === 0 ? 'bg-blue-600' : 'bg-purple-600'} text-white px-3 sm:px-4 py-2 rounded-full text-sm font-bold shadow-lg whitespace-nowrap`}>
                               {index === 0 ? '🥇 첫 번째 타임' : '🥈 두 번째 타임'}
                             </div>
-                            <div className="ml-4 text-xl font-bold text-gray-800">
+                            <div className="ml-3 sm:ml-4 text-lg sm:text-xl font-bold text-gray-800 whitespace-nowrap">
                               {slot.startTime} - {slot.endTime}
                             </div>
                           </div>
-                          <div className="bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-bold border border-green-300 shadow-sm">
+                          <div className="bg-green-100 text-green-800 px-3 sm:px-4 py-2 rounded-full text-sm font-bold border border-green-300 shadow-sm whitespace-nowrap">
                             👥 {slot.participantCount}명 참여
                           </div>
                         </div>
 
                         {/* 상세 정보 그리드 - 더 가독성 높은 카드형 디자인 */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="bg-white bg-opacity-60 p-4 rounded-lg border border-gray-200 shadow-sm">
                             <div className="flex items-center mb-3">
                               <div className={`${index === 0 ? 'bg-blue-100' : 'bg-purple-100'} p-2 rounded-lg mr-3`}>
@@ -2102,13 +2102,13 @@ function AdminReservationsContent() {
                 </div>
 
                 {/* 액션 버튼들 */}
-                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-gray-200">
                   {selectedReservation.status === 'pending' && (
                     <>
                       <button
                         onClick={() => handleApprove(selectedReservation.id)}
                         disabled={actionLoading === selectedReservation.id}
-                        className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                        className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                       >
                         {actionLoading === selectedReservation.id ? (
                           <Spinner size="sm" color="white" />
@@ -2120,7 +2120,7 @@ function AdminReservationsContent() {
                       <button
                         onClick={() => handleReject(selectedReservation.id)}
                         disabled={actionLoading === selectedReservation.id}
-                        className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                        className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                       >
                         {actionLoading === selectedReservation.id ? (
                           <Spinner size="sm" color="white" />
@@ -2136,7 +2136,7 @@ function AdminReservationsContent() {
                     <button
                       onClick={() => handleApproveCancellation(selectedReservation.id)}
                       disabled={actionLoading === selectedReservation.id}
-                      className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50"
+                      className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                     >
                       {actionLoading === selectedReservation.id ? (
                         <Spinner size="sm" color="white" />
@@ -2151,7 +2151,7 @@ function AdminReservationsContent() {
                     <button
                       onClick={() => handleForceCancel(selectedReservation.id)}
                       disabled={actionLoading === selectedReservation.id}
-                      className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                      className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                     >
                       {actionLoading === selectedReservation.id ? (
                         <Spinner size="sm" color="white" />
@@ -2330,6 +2330,32 @@ function AdminReservationsContent() {
         .premium-calendar-container :global(.calendar-day-full.react-calendar__tile--active abbr),
         .premium-calendar-container :global(.calendar-day-full.react-calendar__tile--now abbr) {
           @apply text-white;
+        }
+        /* 모바일(640px 미만): 좁은 칸에 맞게 날짜 숫자·헤더 여백 축소 (데스크톱은 위 스타일 그대로) */
+        @media (max-width: 639px) {
+          .premium-calendar-container :global(.react-calendar__navigation) {
+            padding: 0.75rem 0.5rem;
+          }
+          .premium-calendar-container :global(.react-calendar__navigation button) {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+            min-width: 36px;
+          }
+          .premium-calendar-container :global(.react-calendar__navigation__label) {
+            font-size: 1rem;
+            line-height: 1.5rem;
+            white-space: nowrap;
+          }
+          .premium-calendar-container :global(.react-calendar__month-view__weekdays__weekday) {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            font-size: 0.75rem;
+          }
+          .premium-calendar-container :global(.react-calendar__tile abbr) {
+            top: 0.375rem;
+            left: 0.375rem;
+            font-size: 1rem;
+          }
         }
       `}</style>
     </div>

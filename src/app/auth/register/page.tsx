@@ -177,7 +177,7 @@ export default function RegisterPage() {
   if (submitStatus === 'success') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-6 sm:p-8 text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">회원가입 완료</h1>
           <p className="text-gray-600 mb-6">
@@ -199,18 +199,18 @@ export default function RegisterPage() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 sports-box-gradient rounded-lg flex items-center justify-center">
+            <Link href="/" className="flex items-center space-x-3 min-w-0">
+              <div className="w-10 h-10 sports-box-gradient rounded-lg flex items-center justify-center shrink-0">
                 <Award className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">경기도체육회</h1>
-                <p className="text-sm text-blue-600">스포츠박스 예약시스템</p>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">경기도체육회</h1>
+                <p className="text-xs sm:text-sm text-blue-600 whitespace-nowrap">스포츠박스 예약시스템</p>
               </div>
             </Link>
             <Link
               href="/"
-              className="flex items-center text-gray-600 hover:text-gray-900"
+              className="flex items-center text-gray-600 hover:text-gray-900 shrink-0 whitespace-nowrap ml-3"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
               홈으로
@@ -218,10 +218,10 @@ export default function RegisterPage() {
           </div>
         </div>
       </header>
-      <div className="flex items-center justify-center py-12 px-4">
-        <div className="max-w-lg w-full bg-white rounded-xl shadow-lg p-8">
+      <div className="flex items-center justify-center py-8 sm:py-12 px-4">
+        <div className="max-w-lg w-full bg-white rounded-xl shadow-lg p-5 sm:p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">회원가입</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">회원가입</h1>
             <p className="text-gray-600">스포츠박스 프로그램 예약을 위한 회원가입</p>
           </div>
 
@@ -446,14 +446,14 @@ export default function RegisterPage() {
                 <input
                   {...register('privacy_consent')}
                   type="checkbox"
-                  className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="mt-1 h-4 w-4 shrink-0 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <label className="ml-2 text-sm text-gray-700">
                   <span className="text-red-500">*</span> 개인정보 수집 및 이용에 동의합니다.
                   <button 
                     type="button"
                     onClick={() => setShowPrivacyModal(true)}
-                    className="text-blue-600 hover:underline ml-1"
+                    className="text-blue-600 hover:underline ml-1 whitespace-nowrap"
                   >
                     [상세보기]
                   </button>
@@ -489,12 +489,12 @@ export default function RegisterPage() {
       {showPrivacyModal && (
         <ModalOverlay onClose={() => setShowPrivacyModal(false)}>
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">개인정보 수집 및 이용 동의서</h3>
+            <div className="p-4 sm:p-6">
+              <div className="flex justify-between items-center gap-3 mb-6">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 min-w-0">개인정보 수집 및 이용 동의서</h3>
                 <button
                   onClick={() => setShowPrivacyModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 shrink-0"
                 >
                   <X className="w-6 h-6" />
                 </button>

@@ -98,7 +98,7 @@ export default function FileUploadManager({
   }
 
   const getFileIcon = (fileName: string) => {
-    return <File className="w-4 h-4 text-gray-500" />
+    return <File className="w-4 h-4 text-gray-500 shrink-0" />
   }
 
   return (
@@ -113,7 +113,7 @@ export default function FileUploadManager({
           {files.map((file, index) => (
             <div
               key={index}
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+              className="flex items-center justify-between gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200"
             >
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 {getFileIcon(file.file_name)}
@@ -129,7 +129,7 @@ export default function FileUploadManager({
               <button
                 type="button"
                 onClick={() => handleRemoveFile(index)}
-                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors shrink-0"
                 title="삭제"
               >
                 <X className="w-4 h-4" />
@@ -143,7 +143,7 @@ export default function FileUploadManager({
       {files.length < maxFiles && (
         <div>
           <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-colors">
-            <Upload className="w-4 h-4 text-gray-400" />
+            <Upload className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="text-sm text-gray-600">
               파일 선택 ({files.length}/{maxFiles})
             </span>
