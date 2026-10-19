@@ -167,13 +167,13 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
     <div className="border border-gray-300 rounded-lg overflow-hidden">
       {/* 에디터 헤더 */}
       <div className="bg-gray-50 border-b border-gray-300 p-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           {/* 모드 전환 버튼들 */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => switchMode('text')}
-              className={`px-3 py-1 text-sm rounded ${
+              className={`px-2 sm:px-3 py-1 text-sm rounded whitespace-nowrap ${
                 mode === 'text'
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100'
@@ -185,7 +185,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
             <button
               type="button"
               onClick={() => switchMode('html')}
-              className={`px-3 py-1 text-sm rounded ${
+              className={`px-2 sm:px-3 py-1 text-sm rounded whitespace-nowrap ${
                 mode === 'html'
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100'
@@ -197,7 +197,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
             <button
               type="button"
               onClick={() => switchMode('markdown')}
-              className={`px-3 py-1 text-sm rounded ${
+              className={`px-2 sm:px-3 py-1 text-sm rounded whitespace-nowrap ${
                 mode === 'markdown'
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100'
@@ -210,8 +210,8 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
 
           {/* HTML 모드 경고 */}
           {mode === 'html' && (
-            <div className="flex items-center gap-1 text-amber-600">
-              <AlertTriangle className="w-4 h-4" />
+            <div className="flex items-center gap-1 text-amber-600 min-w-0">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
               <span className="text-xs">HTML 코드는 보안을 위해 필터링됩니다</span>
             </div>
           )}
@@ -241,10 +241,10 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
       {/* 미리보기 (직접 편집 가능 — 수정하면 HTML 원본에 바로 반영) */}
       {showPreview && (
         <div className="border-t border-gray-300">
-          <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 flex items-center gap-2">
+          <div className="bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 flex flex-wrap items-center gap-2">
             미리보기
             <span className="flex items-center gap-1 text-xs font-normal text-blue-600">
-              <Pencil className="w-3 h-3" />
+              <Pencil className="w-3 h-3 shrink-0" />
               텍스트를 클릭해 바로 수정할 수 있습니다 (HTML에 자동 반영)
             </span>
           </div>
@@ -254,22 +254,22 @@ export default function RichTextEditor({ value, onChange, placeholder }: RichTex
             suppressContentEditableWarning
             onInput={handlePreviewInput}
             onBlur={handlePreviewBlur}
-            className="p-4 prose prose-sm max-w-none min-h-[80px] cursor-text focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset"
+            className="p-4 prose prose-sm max-w-none min-h-[80px] break-words overflow-x-auto cursor-text focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-inset"
           />
         </div>
       )}
 
       {/* 하단 도구 */}
-      <div className="bg-gray-50 border-t border-gray-300 px-4 py-2 flex justify-between items-center text-sm">
+      <div className="bg-gray-50 border-t border-gray-300 px-4 py-2 flex flex-wrap justify-between items-center gap-x-4 gap-y-1 text-sm">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => setShowPreview(!showPreview)}
-            className="text-blue-600 hover:text-blue-800"
+            className="text-blue-600 hover:text-blue-800 whitespace-nowrap"
           >
             {showPreview ? '미리보기 숨기기' : '미리보기'}
           </button>
-          <span className="text-gray-500">
+          <span className="text-gray-500 whitespace-nowrap">
             {value.length} 문자
           </span>
         </div>

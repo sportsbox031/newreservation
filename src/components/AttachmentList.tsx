@@ -34,7 +34,7 @@ export default function AttachmentList({ attachments, onDownload }: AttachmentLi
           <button
             key={attachment.id}
             onClick={() => onDownload(attachment)}
-            className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-blue-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors group"
+            className="w-full flex items-center justify-between gap-2 p-3 bg-gray-50 hover:bg-blue-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors group"
           >
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <File className="w-4 h-4 text-gray-400 flex-shrink-0" />

@@ -900,7 +900,7 @@ export default function DashboardPage() {
     if (isWeekend) {
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-end p-1">
-          <div className="px-1.5 py-0.5 bg-gray-400 text-white text-xs font-medium rounded-md">
+          <div className="px-1 sm:px-1.5 py-0.5 bg-gray-400 text-white text-[10px] sm:text-xs font-medium rounded-md whitespace-nowrap">
             주말
           </div>
         </div>
@@ -917,7 +917,7 @@ export default function DashboardPage() {
         {status && !isFullDayBlocked && (
           <>
             {status.isFull ? (
-              <div className="px-2 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-full shadow-md animate-pulse">
+              <div className="px-1 sm:px-2 py-0.5 sm:py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-[10px] sm:text-xs font-bold rounded-full shadow-md animate-pulse whitespace-nowrap">
                 마감
               </div>
             ) : (
@@ -935,7 +935,7 @@ export default function DashboardPage() {
                 </div>
                 {/* 예약 숫자 */}
                 {status.max > 0 && (
-                  <div className={`text-xs font-semibold text-center px-1.5 py-0.5 rounded-md backdrop-blur-sm ${
+                  <div className={`text-[10px] sm:text-xs font-semibold text-center px-0.5 sm:px-1.5 py-0.5 rounded-md backdrop-blur-sm whitespace-nowrap ${
                     status.current === 0 ? 'text-emerald-700 bg-emerald-100 bg-opacity-80' :
                     status.current >= status.max * 0.7 ? 'text-amber-700 bg-amber-100 bg-opacity-80' :
                     'text-blue-700 bg-blue-100 bg-opacity-80'
@@ -1179,17 +1179,17 @@ export default function DashboardPage() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center h-14 sm:h-16">
-            <Link href="/" className="flex items-center space-x-2 sm:space-x-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 sports-box-gradient rounded-lg flex items-center justify-center">
+            <Link href="/" className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 sports-box-gradient rounded-lg flex items-center justify-center shrink-0">
                 <Award className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900">스포츠박스</h1>
-                <p className="text-xs sm:text-sm text-blue-600">예약 대시보드</p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">스포츠박스</h1>
+                <p className="text-xs sm:text-sm text-blue-600 whitespace-nowrap">예약 대시보드</p>
               </div>
             </Link>
             
-            <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
               {/* 모바일용 티어 뱃지 */}
               <div className="flex md:hidden">
                 {userTier && (
@@ -1264,8 +1264,8 @@ export default function DashboardPage() {
                       remainingDays > 0 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-200' :
                       'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-red-200'
                     }`}>
-                      <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                      <span className="text-xs sm:text-sm">
+                      <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2 shrink-0" />
+                      <span className="text-xs sm:text-sm whitespace-nowrap">
                         남은 예약: <span className="font-bold">{remainingDays}일</span>
                       </span>
                       {/* 펄스 애니메이션 */}
@@ -1379,7 +1379,7 @@ export default function DashboardPage() {
                       <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
                         <span className="text-3xl">🟥</span>
                       </div>
-                      <h3 className="text-xl font-bold text-red-700 mb-2 break-keep">패널티 조치로 신청이 제한되었습니다.</h3>
+                      <h3 className="text-lg sm:text-xl font-bold text-red-700 mb-2 break-keep">패널티 조치로 신청이 제한되었습니다.</h3>
                       <p className="text-sm text-gray-600 break-keep">
                         {penaltyRestriction.resumeMonth
                           ? `${formatYearMonthLabel(penaltyRestriction.resumeMonth)}부터 신청이 가능합니다.`
@@ -1399,11 +1399,11 @@ export default function DashboardPage() {
                          bottom: '0',
                          borderRadius: '1rem'
                        }}>
-                    <div className="text-center">
+                    <div className="text-center px-4">
                       <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-500 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
                         <CalendarIcon className="w-8 h-8 text-white" />
                       </div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-2">예약기간이 아닙니다.</h3>
+                      <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2">예약기간이 아닙니다.</h3>
                     </div>
                   </div>
                 )}
@@ -1445,7 +1445,7 @@ export default function DashboardPage() {
               </div>
               <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-emerald-400 to-green-500 rounded-lg flex items-center justify-center shadow-md">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-emerald-400 to-green-500 rounded-lg flex items-center justify-center shadow-md shrink-0">
                     <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div>
@@ -1454,7 +1454,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center shadow-md">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center shadow-md shrink-0">
                     <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div>
@@ -1463,7 +1463,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-purple-400 to-pink-500 rounded-lg flex items-center justify-center shadow-md">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-purple-400 to-pink-500 rounded-lg flex items-center justify-center shadow-md shrink-0">
                     <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div>
@@ -1472,7 +1472,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2 sm:space-x-3 p-2 sm:p-3 bg-white bg-opacity-60 backdrop-blur-sm rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-orange-400 to-red-500 rounded-lg flex items-center justify-center shadow-md">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-orange-400 to-red-500 rounded-lg flex items-center justify-center shadow-md shrink-0">
                     <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div>
@@ -1531,9 +1531,9 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="space-y-3 sm:space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-gray-600">현재 등급</span>
-                    <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">현재 등급</span>
+                    <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap shrink-0 ${
                       userTier.member_tiers?.tier_name === 'Priority'
                         ? 'bg-yellow-100 text-yellow-800'
                         : 'bg-gray-100 text-gray-800'
@@ -1593,8 +1593,8 @@ export default function DashboardPage() {
                         <h4 className="text-sm sm:text-base font-medium text-gray-900 mb-2">패널티 상태</h4>
                         <div className={`rounded-lg border p-3 ${styles.box}`}>
                           <div className="flex items-center gap-2">
-                            <span className="text-lg leading-none">{styles.icon}</span>
-                            <span className={`text-sm sm:text-base font-semibold ${styles.title}`}>{banner.title}</span>
+                            <span className="text-lg leading-none shrink-0">{styles.icon}</span>
+                            <span className={`text-sm sm:text-base font-semibold min-w-0 ${styles.title}`}>{banner.title}</span>
                           </div>
                           <p className={`mt-1 text-xs sm:text-sm break-keep ${styles.text}`}>{banner.detail}</p>
                         </div>
@@ -1652,13 +1652,13 @@ export default function DashboardPage() {
         >
           <div className="bg-white rounded-lg sm:rounded-xl max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
-              <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <div className="flex justify-between items-center gap-3 mb-4 sm:mb-6">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 break-keep">
                   {selectedDate.toLocaleDateString('ko-KR')} 예약 신청
                 </h3>
                 <button
                   onClick={() => setActiveModal(null)}
-                  className="text-gray-400 hover:text-gray-600 p-1"
+                  className="text-gray-400 hover:text-gray-600 p-1 shrink-0"
                 >
                   <X className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
@@ -1677,14 +1677,14 @@ export default function DashboardPage() {
                         : 'border border-gray-200'
                     }`}
                   >
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-sm sm:text-base font-semibold text-gray-900">
+                    <div className="flex justify-between items-center gap-2">
+                      <h4 className="text-sm sm:text-base font-semibold text-gray-900 min-w-0">
                         {index === 0 ? '첫번째 타임' : '두번째 타임'}
                         {isOptional && (
-                          <span className="ml-2 text-xs font-normal text-gray-400">(선택)</span>
+                          <span className="ml-2 text-xs font-normal text-gray-400 whitespace-nowrap">(선택)</span>
                         )}
                       </h4>
-                      <div className="flex space-x-1 sm:space-x-2">
+                      <div className="flex space-x-1 sm:space-x-2 shrink-0">
                         {isOptional && (
                           <button
                             type="button"
@@ -1713,7 +1713,7 @@ export default function DashboardPage() {
                     {index === 0 && getBlockedTimeRanges().length > 0 && (
                       <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-2">
                         <p className="text-sm text-red-700 flex items-center">
-                          <span className="mr-2">⛔</span>
+                          <span className="mr-2 shrink-0">⛔</span>
                           <span>
                             <strong>차단된 시간대:</strong> {getBlockedTimeRanges().join(', ')}
                           </span>
@@ -1870,11 +1870,11 @@ export default function DashboardPage() {
         <ModalOverlay padding="p-2 sm:p-4" onClose={() => setActiveModal(null)}>
           <div className="bg-white rounded-lg sm:rounded-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
-              <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <div className="flex justify-between items-center gap-3 mb-4 sm:mb-6">
                 <h3 className="text-lg sm:text-xl font-bold text-gray-900 break-keep">내 예약 목록</h3>
                 <button
                   onClick={() => setActiveModal(null)}
-                  className="text-gray-400 hover:text-gray-600 p-1"
+                  className="text-gray-400 hover:text-gray-600 p-1 shrink-0"
                 >
                   <X className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
@@ -1948,10 +1948,10 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   filteredReservations.map((reservation) => (
-                    <div key={reservation.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex items-center space-x-4">
-                          <div className="text-lg font-semibold text-gray-900">
+                    <div key={reservation.id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex justify-between items-start gap-2 mb-3">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0">
+                          <div className="text-base sm:text-lg font-semibold text-gray-900">
                             {reservation.date.toLocaleDateString('ko-KR', { 
                               year: 'numeric', 
                               month: 'long', 
@@ -1959,7 +1959,7 @@ export default function DashboardPage() {
                               weekday: 'short'
                             })}
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                             reservation.status === 'approved' ? 'bg-green-100 text-green-800' :
                             reservation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                             reservation.status === 'cancelled' ? 'bg-gray-100 text-gray-800' :
@@ -1976,7 +1976,7 @@ export default function DashboardPage() {
                         </div>
                         {(reservation.status === 'pending' || reservation.status === 'approved') && (
                           <button 
-                            className="text-red-600 hover:text-red-700 text-sm font-medium"
+                            className="text-red-600 hover:text-red-700 text-sm font-medium shrink-0 whitespace-nowrap"
                             onClick={() => handleCancelReservation(reservation.id, reservation.status)}
                           >
                             취소
@@ -1987,8 +1987,8 @@ export default function DashboardPage() {
                       <div className="space-y-2">
                         {reservation.slots.map((slot, index) => (
                           <div key={index} className="bg-blue-50 p-3 rounded-lg">
-                            <div className="flex items-center space-x-4 text-sm">
-                              <span className="font-medium text-blue-900">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                              <span className="font-medium text-blue-900 whitespace-nowrap">
                                 {slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}
                               </span>
                               <span className="text-blue-700">{slot.grade}</span>
@@ -2161,6 +2161,32 @@ export default function DashboardPage() {
         /* 주말 스타일링 */
         .premium-calendar-container :global(.react-calendar__month-view__days__day--weekend abbr) {
           @apply text-red-600;
+        }
+        /* 모바일(640px 미만): 좁은 칸에 맞게 날짜 숫자·헤더 여백 축소 (데스크톱은 위 스타일 그대로) */
+        @media (max-width: 639px) {
+          .premium-calendar-container :global(.react-calendar__navigation) {
+            padding: 0.75rem 0.5rem;
+          }
+          .premium-calendar-container :global(.react-calendar__navigation button) {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+            min-width: 36px;
+          }
+          .premium-calendar-container :global(.react-calendar__navigation__label) {
+            font-size: 1rem;
+            line-height: 1.5rem;
+            white-space: nowrap;
+          }
+          .premium-calendar-container :global(.react-calendar__month-view__weekdays__weekday) {
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            font-size: 0.75rem;
+          }
+          .premium-calendar-container :global(.react-calendar__tile abbr) {
+            top: 0.375rem;
+            left: 0.375rem;
+            font-size: 1rem;
+          }
         }
       `}</style>
       
