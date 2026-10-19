@@ -162,15 +162,15 @@ export default function Home() {
     <div className="bg-white">
       {/* Header */}
       <header className="fixed w-full bg-white shadow-sm z-50">
-        <div className="container mx-auto px-6 py-4">
+        <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 min-w-0">
               <img
                 src="https://static.readdy.ai/image/416007a89256a2717806f7776e859886/110ce5261818cd69133e46ef8c6b097a.png"
                 alt="경기도체육회 로고"
-                className="h-10"
+                className="h-8 sm:h-10 shrink-0"
               />
-              <div className="text-2xl font-bold text-[#0066CC]">스포츠박스</div>
+              <div className="text-xl sm:text-2xl font-bold text-[#0066CC] whitespace-nowrap">스포츠박스</div>
             </div>
             <nav className="hidden md:flex items-center space-x-8">
               <a href="#notices" className="text-gray-700 hover:text-[#0066CC] py-2">공지사항</a>
@@ -258,12 +258,12 @@ export default function Home() {
                     스포츠 취약계층을 위한 맞춤형 프로그램과 다양한 체험 기회를 제공하여
                     모든 도민이 스포츠를 즐길 수 있도록 지원합니다.
                   </p>
-                  <div className="flex space-x-4">
-                    <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    <div className="flex items-center space-x-2 whitespace-nowrap">
                       <i className="ri-user-heart-line text-[#0066CC] text-xl"></i>
                       <span>취약계층 지원</span>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 whitespace-nowrap">
                       <i className="ri-community-line text-[#0066CC] text-xl"></i>
                       <span>생활체육 활성화</span>
                     </div>
@@ -276,7 +276,7 @@ export default function Home() {
                 <div className="flex justify-between items-center mb-8">
                   <h2 className="text-3xl font-bold">공지사항</h2>
                 </div>
-                <div className="bg-white rounded-lg shadow-lg p-6 max-h-[500px] overflow-y-auto">
+                <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 max-h-[500px] overflow-y-auto">
                   {loading ? (
                     <div className="animate-pulse space-y-4">
                       {[1, 2, 3].map(i => (
@@ -300,14 +300,14 @@ export default function Home() {
                           `}
                         >
                           <div className="flex items-start gap-3">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
                                 {announcement.is_important && (
-                                  <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-medium">
+                                  <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap">
                                     중요
                                   </span>
                                 )}
-                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                <span className={`text-xs px-2 py-1 rounded-full font-medium whitespace-nowrap ${
                                   announcement.target_type === 'all'
                                     ? 'bg-blue-100 text-blue-800'
                                     : announcement.regions?.name === '경기남부'
@@ -323,7 +323,7 @@ export default function Home() {
                               <p className="text-gray-600 text-sm line-clamp-2 mb-2">
                                 {truncateContent(announcement.content, 80)}
                               </p>
-                              <div className="flex items-center gap-4 text-xs text-gray-500">
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                                 <span>{formatDate(announcement.created_at)}</span>
                                 <span>작성자: {getAnnouncementAuthorName(announcement)}</span>
                               </div>
@@ -524,12 +524,12 @@ export default function Home() {
             <div className="max-w-3xl mx-auto">
               {/* 질문 1 */}
               <div className="mb-8 bg-gray-50 rounded-xl overflow-hidden shadow-sm">
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="p-4 sm:p-6">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 flex items-center">
                     <span className="bg-[#0066CC] text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 flex-shrink-0">Q</span>
                     요일을 지정해서 정기적으로 운영해주실 수 있나요?
                   </h3>
-                  <div className="pl-11">
+                  <div className="pl-0 sm:pl-11">
                     <p className="text-gray-600">정기 운영은 현재 어렵습니다. 저희는 더 많은 아이들에게 공평한 혜택을 제공하기 위해 매월 선착순 접수 방식으로 운영하고 있습니다.</p>
                   </div>
                 </div>
@@ -537,12 +537,12 @@ export default function Home() {
 
               {/* 질문 2 */}
               <div className="mb-8 bg-gray-50 rounded-xl overflow-hidden shadow-sm">
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="p-4 sm:p-6">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 flex items-center">
                     <span className="bg-[#0066CC] text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 flex-shrink-0">Q</span>
                     스포츠체험존은 어떻게 운영되나요?
                   </h3>
-                  <div className="pl-11">
+                  <div className="pl-0 sm:pl-11">
                     <p className="text-gray-600">스포츠체험존은 도내 공직유관단체 및 지자체에서 진행하는 행사를 대상으로 운영됩니다. 체험존에서는 한궁체험, 후크볼, 배팅체험, 탁구(스파이더볼) 등 다양한 스포츠 활동을 체험하실 수 있습니다.</p>
                   </div>
                 </div>
@@ -550,12 +550,12 @@ export default function Home() {
 
               {/* 질문 3 */}
               <div className="mb-8 bg-gray-50 rounded-xl overflow-hidden shadow-sm">
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <div className="p-4 sm:p-6">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 flex items-center">
                     <span className="bg-[#0066CC] text-white rounded-full w-8 h-8 flex items-center justify-center mr-3 flex-shrink-0">Q</span>
                     스포츠이벤트는 누구나 신청 가능한가요?
                   </h3>
-                  <div className="pl-11">
+                  <div className="pl-0 sm:pl-11">
                     <p className="text-gray-600">스포츠이벤트는 홈페이지 가입된 참여자에 한하여 신청 가능합니다. 계절에 따라 여름에는 수상레저스포츠, 가을에는 승마체험, 겨울에는 스키교실을 운영하고 있으니 많은 관심 부탁드립니다.</p>
                   </div>
                 </div>
@@ -637,7 +637,7 @@ export default function Home() {
             <div className="p-4 sm:p-6">
               <div className="prose prose-sm sm:prose max-w-none">
                 <div
-                  className="text-gray-700 leading-relaxed text-sm sm:text-base break-words"
+                  className="text-gray-700 leading-relaxed text-sm sm:text-base break-words overflow-x-auto"
                   dangerouslySetInnerHTML={{
                     __html: sanitizeHtml(selectedAnnouncement.content)
                   }}
