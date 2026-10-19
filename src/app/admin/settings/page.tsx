@@ -869,7 +869,7 @@ export default function SettingsPage() {
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* 헤더 */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
             {adminInfo?.role === 'super'
               ? '지역별 예약 설정'
               : `경기${activeTab === 'south' ? '남부' : '북부'} 예약 설정`
@@ -933,17 +933,17 @@ export default function SettingsPage() {
               : 'bg-red-50 text-red-800 border border-red-200'
           }`}>
             {message.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 mr-2" />
+              <CheckCircle className="w-5 h-5 mr-2 shrink-0" />
             ) : (
-              <AlertTriangle className="w-5 h-5 mr-2" />
+              <AlertTriangle className="w-5 h-5 mr-2 shrink-0" />
             )}
             {message.text}
           </div>
         )}
 
         {/* 월별 설정 헤더 */}
-        <div className="mb-6 bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mb-6 bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold text-gray-900">
               {currentYear}년 {currentMonth}월 설정
             </h2>
@@ -954,7 +954,7 @@ export default function SettingsPage() {
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="px-4 py-2 bg-gray-100 rounded font-medium">
+              <span className="px-3 sm:px-4 py-2 bg-gray-100 rounded font-medium whitespace-nowrap">
                 {currentYear}년 {currentMonth}월
               </span>
               <button
@@ -980,16 +980,16 @@ export default function SettingsPage() {
         {functionTab === 'control' && (<>
         {/* 전체 예약 제어 */}
         <div className="bg-white rounded-lg shadow mb-8">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-medium text-gray-900">전체 예약 제어</h2>
             <p className="text-sm text-gray-500 mt-1">모든 티어의 예약을 한 번에 시작하거나 종료합니다</p>
           </div>
-          <div className="px-6 py-4">
-            <div className="flex gap-4">
+          <div className="px-4 sm:px-6 py-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button
                 onClick={() => toggleAllTierReservations(true)}
                 disabled={saving}
-                className="flex-1 flex items-center justify-center px-6 py-3 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg font-medium disabled:opacity-50 transition-colors"
+                className="flex-1 flex items-center justify-center px-4 sm:px-6 py-3 whitespace-nowrap bg-green-100 text-green-700 hover:bg-green-200 rounded-lg font-medium disabled:opacity-50 transition-colors"
               >
                 <Play className="w-5 h-5 mr-2" />
                 전체 예약 시작
@@ -997,7 +997,7 @@ export default function SettingsPage() {
               <button
                 onClick={() => toggleAllTierReservations(false)}
                 disabled={saving}
-                className="flex-1 flex items-center justify-center px-6 py-3 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg font-medium disabled:opacity-50 transition-colors"
+                className="flex-1 flex items-center justify-center px-4 sm:px-6 py-3 whitespace-nowrap bg-red-100 text-red-700 hover:bg-red-200 rounded-lg font-medium disabled:opacity-50 transition-colors"
               >
                 <Pause className="w-5 h-5 mr-2" />
                 전체 예약 종료
@@ -1008,19 +1008,19 @@ export default function SettingsPage() {
 
         {/* 티어별 예약 제어 */}
         <div className="bg-white rounded-lg shadow mb-8">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-medium text-gray-900">티어별 예약 제어</h2>
             <p className="text-sm text-gray-500 mt-1">회원 티어별로 예약 시작/종료를 개별 제어합니다</p>
           </div>
-          <div className="px-6 py-4 space-y-4">
+          <div className="px-4 sm:px-6 py-4 space-y-4">
             {tiers.map((tier) => {
               const tierSetting = currentTierSettings.find(ts => ts.tier_id === tier.id)
               const isOpen = tierSetting?.is_open || false
 
               return (
-                <div key={tier.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-3 h-3 rounded-full ${tier.tier_name === 'Priority' ? 'bg-yellow-400' : 'bg-gray-400'}`}></div>
+                <div key={tier.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center space-x-4 min-w-0">
+                    <div className={`w-3 h-3 rounded-full shrink-0 ${tier.tier_name === 'Priority' ? 'bg-yellow-400' : 'bg-gray-400'}`}></div>
                     <div>
                       <h3 className="font-medium text-gray-900">
                         {tier.tier_name === 'Priority' ? '🟡 Priority 회원' : '⚪ Standard 회원'}
@@ -1040,7 +1040,7 @@ export default function SettingsPage() {
                   <button
                     onClick={() => toggleTierReservationStatus(tier.id, isOpen)}
                     disabled={saving}
-                    className={`flex items-center px-4 py-2 rounded-lg font-medium ${
+                    className={`flex items-center justify-center sm:justify-start px-4 py-2 rounded-lg font-medium whitespace-nowrap shrink-0 w-full sm:w-auto ${
                       isOpen
                         ? 'bg-red-100 text-red-700 hover:bg-red-200'
                         : 'bg-green-100 text-green-700 hover:bg-green-200'
@@ -1229,7 +1229,7 @@ export default function SettingsPage() {
         {functionTab === 'rules' && (<>
         {/* 기본 설정 */}
         <div className="bg-white rounded-lg shadow mb-8">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center">
               <Settings className="w-5 h-5 mr-2" />
               시스템 기본 설정
@@ -1238,7 +1238,7 @@ export default function SettingsPage() {
               예약 시스템의 기본 규칙을 설정합니다.
             </p>
           </div>
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -1284,7 +1284,7 @@ export default function SettingsPage() {
 
         {/* 특정일 예약관리 */}
         <div className="bg-white rounded-lg shadow mb-8">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center">
               <Users className="w-5 h-5 mr-2" />
               특정일 예약관리
@@ -1295,7 +1295,7 @@ export default function SettingsPage() {
           </div>
           
           {/* 특정일 제한 */}
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-4 sm:p-6 border-b border-gray-200">
             <h3 className="text-md font-medium text-gray-900 mb-4 flex items-center">
               <Calendar className="w-4 h-4 mr-2" />
               특정일 제한
@@ -1338,7 +1338,7 @@ export default function SettingsPage() {
           </div>
 
           {/* 특정일 제한 목록 */}
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <h3 className="text-md font-medium text-gray-900 mb-4">설정된 특정일 제한</h3>
             {currentDailyLimits.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
@@ -1348,8 +1348,8 @@ export default function SettingsPage() {
             ) : (
               <div className="space-y-3">
                 {currentDailyLimits.map((limit) => (
-                  <div key={limit.date} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
+                  <div key={limit.date} className="flex items-center justify-between gap-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="min-w-0">
                       <div className="font-medium text-gray-900">
                         {formatDate(limit.date)}
                       </div>
@@ -1360,7 +1360,7 @@ export default function SettingsPage() {
                     <button
                       onClick={() => removeDailyLimit(limit.date)}
                       disabled={saving}
-                      className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                      className="text-red-600 hover:text-red-800 disabled:opacity-50 shrink-0"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -1376,7 +1376,7 @@ export default function SettingsPage() {
         {functionTab === 'blocked' && (
         /* 차단된 날짜 관리 */
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center">
               <X className="w-5 h-5 mr-2" />
               예약 불가 날짜 관리
@@ -1384,14 +1384,14 @@ export default function SettingsPage() {
           </div>
 
           {/* 새 차단 날짜 추가 */}
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-4 sm:p-6 border-b border-gray-200">
             {/* 단일/일괄 모드 토글 */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <h3 className="text-md font-medium text-gray-900">새 예약 불가 날짜/시간 추가</h3>
               <div className="flex items-center bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setBulkBlockMode(false)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
                     !bulkBlockMode
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
@@ -1401,7 +1401,7 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={() => setBulkBlockMode(true)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
                     bulkBlockMode
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
@@ -1427,7 +1427,7 @@ export default function SettingsPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  <div className="w-[140px]">
+                  <div className="w-[calc(50%-0.5rem)] sm:w-[140px]">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       시작 시간
                     </label>
@@ -1442,7 +1442,7 @@ export default function SettingsPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="w-[140px]">
+                  <div className="w-[calc(50%-0.5rem)] sm:w-[140px]">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       종료 시간
                     </label>
@@ -1544,8 +1544,8 @@ export default function SettingsPage() {
                     일괄 추가
                   </button>
                 </div>
-                <div className="flex items-center gap-4 mt-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+                  <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={bulkBlockData.includeWeekends}
@@ -1563,7 +1563,7 @@ export default function SettingsPage() {
           </div>
 
           {/* 차단된 날짜 목록 */}
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <h3 className="text-md font-medium text-gray-900 mb-4">예약 불가 날짜/시간 목록</h3>
             {currentBlockedDates.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
@@ -1573,18 +1573,18 @@ export default function SettingsPage() {
             ) : (
               <div className="space-y-3">
                 {currentBlockedDates.map((blockedDate) => (
-                  <div key={blockedDate.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                    <div className="flex items-center gap-3">
+                  <div key={blockedDate.id} className="flex items-center justify-between gap-2 p-3 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
                       <div className="font-medium text-red-900">
                         {formatDate(blockedDate.date)}
                       </div>
                       {blockedDate.start_time && blockedDate.end_time ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 whitespace-nowrap">
                           <Clock className="w-3 h-3 mr-1" />
                           {blockedDate.start_time.substring(0, 5)}~{blockedDate.end_time.substring(0, 5)}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-200 text-red-900">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-200 text-red-900 whitespace-nowrap">
                           하루 전체
                         </span>
                       )}
@@ -1592,7 +1592,7 @@ export default function SettingsPage() {
                     <button
                       onClick={() => removeBlockedDate(blockedDate.id)}
                       disabled={saving}
-                      className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                      className="text-red-600 hover:text-red-800 disabled:opacity-50 shrink-0"
                     >
                       <X className="w-5 h-5" />
                     </button>

@@ -146,7 +146,7 @@ export default function AnnouncementsPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-gray-200 rounded w-1/4"></div>
           <div className="space-y-3">
@@ -160,11 +160,11 @@ export default function AnnouncementsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <Bell className="w-7 h-7 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900">공지사항</h1>
+          <Bell className="w-7 h-7 text-blue-600 shrink-0" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">공지사항</h1>
         </div>
         <p className="text-gray-600">스포츠박스 관련 중요한 소식을 확인하세요.</p>
       </div>
@@ -181,32 +181,32 @@ export default function AnnouncementsPage() {
               key={announcement.id}
               onClick={() => handleAnnouncementClick(announcement)}
               className={`
-                bg-white rounded-lg shadow-sm border border-gray-200 p-6 
+                bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 
                 hover:shadow-md hover:border-blue-200 cursor-pointer transition-all duration-200
                 ${announcement.is_important ? 'ring-2 ring-red-100 border-red-200' : ''}
               `}
             >
               <div className="flex justify-between items-start gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
                     {announcement.is_important && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full whitespace-nowrap">
                         <AlertCircle className="w-3 h-3" />
                         중요
                       </span>
                     )}
                     {announcement.target_type === 'all' ? (
-                      <span className="inline-flex px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                      <span className="inline-flex px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full whitespace-nowrap">
                         전체 공지
                       </span>
                     ) : (
-                      <span className="inline-flex px-2.5 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                      <span className="inline-flex px-2.5 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full whitespace-nowrap">
                         {announcement.regions?.name || '지역'} 공지
                       </span>
                     )}
                   </div>
                   
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 line-clamp-1">
                     {announcement.title}
                   </h3>
                   
@@ -217,7 +217,7 @@ export default function AnnouncementsPage() {
                     }}
                   />
                   
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       <span>{formatDate(announcement.created_at)}</span>
@@ -226,7 +226,7 @@ export default function AnnouncementsPage() {
                   </div>
                 </div>
                 
-                <div className="text-right text-sm text-gray-500">
+                <div className="hidden sm:block text-right text-sm text-gray-500 shrink-0 whitespace-nowrap">
                   <div>{formatDate(announcement.created_at)}</div>
                 </div>
               </div>
@@ -239,47 +239,47 @@ export default function AnnouncementsPage() {
       {showModal && selectedAnnouncement && (
         <ModalOverlay onClose={() => setShowModal(false)}>
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6">
               <div className="flex justify-between items-start gap-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
                     {selectedAnnouncement.is_important && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full whitespace-nowrap">
                         <AlertCircle className="w-3 h-3" />
                         중요
                       </span>
                     )}
                     {selectedAnnouncement.target_type === 'all' ? (
-                      <span className="inline-flex px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                      <span className="inline-flex px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full whitespace-nowrap">
                         전체 공지
                       </span>
                     ) : (
-                      <span className="inline-flex px-2.5 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                      <span className="inline-flex px-2.5 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full whitespace-nowrap">
                         {selectedAnnouncement.regions?.name || '지역'} 공지
                       </span>
                     )}
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 break-words">
                     {selectedAnnouncement.title}
                   </h2>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-500">
                     <span>작성자: {getAnnouncementAuthorName(selectedAnnouncement)}</span>
                     <span>작성일: {formatDate(selectedAnnouncement.created_at)}</span>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600 text-xl font-semibold"
+                  className="text-gray-400 hover:text-gray-600 text-xl font-semibold shrink-0"
                 >
                   ×
                 </button>
               </div>
             </div>
             
-            <div className="p-6">
-              <div className="prose max-w-none">
+            <div className="p-4 sm:p-6">
+              <div className="prose prose-sm sm:prose max-w-none">
                 <div
-                  className="text-gray-700 leading-relaxed"
+                  className="text-gray-700 leading-relaxed break-words overflow-x-auto"
                   dangerouslySetInnerHTML={{
                     __html: sanitizeHtml(selectedAnnouncement.content)
                   }}
