@@ -337,17 +337,17 @@ export default function PopupManagementPage() {
       <AdminNavigation adminRole={adminInfo?.role} />
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
             <div className="flex items-center gap-3 mb-2">
-              <Bell className="w-7 h-7 text-blue-600" />
-              <h1 className="text-3xl font-bold text-gray-900">홈페이지 팝업 관리</h1>
+              <Bell className="w-7 h-7 text-blue-600 shrink-0" />
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">홈페이지 팝업 관리</h1>
             </div>
             <p className="text-gray-600">홈페이지 초기 팝업을 관리하고 설정하세요.</p>
           </div>
           <button
             onClick={handleCreateClick}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap shrink-0"
           >
             <Plus className="w-5 h-5" />
             새 팝업 만들기
@@ -373,33 +373,33 @@ export default function PopupManagementPage() {
           {popups.map((popup) => (
             <div
               key={popup.id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
+                <div className="flex-1 min-w-0 w-full sm:w-auto">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900 break-words min-w-0">
                       {popup.title}
                     </h3>
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                         popup.is_active 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-gray-100 text-gray-800'
                       }`}>
                         {popup.is_active ? '활성' : '비활성'}
                       </span>
-                      <span className="inline-flex items-center px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                      <span className="inline-flex items-center px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium whitespace-nowrap">
                         <Type className="w-3 h-3 mr-1" />
                         {getPopupTypeLabel(popup)}
                       </span>
-                      <span className="inline-flex items-center px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                      <span className="inline-flex items-center px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium whitespace-nowrap">
                         순서: {popup.display_order}
                       </span>
                     </div>
                   </div>
                   
-                  <div className="text-sm text-gray-600 mb-3 line-clamp-2">
+                  <div className="text-sm text-gray-600 mb-3 line-clamp-2 break-words">
                     {(() => {
                       if (popup.content_type === 'html' && isImageOnlyContent(popup.content)) {
                         return '[이미지 팝업]'
@@ -411,7 +411,7 @@ export default function PopupManagementPage() {
                     })()}
                   </div>
                   
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
                       <span>시작: {formatDate(popup.start_date)}</span>
@@ -429,7 +429,7 @@ export default function PopupManagementPage() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 ml-4">
+                <div className="flex items-center gap-2 sm:ml-4 shrink-0">
                   <button
                     onClick={() => handlePreview(popup)}
                     className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors"
@@ -485,13 +485,13 @@ export default function PopupManagementPage() {
           closeOnBackdrop={false}
         >
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                 {editingPopup ? '팝업 수정' : '새 팝업 만들기'}
               </h2>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -568,7 +568,7 @@ export default function PopupManagementPage() {
                   />
                 </div>
                 
-                <div className="flex items-center pt-6">
+                <div className="flex items-center pt-0 md:pt-6">
                   <label className="flex items-center">
                     <input
                       type="checkbox"
@@ -601,7 +601,7 @@ export default function PopupManagementPage() {
                         팝업에 표시할 이미지를 업로드하세요. (JPG, JPEG, PNG, GIF, WEBP · 최대 5MB)
                       </p>
                     )}
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <label className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 text-sm font-medium text-gray-700 ${imageUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                         <ImageIcon className="w-4 h-4" />
                         {extractImageSrc(formData.content) ? '이미지 변경' : '이미지 선택'}
@@ -670,14 +670,14 @@ export default function PopupManagementPage() {
       {showPreviewModal && previewPopup && (
         <ModalOverlay onClose={() => setShowPreviewModal(false)}>
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6">
               <div className="flex justify-between items-start gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 break-words">
                     {previewPopup.title}
                   </h2>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                       previewPopup.is_active 
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-gray-100 text-gray-800'
@@ -690,14 +690,14 @@ export default function PopupManagementPage() {
                 </div>
                 <button
                   onClick={() => setShowPreviewModal(false)}
-                  className="text-gray-400 hover:text-gray-600 text-xl font-semibold"
+                  className="text-gray-400 hover:text-gray-600 text-xl font-semibold shrink-0"
                 >
                   ×
                 </button>
               </div>
             </div>
             
-            <div className="p-6">
+            <div className="p-4 sm:p-6 break-words overflow-x-auto">
               {previewPopup.content_type === 'html' ? (
                 <div 
                   className="prose max-w-none"

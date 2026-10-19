@@ -220,12 +220,12 @@ export default function AccountManagementModal({ isOpen, onClose, userType }: Ac
   return (
     <div className={modalOverlayClass()}>
       <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
+        <div className="p-4 sm:p-6">
+          <div className="flex justify-between items-center mb-4 sm:mb-6">
             <h3 className="text-xl font-bold text-gray-900">계정 관리</h3>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 hover:text-gray-600 shrink-0"
             >
               <X className="w-6 h-6" />
             </button>

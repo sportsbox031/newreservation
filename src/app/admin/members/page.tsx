@@ -461,21 +461,21 @@ export default function MembersPage() {
     switch (status) {
       case 'pending':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          <span className="inline-flex items-center whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
             <Clock className="w-3 h-3 mr-1" />
             대기중
           </span>
         )
       case 'approved':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <span className="inline-flex items-center whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
             <CheckCircle className="w-3 h-3 mr-1" />
             승인됨
           </span>
         )
       case 'rejected':
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <span className="inline-flex items-center whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
             <XCircle className="w-3 h-3 mr-1" />
             거절됨
           </span>
@@ -488,7 +488,7 @@ export default function MembersPage() {
   const getTierBadge = (tier: 'Priority' | 'Standard' | null) => {
     const normalizedTier = tier ?? 'Standard'
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+      <span className={`inline-flex items-center whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-medium ${
         normalizedTier === 'Priority'
           ? 'bg-yellow-100 text-yellow-800'
           : 'bg-gray-100 text-gray-800'
@@ -845,7 +845,7 @@ export default function MembersPage() {
         </div>
 
         {/* 검색 및 필터 */}
-        <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow mb-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
@@ -892,14 +892,14 @@ export default function MembersPage() {
                 </select>
                 <button
                   onClick={handleDownloadSmsExcel}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-2 whitespace-nowrap px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Download className="w-4 h-4" />
                   문자전송용 다운로드
                 </button>
                 <button
                   onClick={handleDownloadExcel}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  className="flex items-center gap-2 whitespace-nowrap px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   <Download className="w-4 h-4" />
                   Excel 다운로드
@@ -1089,8 +1089,8 @@ export default function MembersPage() {
                       {' · '}학생 {member.student_count || 0} / 학급 {member.class_count || 0}
                     </div>
                     <div className="text-xs text-gray-500 truncate">{member.email}</div>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <span>가입일시</span>
+                    <div className="flex items-baseline gap-1.5 text-xs text-gray-500 [&>div]:min-w-0 [&>div>div]:inline [&>div>div]:mr-1.5">
+                      <span className="shrink-0 whitespace-nowrap">가입일시</span>
                       {renderJoinedAt(member)}
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -1192,7 +1192,7 @@ export default function MembersPage() {
       {/* 패널티 사유 선택 모달 */}
       {penaltyTarget && (
         <ModalOverlay onClose={() => setPenaltyTarget(null)} closeOnBackdrop={false}>
-          <div className="bg-white rounded-xl max-w-md w-full">
+          <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-1">
                 {penaltyTarget.type === 'warning' ? '⚠️ 경고 부여' : '🟥 패널티 조치'}
@@ -1238,14 +1238,14 @@ export default function MembersPage() {
                 <button
                   onClick={() => setPenaltyTarget(null)}
                   disabled={isPenaltyProcessing}
-                  className="flex-1 whitespace-nowrap px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50"
+                  className="flex-1 whitespace-nowrap px-2 sm:px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50"
                 >
                   취소
                 </button>
                 <button
                   onClick={handleIssuePenalty}
                   disabled={isPenaltyProcessing}
-                  className={`flex-1 whitespace-nowrap px-4 py-2.5 text-white rounded-lg font-medium disabled:opacity-50 ${
+                  className={`flex-1 whitespace-nowrap px-2 sm:px-4 py-2.5 text-white rounded-lg font-medium disabled:opacity-50 ${
                     penaltyTarget.type === 'warning'
                       ? 'bg-yellow-500 hover:bg-yellow-600'
                       : 'bg-red-600 hover:bg-red-700'
@@ -1264,14 +1264,14 @@ export default function MembersPage() {
         <ModalOverlay onClose={() => setPenaltyHistoryTarget(null)}>
           <div className="bg-white rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
             <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <div>
+              <div className="flex justify-between items-center gap-2 mb-4">
+                <div className="min-w-0">
                   <h3 className="text-lg font-bold text-gray-900">패널티 내역 (올해)</h3>
                   <p className="text-sm text-gray-600">{penaltyHistoryTarget.organization_name}</p>
                 </div>
                 <button
                   onClick={() => setPenaltyHistoryTarget(null)}
-                  className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                  className="shrink-0 text-gray-400 hover:text-gray-600 text-xl leading-none"
                 >
                   ✕
                 </button>
@@ -1283,8 +1283,8 @@ export default function MembersPage() {
                 <div className="space-y-2">
                   {penaltyHistory.map((penalty) => (
                     <div key={penalty.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
                           <span className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium ${
                             penalty.type === 'warning'
                               ? 'bg-yellow-100 text-yellow-800'
@@ -1303,7 +1303,7 @@ export default function MembersPage() {
                       <button
                         onClick={() => handleCancelPenalty(penalty)}
                         disabled={isPenaltyProcessing}
-                        className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50 shrink-0 ml-3"
+                        className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50 shrink-0 whitespace-nowrap ml-3"
                       >
                         취소
                       </button>
