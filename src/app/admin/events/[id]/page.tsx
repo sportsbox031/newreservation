@@ -140,9 +140,9 @@ export default function AdminEventApplicationsPage() {
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-900">{a.org_name}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{a.manager_name || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{a.phone || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{a.event_date || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{a.total_count}명</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{a.phone || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{a.event_date || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{a.total_count}명</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{a.submission_count}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <Badge variant={eventStatusView(a.status).variant}>{eventStatusView(a.status).label}</Badge>
@@ -175,7 +175,7 @@ export default function AdminEventApplicationsPage() {
                 <p className="text-gray-500">제출된 서류가 없습니다.</p>
               ) : filteredGroups.filter(g => g.submissions.length > 0).map(g => (
                 <div key={g.application_id} className="bg-white rounded-lg border border-gray-200 p-4">
-                  <p className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                  <p className="font-medium text-gray-900 mb-2 flex flex-wrap items-center gap-2">
                     {g.org_name}
                     <Badge variant={eventStatusView(g.status).variant}>{eventStatusView(g.status).label}</Badge>
                     {dateByApp.get(g.application_id) && (

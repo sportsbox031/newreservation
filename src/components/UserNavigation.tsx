@@ -33,17 +33,17 @@ export default function UserNavigation() {
       <header className="bg-white shadow-sm border-b sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center h-14 sm:h-16">
-            <Link href="/dashboard" className="flex items-center space-x-2 sm:space-x-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 sports-box-gradient rounded-lg flex items-center justify-center">
+            <Link href="/dashboard" className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 sports-box-gradient rounded-lg flex items-center justify-center shrink-0">
                 <Award className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900">스포츠박스</h1>
-                <p className="text-xs sm:text-sm text-blue-600">스포츠이벤트</p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 whitespace-nowrap">스포츠박스</h1>
+                <p className="text-xs sm:text-sm text-blue-600 whitespace-nowrap">스포츠이벤트</p>
               </div>
             </Link>
 
-            <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
               <Link
                 href="/dashboard"
                 className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 p-1 sm:p-0"

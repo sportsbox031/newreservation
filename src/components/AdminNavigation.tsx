@@ -100,16 +100,16 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-8">
-            <Link href="/admin" className="flex items-center space-x-2">
+        <div className="flex justify-between items-center gap-2 h-16">
+          <div className="flex items-center min-w-0 space-x-2 sm:space-x-8">
+            <Link href="/admin" className="flex items-center shrink-0 space-x-2">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <Home className="w-5 h-5 text-white" />
               </div>
-              <span className="font-semibold text-gray-900">관리자</span>
+              <span className="font-semibold text-gray-900 hidden sm:inline">관리자</span>
             </Link>
 
-            <div className="flex space-x-4">
+            <div className="flex min-w-0 overflow-x-auto md:overflow-visible space-x-0.5 sm:space-x-4">
               {filteredNavItems.map((item) => {
                 const Icon = item.icon
                 const isActive = item.href === '/admin/performance'
@@ -121,7 +121,7 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
                     key={item.href}
                     href={item.href}
                     className={`
-                      flex items-center space-x-1 px-2 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap
+                      flex items-center shrink-0 space-x-1 px-1.5 sm:px-2 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap
                       ${isActive 
                         ? 'bg-blue-100 text-blue-700' 
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -136,7 +136,7 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center shrink-0 space-x-0.5 sm:space-x-2">
             <span className="text-xs text-gray-600 hidden md:inline">
               {adminRole === 'super' && '전체'}
               {adminRole === 'south' && '남부'}
@@ -144,14 +144,14 @@ export default function AdminNavigation({ adminRole = 'super' }: AdminNavigation
             </span>
             <button
               onClick={handleAccountManagement}
-              className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 px-1.5 sm:px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <UserCog className="w-3 h-3" />
               <span className="text-xs hidden sm:inline">계정</span>
             </button>
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 px-1.5 sm:px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <LogOut className="w-3 h-3" />
               <span className="text-xs hidden sm:inline">로그아웃</span>

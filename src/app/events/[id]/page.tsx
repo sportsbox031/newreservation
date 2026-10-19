@@ -104,12 +104,12 @@ export default function EventDetailPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.push('/events')}
-                className="flex items-center gap-1 text-gray-500 hover:text-gray-800"
+                className="flex items-center gap-1 text-gray-500 hover:text-gray-800 shrink-0 whitespace-nowrap"
               >
                 <ArrowLeft className="w-5 h-5" />
                 <span className="text-sm">목록으로</span>
               </button>
-              <h1 className="text-lg font-bold text-gray-900 truncate">{event.title}</h1>
+              <h1 className="text-lg font-bold text-gray-900 truncate min-w-0">{event.title}</h1>
             </div>
           </div>
 
@@ -125,7 +125,7 @@ export default function EventDetailPage() {
 
             {event.description && (
               <div
-                className="prose max-w-none text-gray-800"
+                className="prose max-w-none text-gray-800 break-words overflow-x-auto [&_iframe]:max-w-full"
                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(event.description) }}
               />
             )}
@@ -152,7 +152,7 @@ export default function EventDetailPage() {
                           if (!res.ok || !json?.data?.url) { alert(json?.error?.message || '다운로드 링크를 생성할 수 없습니다.'); return }
                           window.open(json.data.url, '_blank')
                         }}
-                        className="text-blue-600 hover:underline"
+                        className="text-blue-600 hover:underline text-left break-all"
                       >
                         {f.file_name}
                       </button>
